@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" id="dynamic-favicon" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="dynamic-title">Pool Costing</title>
+  
+  <!-- Dynamic Logo Script - Runs before React loads -->
+    <script>
+      (function() {
+        try {
+          // Get company profile from localStorage
+          const companyProfile = localStorage.getItem('tenant_company_profile');
+          
+          if (companyProfile) {
+            const profile = JSON.parse(companyProfile);
+            
+            // Update page title with company name
+            if (profile.company_name) {
+              document.getElementById('dynamic-title').textContent = 
+                profile.company_name + ' - Pool Costing';
+            }
+            
+            // Update favicon if logo exists
+            if (profile.logo_url) {
+              const favicon = document.getElementById('dynamic-favicon');
+              
+              // Normalize logo URL
+              let logoUrl = profile.logo_url.replace(/\\/g, '/');
+              
+              // Construct full URL if it's a local path
+              if (!logoUrl.startsWith('http')) {
+                const cleanPath = logoUrl.replace(/^\/+/, '');
+                logoUrl = `https://pool-costing-api.intelithon.in/${cleanPath}`;
+              }
+              
+              // Add cache busting
+              logoUrl = `${logoUrl}${logoUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
+              
+              // Determine favicon type based on file extension
+              const extension = logoUrl.split('.').pop().toLowerCase();
+              let iconType = 'image/x-icon';
+              
+              if (extension === 'png') iconType = 'image/png';
+              else if (extension === 'svg') iconType = 'image/svg+xml';
+              else if (extension === 'ico') iconType = 'image/x-icon';
+              else if (extension === 'jpg' || extension === 'jpeg') iconType = 'image/jpeg';
+              
+              // Update favicon
+              favicon.href = logoUrl;
+              favicon.type = iconType;
+              
+              // Also create/update Apple Touch Icon
+              let appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+              if (!appleIcon) {
+                appleIcon = document.createElement('link');
+                appleIcon.rel = 'apple-touch-icon';
+                document.head.appendChild(appleIcon);
+              }
+              appleIcon.href = logoUrl;
+              
+              console.log('✅ Dynamic favicon loaded from localStorage');
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error loading dynamic favicon:', error);
+        }
+      })();
+    </script>
+    
+    <!-- Fallback favicon for browsers that don't support dynamic updates -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" id="fallback-favicon-32">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" id="fallback-favicon-16">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" id="fallback-apple-icon">
+    
+    <!-- Additional meta tags for better PWA support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2563eb" id="dynamic-theme-color">
+    
+    <!-- Web App Manifest - Can be dynamically updated -->
+    <link rel="manifest" href="/manifest.json" id="dynamic-manifest">
+    
+    <!-- Open Graph tags for social sharing -->
+    <meta property="og:title" content="Pool Costing" id="og-title">
+    <meta property="og:description" content="Professional pool construction cost estimation platform" id="og-description">
+    <meta property="og:image" content="/og-image.png" id="og-image">
+    <meta property="og:type" content="website">
+    
+    <!-- Twitter Card tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Pool Costing" id="twitter-title">
+    <meta name="twitter:description" content="Professional pool construction cost estimation platform" id="twitter-description">
+    <meta name="twitter:image" content="/twitter-image.png" id="twitter-image">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Additional script to update theme when localStorage changes -->
+    <script>
+      (function() {
+        // Function to update all dynamic elements
+        function updateDynamicContent() {
+          try {
+            const companyProfile = localStorage.getItem('tenant_company_profile');
+            
+            if (companyProfile) {
+              const profile = JSON.parse(companyProfile);
+              
+              // Update title
+              const titleEl = document.getElementById('dynamic-title');
+              if (titleEl) {
+                titleEl.textContent = profile.company_name + ' - Pool Costing';
+              }
+              
+              // Update favicon
+              if (profile.logo_url) {
+                const favicon = document.getElementById('dynamic-favicon');
+                let logoUrl = profile.logo_url.replace(/\\/g, '/');
+                
+                if (!logoUrl.startsWith('http')) {
+                  const cleanPath = logoUrl.replace(/^\/+/, '');
+                  logoUrl = `https://pool-costing-api.intelithon.in/${cleanPath}`;
+                }
+                
+                logoUrl = `${logoUrl}${logoUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
+                
+                const extension = logoUrl.split('.').pop().toLowerCase();
+                let iconType = 'image/x-icon';
+                
+                if (extension === 'png') iconType = 'image/png';
+                else if (extension === 'svg') iconType = 'image/svg+xml';
+                else if (extension === 'ico') iconType = 'image/x-icon';
+                else if (extension === 'jpg' || extension === 'jpeg') iconType = 'image/jpeg';
+                
+                favicon.href = logoUrl;
+                favicon.type = iconType;
+                
+                // Update Apple Touch Icon
+                const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+                if (appleIcon) {
+                  appleIcon.href = logoUrl;
+                }
+              }
+              
+              // Update theme color based on brand (optional)
+              const themeColor = document.getElementById('dynamic-theme-color');
+              if (themeColor && profile.theme_color) {
+                themeColor.content = profile.theme_color;
+              }
+              
+              // Update Open Graph tags
+              const ogTitle = document.getElementById('og-title');
+              if (ogTitle) ogTitle.content = profile.company_name + ' - Pool Costing';
+              
+              const ogDesc = document.getElementById('og-description');
+              if (ogDesc) ogDesc.content = profile.tagline || 'Professional pool construction cost estimation platform';
+              
+              // Update Twitter tags
+              const twitterTitle = document.getElementById('twitter-title');
+              if (twitterTitle) twitterTitle.content = profile.company_name + ' - Pool Costing';
+              
+              const twitterDesc = document.getElementById('twitter-description');
+              if (twitterDesc) twitterDesc.content = profile.tagline || 'Professional pool construction cost estimation platform';
+              
+              // Update Open Graph image if custom logo exists
+              if (profile.logo_url) {
+                const ogImage = document.getElementById('og-image');
+                const twitterImage = document.getElementById('twitter-image');
+                
+                let imageUrl = profile.logo_url.replace(/\\/g, '/');
+                if (!imageUrl.startsWith('http')) {
+                  const cleanPath = imageUrl.replace(/^\/+/, '');
+                  imageUrl = `https://pool-costing-api.intelithon.in/${cleanPath}`;
+                }
+                
+                if (ogImage) ogImage.content = imageUrl;
+                if (twitterImage) twitterImage.content = imageUrl;
+              }
+              
+              console.log('✅ Dynamic content updated from localStorage');
+            }
+          } catch (error) {
+            console.error('❌ Error updating dynamic content:', error);
+          }
+        }
+        
+        // Listen for storage changes (updates from other tabs)
+        window.addEventListener('storage', function(e) {
+          if (e.key === 'tenant_company_profile' && e.newValue) {
+            updateDynamicContent();
+          }
+        });
+        
+        // Initial update after React loads
+        setTimeout(updateDynamicContent, 100);
+      })();
+    </script>
+  </body>
+</html>

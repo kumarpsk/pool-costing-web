@@ -1,0 +1,38 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: https://pool-costing-api.intelithon.in
+    image: mugilan1806/pool-frontend:latest
+    container_name: pool-frontend
+    restart: unless-stopped
+    environment:
+      # ── nginx-proxy + acme-companion ──────────────────────
+      VIRTUAL_HOST: pool-costing.intelithon.in
+      VIRTUAL_PORT: "80"
+      LETSENCRYPT_HOST: pool-costing.intelithon.in
+      LETSENCRYPT_EMAIL: admin@intelithon.in
+
+      # ── Runtime env injected into window.__env__ ──────────
+      VITE_API_BASE_URL: https://pool-costing-api.intelithon.in
+      VITE_SMTP_SERVER: smtp.gmail.com
+      VITE_SMTP_PORT: "587"
+      VITE_EMAIL_USERNAME: muppalajathin@gmail.com
+      VITE_EMAIL_PASSWORD: nurkndhoytdheunx
+      SMTP_USE_SSL: "false"
+    expose:
+      - "80"
+    networks:
+      - proxy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  proxy:
+    external: true
+    name: proxy

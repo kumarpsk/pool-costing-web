@@ -1,0 +1,66 @@
+/* Pool Location Badge Styles */
+.pool-location-badge {
+  margin: 10px 0;
+}
+
+.badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.terrace-badge {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border: 2px solid #1976d2;
+}
+
+.inground-badge {
+  background-color: #e8f5e8;
+  color: #2e7d32;
+  border: 2px solid #2e7d32;
+}
+
+/* Recent Type Styles */
+.terrace-type {
+  color: #1976d2;
+  font-weight: bold;
+}
+
+.inground-type {
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+/* Info Card Styles */
+.info-card {
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.info-card.terrace {
+  background-color: #e3f2fd;
+  border-left: 4px solid #1976d2;
+}
+
+.info-card.inground {
+  background-color: #e8f5e8;
+  border-left: 4px solid #2e7d32;
+}
+
+.info-card h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.info-card ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.info-card li {
+  margin-bottom: 5px;
+  color: #555;
+}

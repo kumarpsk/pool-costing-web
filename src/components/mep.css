@@ -1,0 +1,34 @@
+.items-container {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.items-container h2 {
+  margin-bottom: 15px;
+  color: #2c3e50;
+}
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.items-table th, .items-table td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: center;
+}
+
+.items-table th {
+  background-color: #3498db;
+  color: white;
+}
+
+.items-table tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+.items-table tr:hover {
+  background-color: #eaf2f8;
+}

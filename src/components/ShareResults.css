@@ -1,0 +1,1094 @@
+/* ShareResults.css - Professional Styling with WhatsApp Share Options */
+/* =========================================
+   MAIN SHARE CONTAINER FIX
+========================================= */
+
+.share-results-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.share-results-container * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* =========================================
+   SHARE OPTIONS MODAL
+========================================= */
+
+.share-options-modal {
+  position: relative;
+  width: 100% !important;
+  min-width: unset !important;
+  max-width: 100% !important;
+  margin: 0;
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+  overflow-x: hidden;
+}
+
+.share-options-content {
+  padding: 24px;
+  max-height: none;
+  overflow-y: visible;
+  overflow-x: hidden;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+.share-options-content h3 {
+  margin: 0 0 20px 0;
+  color: #1a1a1a;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* =========================================
+   STEP INDICATORS
+========================================= */
+
+.share-step {
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.step-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #667eea;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, #e2e8f0, transparent);
+}
+
+/* =========================================
+   FORMAT TOGGLE STYLES
+========================================= */
+
+.share-format-toggle {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 12px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
+  border: 1px solid #e8ecef;
+  border-radius: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.format-toggle-button {
+  flex: 1;
+  padding: 14px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  font-weight: 600;
+  color: #64748b;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.format-toggle-button:hover {
+  border-color: #667eea;
+  background: #f8f9ff;
+  transform: translateY(-1px);
+}
+
+.format-toggle-button.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.format-toggle-button .format-icon {
+  font-size: 20px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.format-toggle-button .format-label {
+  font-size: 14px;
+  display: block;
+}
+
+.format-toggle-button .format-description {
+  font-size: 11px;
+  font-weight: 400;
+  color: #94a3b8;
+  margin-top: 4px;
+  display: block;
+}
+
+.format-toggle-button.active .format-description {
+  color: #6366f1;
+}
+
+/* =========================================
+   ITEM COUNT BADGES
+========================================= */
+
+.item-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 6px;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+
+.share-checkbox-card.active .item-count-badge {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+}
+
+/* =========================================
+   SECTION SELECTOR STYLES
+========================================= */
+
+.share-section-selector {
+  margin-bottom: 24px;
+  padding: 20px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
+  border: 1px solid #e8ecef;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+.share-selector-header {
+  margin-bottom: 16px;
+}
+
+.share-selector-header h4 {
+  color: #1a1a1a;
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  background: none;
+  -webkit-text-fill-color: #1a1a1a;
+}
+
+.share-selector-header p {
+  color: #6b7280;
+  font-size: 0.85rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.share-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+.share-checkbox-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  user-select: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.share-checkbox-card:hover {
+  transform: translateY(-2px);
+  border-color: #667eea;
+  background: #f8f9ff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+}
+
+.share-checkbox-card.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f0f2ff 0%, #e8ecff 100%);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15);
+}
+
+.share-checkbox-card input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #667eea;
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.share-card-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.share-card-icon {
+  font-size: 1.1rem;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.share-card-text {
+  color: #2d3748;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.share-checkbox-card.active .share-card-text {
+  color: #667eea;
+}
+
+/* =========================================
+   SHARE OPTION GROUPS
+========================================= */
+
+.share-option-group {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.share-option-group.email-group {
+  background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%);
+  border-color: #bfdbfe;
+}
+
+.share-option-group-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #166534;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.share-option-group.email-group .share-option-group-title {
+  color: #1e40af;
+}
+
+.share-option-row {
+  margin-bottom: 10px;
+}
+
+.share-option-row:last-child {
+  margin-bottom: 0;
+}
+
+/* =========================================
+   WHATSAPP BUTTONS
+========================================= */
+
+.whatsapp-btn {
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%) !important;
+  color: white !important;
+  border: none !important;
+  font-weight: 700 !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  padding: 14px 20px !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+}
+
+.whatsapp-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #20bd5a 0%, #0e7268 100%) !important;
+  color: white !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 211, 102, 0.3);
+}
+
+.whatsapp-btn:disabled {
+  background: linear-gradient(135deg, #86efac 0%, #6ee7b7 100%) !important;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.whatsapp-btn .btn-hint {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.9;
+  display: block;
+  margin-top: 2px;
+}
+
+/* =========================================
+   SEQUENTIAL COPY BUTTON
+========================================= */
+
+.copy-next-btn {
+  background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%) !important;
+  color: white !important;
+  border: none !important;
+  font-weight: 700 !important;
+  padding: 12px 18px !important;
+  animation: pulse 2s infinite;
+}
+
+.copy-next-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #43A047 0%, #2E7D32 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(76, 175, 80, 0); }
+}
+
+/* =========================================
+   SHARE OPTION ITEMS
+========================================= */
+
+.share-option {
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.share-option-button {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 1px solid #e2e8f0;
+  padding: 14px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d3748;
+  position: relative;
+  overflow: hidden;
+}
+
+.share-option-button:hover:not(:disabled) {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  color: #667eea;
+}
+
+.share-option-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.share-option-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* =========================================
+   SEND EMAIL BUTTON
+========================================= */
+
+.share-option-button.send-email-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  font-weight: 700;
+}
+
+.share-option-button.send-email-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+  color: white;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+}
+
+.share-option-button.send-email-btn:disabled {
+  background: linear-gradient(135deg, #a5b4fc 0%, #c4b5fd 100%);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* =========================================
+   EMAIL SHARE SECTION
+========================================= */
+
+.email-share {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.email-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.email-input-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a5568;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.email-input {
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  background: white;
+  color: #2d3748;
+  font-family: inherit;
+}
+
+.email-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background: #fafbff;
+}
+
+.email-input:disabled {
+  background-color: #f7fafc;
+  cursor: not-allowed;
+  color: #a0aec0;
+}
+
+.email-input::placeholder {
+  color: #a0aec0;
+}
+
+/* =========================================
+   STATUS MESSAGES
+========================================= */
+
+.status-message {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  text-align: center;
+  min-height: 18px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+  width: 100%;
+  box-sizing: border-box;
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.status-message.success {
+  color: #0f5132;
+  background: linear-gradient(135deg, #d1e7dd 0%, #badbcc 100%);
+  border-color: #a3cfbb;
+}
+
+.status-message.error {
+  color: #842029;
+  background: linear-gradient(135deg, #f8d7da 0%, #f1b0b7 100%);
+  border-color: #f1aeb5;
+}
+
+.status-message.info {
+  color: #055160;
+  background: linear-gradient(135deg, #cff4fc 0%, #a6e9f4 100%);
+  border-color: #9eeaf9;
+}
+
+/* =========================================
+   IMAGE PREVIEW CONTAINER
+========================================= */
+
+.image-preview-container {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.image-preview-container h4 {
+  margin: 0 0 16px;
+  font-size: 14px;
+  text-align: center;
+  color: #333;
+}
+
+/* =========================================
+   CLOSE BUTTON
+========================================= */
+
+.close-share-options {
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 16px;
+  padding: 12px 20px;
+  width: 100%;
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.close-share-options:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6268 0%, #3d4348 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+.close-share-options:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* =========================================
+   ICONS
+========================================= */
+
+.option-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.share-option-button:hover .option-icon {
+  transform: scale(1.1);
+}
+
+/* =========================================
+   ANIMATIONS
+========================================= */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* =========================================
+   LOADING STATES
+========================================= */
+
+.share-option-button.loading {
+  position: relative;
+  color: transparent;
+}
+
+.share-option-button.loading::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* =========================================
+   MOBILE RESPONSIVE
+========================================= */
+
+@media (max-width: 768px) {
+  .share-options-content {
+    padding: 16px;
+  }
+
+  .share-options-content h3 {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+
+  .share-format-toggle {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .format-toggle-button {
+    padding: 12px;
+  }
+
+  .format-toggle-button .format-label {
+    font-size: 13px;
+  }
+
+  .share-checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .share-checkbox-card {
+    width: 100%;
+    padding: 12px 14px;
+  }
+
+  .share-section-selector {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .share-selector-header h4 {
+    font-size: 0.95rem;
+  }
+
+  .share-selector-header p {
+    font-size: 0.8rem;
+  }
+
+  .share-card-text {
+    font-size: 0.85rem;
+  }
+
+  .share-option-button {
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+
+  .whatsapp-btn {
+    padding: 12px 16px !important;
+  }
+
+  .whatsapp-btn .btn-hint {
+    font-size: 9px;
+  }
+
+  .email-input {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .item-count-badge {
+    font-size: 9px;
+    padding: 1px 6px;
+  }
+
+  .status-message {
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+
+  .share-option-group {
+    padding: 12px;
+  }
+
+  .share-option-group-title {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .share-options-content {
+    padding: 12px;
+  }
+
+  .share-options-content h3 {
+    font-size: 16px;
+  }
+
+  .share-section-selector {
+    padding: 12px;
+  }
+
+  .share-checkbox-grid {
+    gap: 8px;
+  }
+
+  .share-checkbox-card {
+    padding: 10px 12px;
+  }
+
+  .share-card-text {
+    font-size: 0.8rem;
+  }
+
+  .share-option-button {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .format-toggle-button {
+    padding: 10px;
+  }
+
+  .format-toggle-button .format-label {
+    font-size: 12px;
+  }
+
+  .format-toggle-button .format-description {
+    font-size: 10px;
+  }
+
+  .step-label {
+    font-size: 11px;
+  }
+
+  .whatsapp-btn {
+    padding: 10px 14px !important;
+  }
+}
+
+/* =========================================
+   ACCESSIBILITY
+========================================= */
+
+.share-option-button:focus,
+.close-share-options:focus,
+.email-input:focus,
+.share-checkbox-card:focus-within,
+.format-toggle-button:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+.share-checkbox-card input[type="checkbox"]:focus {
+  outline: none;
+}
+
+/* =========================================
+   HIGH CONTRAST MODE
+========================================= */
+
+@media (prefers-contrast: high) {
+  .share-option-button,
+  .close-share-options,
+  .format-toggle-button {
+    border: 2px solid currentColor;
+  }
+
+  .email-input {
+    border: 2px solid #2d3748;
+  }
+
+  .share-checkbox-card {
+    border: 2px solid #2d3748;
+  }
+
+  .share-checkbox-card.active,
+  .format-toggle-button.active {
+    border: 3px solid #2d3748;
+  }
+
+  .item-count-badge {
+    border: 1px solid currentColor;
+  }
+
+  .share-option-group {
+    border: 2px solid currentColor;
+  }
+
+  .whatsapp-btn {
+    border: 2px solid #128C7E !important;
+  }
+}
+
+/* =========================================
+   REDUCED MOTION
+========================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .share-option-button,
+  .close-share-options,
+  .share-checkbox-card,
+  .format-toggle-button,
+  .status-message {
+    transition: none;
+    animation: none;
+  }
+
+  .share-checkbox-card:hover,
+  .share-option-button:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .copy-next-btn {
+    animation: none;
+  }
+}
+
+/* =========================================
+   DARK MODE SUPPORT
+========================================= */
+
+@media (prefers-color-scheme: dark) {
+  .share-options-content h3 {
+    background: linear-gradient(135deg, #818cf8, #a78bfa);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  .step-label {
+    color: #818cf8;
+  }
+
+  .step-label::after {
+    background: linear-gradient(to right, #334155, transparent);
+  }
+
+  .share-format-toggle {
+    background: linear-gradient(135deg, #1e293b 0%, #1a202c 100%);
+    border-color: #2d3748;
+  }
+
+  .format-toggle-button {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+  }
+
+  .format-toggle-button:hover {
+    background: #273548;
+    border-color: #667eea;
+    color: #818cf8;
+  }
+
+  .format-toggle-button.active {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1a2f4a 100%);
+    border-color: #818cf8;
+    color: #818cf8;
+  }
+
+  .format-toggle-button .format-description {
+    color: #64748b;
+  }
+
+  .format-toggle-button.active .format-description {
+    color: #a5b4fc;
+  }
+
+  .share-section-selector {
+    background: linear-gradient(135deg, #1e293b 0%, #1a202c 100%);
+    border-color: #2d3748;
+  }
+
+  .share-selector-header h4 {
+    color: #e2e8f0;
+    -webkit-text-fill-color: #e2e8f0;
+  }
+
+  .share-selector-header p {
+    color: #94a3b8;
+  }
+
+  .share-checkbox-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .share-checkbox-card:hover {
+    background: #273548;
+    border-color: #667eea;
+  }
+
+  .share-checkbox-card.active {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1a2f4a 100%);
+    border-color: #667eea;
+  }
+
+  .share-card-text {
+    color: #e2e8f0;
+  }
+
+  .item-count-badge {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  }
+
+  .share-option-group {
+    background: linear-gradient(135deg, #0f2a1f 0%, #0d2419 100%);
+    border-color: #14532d;
+  }
+
+  .share-option-group.email-group {
+    background: linear-gradient(135deg, #0f1a2a 0%, #0d1724 100%);
+    border-color: #1e3a5f;
+  }
+
+  .share-option-group-title {
+    color: #4ade80;
+  }
+
+  .share-option-group.email-group .share-option-group-title {
+    color: #60a5fa;
+  }
+
+  .share-option-button {
+    background: linear-gradient(135deg, #1e293b 0%, #1a202c 100%);
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+
+  .share-option-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #273548 0%, #1e293b 100%);
+    border-color: #667eea;
+    color: #818cf8;
+  }
+
+  .share-option-button.send-email-btn {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: white;
+  }
+
+  .share-option-button.send-email-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+  }
+
+  .whatsapp-btn {
+    background: linear-gradient(135deg, #1a7f3a 0%, #0d5c3e 100%) !important;
+  }
+
+  .whatsapp-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #15632e 0%, #0a4a30 100%) !important;
+  }
+
+  .email-input {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+
+  .email-input:focus {
+    background: #273548;
+    border-color: #667eea;
+  }
+
+  .email-input::placeholder {
+    color: #64748b;
+  }
+
+  .email-input:disabled {
+    background-color: #111827;
+    color: #4b5563;
+  }
+
+  .email-input-group label {
+    color: #94a3b8;
+  }
+
+  .status-message.success {
+    color: #4ade80;
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+    border-color: #047857;
+  }
+
+  .status-message.error {
+    color: #fca5a5;
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+    border-color: #b91c1c;
+  }
+
+  .status-message.info {
+    color: #67e8f9;
+    background: linear-gradient(135deg, #164e63 0%, #155e75 100%);
+    border-color: #0891b2;
+  }
+
+  .close-share-options {
+    background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  }
+
+  .close-share-options:hover:not(:disabled) {
+    background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+  }
+
+  .image-preview-container {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .image-preview-container h4 {
+    color: #e2e8f0;
+  }
+}
+
+/* =========================================
+   PRINT STYLES
+========================================= */
+
+@media print {
+  .share-options-modal {
+    position: static;
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+
+  .close-share-options,
+  .email-share,
+  .share-format-toggle,
+  .share-option-group {
+    display: none;
+  }
+
+  .share-checkbox-card input[type="checkbox"] {
+    display: none;
+  }
+
+  .item-count-badge {
+    background: #ddd !important;
+    color: #333 !important;
+  }
+}
