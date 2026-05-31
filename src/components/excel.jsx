@@ -43,6 +43,9 @@ const DEFAULT_COLUMN_VISIBILITY = {
 
 const MEP_INCLUDES_PIPING = true;
 
+// Advanced equipment IDs
+const ADVANCED_EQUIPMENT_IDS = [30, 31, 32, 33, 34];
+
 // ================================
 // QUANTITY MAP CONSTANTS
 // ================================
@@ -109,279 +112,37 @@ const MEP_QTY_MAP = {
 };
 
 const JACUZZI_MEP_QTY_MAP = {
-  1:  "Filter_QTY",
-  2:  "Glass_QTY",
-  3:  "Pressure_QTY",
-  4:  "Filter_Drain_QTY",
-  5:  "Mpv_QTY",
-  6:  "Mpv_connset_QTY",
-  7:  "Cpump_QTY",
-  8:  "Return_Inlets_QTY",
-  9:  "MainDrain_QTY",
-  10: "Underwaterlight_QTY",
-  11: "Transformer_QTY",
-  12: "ControlPanel_QTY",
-  13: "Cables_QTY",
-  14: "Earthing_QTY",
-  15: "FloatingHose_QTY",
-  16: "Brush_QTY",
-  17: "Algae_QTY",
-  18: "Net_QTY",
-  19: "Handle_QTY",
-  20: "VacuumHead_QTY",
-  21: "TestKit_QTY",
-  22: "CurvedBrush_QTY",
-  23: "ChlorinePump_QTY",
-  24: "DosingTank_QTY",
-  25: "Stirrer_QTY",
-  26: "water_jet_qty",
-  27: "air_controller_qty",
-  28: "jet_pump_qty",
-  29: "HeatPump_QTY",
+  1:  "Filter_QTY",       2:  "Glass_QTY",        3:  "Pressure_QTY",
+  4:  "Filter_Drain_QTY", 5:  "Mpv_QTY",          6:  "Mpv_connset_QTY",
+  7:  "Cpump_QTY",        8:  "Return_Inlets_QTY", 9:  "MainDrain_QTY",
+  10: "Underwaterlight_QTY", 11: "Transformer_QTY", 12: "ControlPanel_QTY",
+  13: "Cables_QTY",       14: "Earthing_QTY",      15: "FloatingHose_QTY",
+  16: "Brush_QTY",        17: "Algae_QTY",         18: "Net_QTY",
+  19: "Handle_QTY",       20: "VacuumHead_QTY",    21: "TestKit_QTY",
+  22: "CurvedBrush_QTY",  23: "ChlorinePump_QTY",  24: "DosingTank_QTY",
+  25: "Stirrer_QTY",      26: "water_jet_qty",      27: "air_controller_qty",
+  28: "jet_pump_qty",     29: "HeatPump_QTY",
 };
 
 // ================================
-// ✅ CIVIL SUB ITEMS - Universal for all pool types
+// CIVIL SUB ITEMS
 // ================================
 const CIVIL_SUB_ITEMS = {
   1: [
-    {
-      slNo: "1.1",
-      description: "Excavation up to 1.50m depth",
-      unit: "Cum",
-    },
-    {
-      slNo: "1.2",
-      description: "Excavation from 1.50m to 3.00m depth",
-      unit: "Cum",
-    },
+    { slNo: "1.1", description: "Excavation up to 1.50m depth",       unit: "Cum" },
+    { slNo: "1.2", description: "Excavation from 1.50m to 3.00m depth", unit: "Cum" },
   ],
-
   9: [
-    {
-      slNo: "9.1",
-      description: "Raft",
-      unit: "sqm",
-    },
-    {
-      slNo: "9.2",
-      description: "Retaining wall/ overflow drain",
-      unit: "sqm",
-    },
+    { slNo: "9.1", description: "Raft",                         unit: "sqm" },
+    { slNo: "9.2", description: "Retaining wall/ overflow drain", unit: "sqm" },
   ],
-
   10: [
-    {
-      slNo: "10.1",
-      description: "Raft",
-      unit: "sqm",
-    },
-    {
-      slNo: "10.2",
-      description: "Retaining Wall",
-      unit: "sqm",
-    },
+    { slNo: "10.1", description: "Raft",             unit: "sqm" },
+    { slNo: "10.2", description: "Retaining Wall",   unit: "sqm" },
   ],
 };
 
-// Parent items that should hide qty/rate/amount (subrows provide the values)
 const PARENT_ITEMS_WITH_SUBROWS = [1, 9, 10];
-
-// ================================
-// ✅ UNIVERSAL QUANTITY GETTER
-// ================================
-const getUniversalQty = ({ item, qtyMap, quantities, resultData }) => {
-  if (!item || !qtyMap) return 0;
-  const slNo = Number(item.SlNo || item.sl_no);
-  const qtyField = qtyMap[slNo];
-  if (!qtyField) return 0;
-
-  // PRIORITY 1: quantities object
-  if (quantities && quantities[qtyField] !== undefined && quantities[qtyField] !== null) {
-    return cleanNumericValue(quantities[qtyField]);
-  }
-  // PRIORITY 2: resultData.civil_quantities
-  if (resultData?.civil_quantities && resultData.civil_quantities[qtyField] !== undefined) {
-    return cleanNumericValue(resultData.civil_quantities[qtyField]);
-  }
-  // PRIORITY 3: resultData direct
-  if (resultData && resultData[qtyField] !== undefined) {
-    return cleanNumericValue(resultData[qtyField]);
-  }
-  return 0;
-};
-
-// ================================
-// ✅ UNIVERSAL POOL SPECIFICATION HELPER
-// ================================
-const getPoolSpecificationValue = (
-  resultData,
-  keys = [],
-  additionalSources = {},
-  fallback = "N/A"
-) => {
-  const { dynamicRates, filterDetails, mepCalculationData } = additionalSources;
-  const sources = [
-    resultData,
-    resultData?.specifications,
-    resultData?.pool_specifications,
-    resultData?.mep_calculation_data,
-    resultData?.filterDetails,
-    resultData?.mep_data,
-    resultData?.equipment_data,
-    resultData?.equipmentDetails,
-    resultData?.poolData,
-    resultData?.dynamicRates,
-    dynamicRates,
-    filterDetails,
-    mepCalculationData,
-  ];
-  for (const source of sources) {
-    if (!source) continue;
-    for (const key of keys) {
-      const value = source?.[key];
-      if (value !== undefined && value !== null && value !== "") {
-        return value;
-      }
-    }
-  }
-  return fallback;
-};
-
-// ================================
-// ✅ UNIVERSAL EXCAVATION SPLIT HELPER
-// ================================
-const getExcavationSplitData = ({ resultData, civilQuantities, subSlNo }) => {
-  const excavationSplit =
-    civilQuantities?.excavation_split ||
-    resultData?.civil_quantities?.excavation_split ||
-    resultData?.excavation_split ||
-    {};
-
-  const rawValue = excavationSplit?.[subSlNo];
-  let qty  = 0;
-  let rate = 0;
-
-  if (rawValue !== undefined && rawValue !== null) {
-    if (typeof rawValue === "object" && rawValue !== null && !Array.isArray(rawValue)) {
-      qty  = cleanNumericValue(rawValue?.qty  || 0);
-      rate = cleanNumericValue(rawValue?.rate || 0);
-    } else {
-      qty = cleanNumericValue(rawValue || 0);
-      rate = cleanNumericValue(excavationSplit?.[`${subSlNo}_rate`] || 0);
-    }
-  }
-
-  return { qty, rate, amount: qty * rate };
-};
-
-// ================================
-// ✅ NEW: UNIVERSAL CIVIL SUBROW DATA HELPER
-// ================================
-const getCivilSubRowData = ({
-  resultData,
-  civilQuantities,
-  parentSlNo,
-  subSlNo,
-}) => {
-  let source = {};
-
-  // ================================
-  // EXCAVATION (parentSlNo = 1)
-  // ================================
-  if (parentSlNo === 1) {
-    source =
-      civilQuantities?.excavation_split ||
-      resultData?.civil_quantities?.excavation_split ||
-      resultData?.excavation_split ||
-      resultData?.excavation_subrows ||
-      {};
-  }
-
-  // ================================
-  // SHUTTERING (parentSlNo = 9)
-  // ================================
-  else if (parentSlNo === 9) {
-    source =
-      civilQuantities?.shuttering_split ||
-      resultData?.civil_quantities?.shuttering_split ||
-      resultData?.shuttering_split ||
-      resultData?.shuttering_subrows ||
-      // ✅ ADDED: Check nested locations for overflow/infinity
-      civilQuantities?.civil_quantities?.shuttering_split ||
-      {};
-  }
-
-  // ================================
-  // RCC / SHOTCRETING (parentSlNo = 10)
-  // ================================
-  else if (parentSlNo === 10) {
-    source =
-      civilQuantities?.rcc_split ||
-      resultData?.civil_quantities?.rcc_split ||
-      resultData?.rcc_split ||
-      resultData?.rcc_subrows ||
-      resultData?.shotcreting_split ||
-      resultData?.shotcreting_subrows ||
-      // ✅ ADDED: Check nested locations for overflow/infinity
-      civilQuantities?.civil_quantities?.rcc_split ||
-      civilQuantities?.civil_quantities?.shotcreting_split ||
-      {};
-  }
-
-  const rawValue = source?.[subSlNo];
-
-  let qty = 0;
-  let rate = 0;
-
-  if (rawValue !== undefined && rawValue !== null) {
-    // OBJECT FORMAT: { qty: 10, rate: 450 }
-    if (
-      typeof rawValue === "object" &&
-      !Array.isArray(rawValue)
-    ) {
-      qty = cleanNumericValue(
-        rawValue.qty ??
-        rawValue.Qty ??
-        rawValue.quantity ??
-        rawValue.Quantity ??
-        0
-      );
-      rate = cleanNumericValue(
-        rawValue.rate ??
-        rawValue.Rate ??
-        rawValue.fixed_rate ??
-        rawValue.fixedRate ??
-        0
-      );
-    }
-    // NUMBER FORMAT: plain number
-    else {
-      qty = cleanNumericValue(rawValue || 0);
-      rate = cleanNumericValue(
-        source?.[`${subSlNo}_rate`] || 0
-      );
-    }
-  }
-
-  // ✅ DEBUG LOG - will show exactly what's happening
-  console.log("EXCEL SUBROW DATA:", {
-    poolType: resultData?.pool_type || 'unknown',
-    parentSlNo,
-    subSlNo,
-    sourceFound: Object.keys(source).length > 0,
-    sourceKeys: Object.keys(source).slice(0, 3),
-    rawValue,
-    qty,
-    rate,
-  });
-
-  return {
-    qty,
-    rate,
-    amount: qty * rate,
-  };
-};
 
 // ================================
 // POOL TYPE HELPERS
@@ -394,38 +155,17 @@ function normalizePoolType(rawType) {
   return norm;
 }
 
-const STANDARD_MEP_UI_MAP = {
-  1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9, 10:10, 11:11, 12:12, 13:13,
-  14:14, 15:15, 16:16, 17:17, 18:18, 19:19, 20:20, 21:21, 22:22, 23:23,
-  24:24, 25:25, 26:26, 27:27, 28:28, 29:29, 30:30, 31:31, 32:32, 33:33, 34:34,
-};
-
-const INFINITY_MEP_UI_MAP = {
-  1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9, 10:10,
-  12:11, 13:12, 14:13, 15:14, 16:15, 17:16, 18:17, 19:18, 20:19, 21:20,
-  22:21, 23:22, 24:23, 25:24, 26:25, 27:26, 28:27, 29:28, 30:29, 31:30, 32:31, 33:32, 34:33,
-};
-
-const OVERFLOW_MEP_UI_MAP = {
-  1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9, 10:10,
-  11:11, 12:12, 13:13, 14:14, 15:15, 16:16, 17:17, 18:18, 19:19, 20:20,
-  21:21, 22:22, 23:23, 24:24, 25:25, 26:26, 27:27, 28:28, 29:29, 30:30,
-  31:31, 32:32, 33:33, 34:34,
-};
-
-const FREEFORM_MEP_UI_MAP = STANDARD_MEP_UI_MAP;
-
-const JACUZZI_MEP_UI_MAP = {
-  1:1,  2:2,  3:3,  4:4,  5:5,  6:6,  7:7,  8:8,  9:9,  10:10,
-  11:11, 12:12, 13:13, 14:14, 15:15, 16:16, 17:17, 18:18, 19:19, 20:20,
-  21:21, 22:22, 23:23, 24:24, 25:25, 26:26, 27:27, 28:28, 29:29,
-};
+const STANDARD_MEP_UI_MAP  = { 1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9,10:10,11:11,12:12,13:13,14:14,15:15,16:16,17:17,18:18,19:19,20:20,21:21,22:22,23:23,24:24,25:25,26:26,27:27,28:28,29:29,30:30,31:31,32:32,33:33,34:34 };
+const INFINITY_MEP_UI_MAP  = { 1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9,10:10,12:11,13:12,14:13,15:14,16:15,17:16,18:17,19:18,20:19,21:20,22:21,23:22,24:23,25:24,26:25,27:26,28:27,29:28,30:29,31:30,32:31,33:32,34:33 };
+const OVERFLOW_MEP_UI_MAP  = STANDARD_MEP_UI_MAP;
+const FREEFORM_MEP_UI_MAP  = STANDARD_MEP_UI_MAP;
+const JACUZZI_MEP_UI_MAP   = { 1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9,10:10,11:11,12:12,13:13,14:14,15:15,16:16,17:17,18:18,19:19,20:20,21:21,22:22,23:23,24:24,25:25,26:26,27:27,28:28,29:29 };
 
 function getMepUiSlNo(slNo, normPT) {
   if (normPT === 'infinity') return INFINITY_MEP_UI_MAP[slNo]  || slNo;
   if (normPT === 'overflow') return OVERFLOW_MEP_UI_MAP[slNo]  || slNo;
   if (normPT === 'freeform' || normPT === 'curved') return FREEFORM_MEP_UI_MAP[slNo] || slNo;
-  if (normPT === 'jacuzzi') return JACUZZI_MEP_UI_MAP[slNo] || slNo;
+  if (normPT === 'jacuzzi')  return JACUZZI_MEP_UI_MAP[slNo]  || slNo;
   return STANDARD_MEP_UI_MAP[slNo] || slNo;
 }
 
@@ -433,12 +173,8 @@ function filterMepItemsByPoolType(items, normPT, hasGutter = false) {
   if (!items || !Array.isArray(items)) return [];
   return items.filter(item => {
     const slNo = item.originalSlNo || item.SlNo;
-    if (normPT === 'jacuzzi') return slNo <= 29;
-    if (normPT === 'overflow') return true;
-    if (normPT === 'infinity') {
-      if (slNo === 11) return false;
-      return true;
-    }
+    if (normPT === 'jacuzzi')  return slNo <= 29;
+    if (normPT === 'infinity') return slNo !== 11;
     if (normPT === 'freeform' || normPT === 'curved') {
       if (hasGutter  && slNo === 11) return false;
       if (!hasGutter && slNo === 13) return false;
@@ -449,11 +185,11 @@ function filterMepItemsByPoolType(items, normPT, hasGutter = false) {
 }
 
 function shouldShowBalanceTank(normPT, constructionType, hasGutter) {
-  if (normPT === 'jacuzzi') return false;
+  if (normPT === 'jacuzzi')  return false;
   if (normPT === 'infinity') return true;
   if (normPT === 'overflow') return true;
   if (normPT === 'freeform' || normPT === 'curved') return hasGutter === true;
-  if (normPT === 'skimmer') return false;
+  if (normPT === 'skimmer')  return false;
   return false;
 }
 
@@ -498,16 +234,159 @@ function getSmartNumFmt(value) {
 }
 
 function setNumericCell(cell, value) {
-  const num   = cleanNumericValue(value);
+  const num = cleanNumericValue(value);
   cell.value  = num;
   cell.numFmt = getSmartNumFmt(num);
 }
 
 function setCurrencyCell(cell, value, numFmt = '₹#,##0.00') {
-  const num   = cleanNumericValue(value);
+  const num = cleanNumericValue(value);
   cell.value  = num;
   cell.numFmt = numFmt;
 }
+
+// ================================
+// UNIVERSAL QUANTITY GETTER
+// ================================
+const getUniversalQty = ({ item, qtyMap, quantities, resultData, editableQtyMap = {} }) => {
+  if (!item || !qtyMap) return 0;
+  const slNo = Number(item.SlNo || item.sl_no);
+  const qtyField = qtyMap[slNo];
+  if (!qtyField) return 0;
+  if (editableQtyMap && editableQtyMap[slNo] !== undefined) {
+    return cleanNumericValue(editableQtyMap[slNo]);
+  }
+  if (quantities && quantities[qtyField] !== undefined && quantities[qtyField] !== null) {
+    return cleanNumericValue(quantities[qtyField]);
+  }
+  if (resultData?.civil_quantities && resultData.civil_quantities[qtyField] !== undefined) {
+    return cleanNumericValue(resultData.civil_quantities[qtyField]);
+  }
+  if (resultData && resultData[qtyField] !== undefined) {
+    return cleanNumericValue(resultData[qtyField]);
+  }
+  return 0;
+};
+
+// ================================
+// ✅ FIXED: getCivilSubRowData
+//
+// ROOT CAUSE ANALYSIS:
+// The backend (overflow.py) stores split data as:
+//   civil_quantities.rcc_shuttering_split = { "9.1": 0, "9.2": 300, "10.1": 45.6, "10.2": 180 }
+//   civil_quantities.excavation_split     = { "1.1": {...}, "1.2": {...} }
+//
+// OLD CODE BUGS:
+//   1. For parentSlNo=9  → looked for source.raft / source.retaining_wall  (WRONG keys, doesn't exist)
+//   2. For parentSlNo=10 → looked for overflowCivil.rcc_split (WRONG key, backend uses rcc_shuttering_split)
+//   3. Rate was read from the split data (which is plain numbers = 0 rate always)
+//
+// FIX:
+//   1. Use the subSlNo directly as the key: source["9.2"] = 300
+//   2. For parentSlNo=9 and 10: both use rcc_shuttering_split (same source)
+//   3. Rate comes from the PARENT ITEM's Rate field, not from the split data
+// ================================
+const getCivilSubRowData = ({
+  resultData,
+  civilQuantities,
+  parentSlNo,
+  subSlNo,
+  parentItem = null,
+}) => {
+  const overflowCivil = civilQuantities || resultData?.civil_quantities || {};
+
+  let qty  = 0;
+  let rate = 0;
+
+  // ── EXCAVATION (parent SlNo = 1) ──────────────────────────────
+  if (parentSlNo === 1) {
+    const excavationSplit =
+      overflowCivil?.excavation_split ||
+      overflowCivil?.excavation_split_qty ||
+      {};
+
+    const rawValue = excavationSplit?.[subSlNo];
+
+    if (rawValue !== null && rawValue !== undefined) {
+      if (typeof rawValue === 'object') {
+        qty  = cleanNumericValue(rawValue?.qty ?? rawValue?.quantity ?? 0);
+        rate = cleanNumericValue(rawValue?.rate ?? 0);
+      } else {
+        qty  = cleanNumericValue(rawValue);
+        rate = 0;
+      }
+    }
+
+    // Rate fallback: if no rate in split object, use parent item rate
+    if (rate === 0 && parentItem) {
+      rate = cleanNumericValue(parentItem.calculatedRate ?? parentItem.Rate ?? parentItem.rate ?? 0);
+    }
+  }
+
+  // ── SHUTTERING (parent SlNo = 9) ─────────────────────────────
+  // ✅ FIX: rcc_shuttering_split keys are "9.1" and "9.2" directly
+  // ✅ FIX: rate comes from parentItem.Rate (NOT from the split number)
+  if (parentSlNo === 9) {
+    const shutteringSplit =
+      overflowCivil?.rcc_shuttering_split ||
+      overflowCivil?.shuttering_split ||
+      {};
+
+    // Direct key lookup: shutteringSplit["9.1"] or shutteringSplit["9.2"]
+    const rawValue = shutteringSplit?.[subSlNo];
+
+    if (rawValue !== null && rawValue !== undefined) {
+      if (typeof rawValue === 'object') {
+        qty  = cleanNumericValue(rawValue?.qty ?? rawValue?.quantity ?? 0);
+        rate = cleanNumericValue(rawValue?.rate ?? 0);
+      } else {
+        // Plain number = just the quantity
+        qty = cleanNumericValue(rawValue);
+      }
+    }
+
+    // ✅ FIX: Rate MUST come from parent item — split only stores qty
+    if (parentItem) {
+      rate = cleanNumericValue(parentItem.calculatedRate ?? parentItem.Rate ?? parentItem.rate ?? 0);
+    }
+  }
+
+  // ── RCC / SHOTCRETING (parent SlNo = 10) ─────────────────────
+  // ✅ FIX: use rcc_shuttering_split (same as SlNo 9's source)
+  // ✅ FIX: keys are "10.1" and "10.2" directly
+  // ✅ FIX: rate comes from parentItem.Rate
+  if (parentSlNo === 10) {
+    const rccSplit =
+      overflowCivil?.rcc_shuttering_split ||
+      overflowCivil?.rcc_split ||
+      overflowCivil?.shotcreting_split ||
+      {};
+
+    // Direct key lookup: rccSplit["10.1"] or rccSplit["10.2"]
+    const rawValue = rccSplit?.[subSlNo];
+
+    if (rawValue !== null && rawValue !== undefined) {
+      if (typeof rawValue === 'object') {
+        qty  = cleanNumericValue(rawValue?.qty ?? rawValue?.quantity ?? 0);
+        rate = cleanNumericValue(rawValue?.rate ?? 0);
+      } else {
+        // Plain number = just the quantity
+        qty = cleanNumericValue(rawValue);
+      }
+    }
+
+    // ✅ FIX: Rate MUST come from parent item — split only stores qty
+    if (parentItem) {
+      rate = cleanNumericValue(parentItem.calculatedRate ?? parentItem.Rate ?? parentItem.rate ?? 0);
+    }
+  }
+
+  return {
+    qty,
+    rate,
+    amount: qty * rate,
+  };
+};
 
 // ================================
 // IMAGE HELPERS
@@ -515,7 +394,7 @@ function setCurrencyCell(cell, value, numFmt = '₹#,##0.00') {
 function getImageUrl(imageData, baseUrl = '') {
   if (!imageData) return null;
   if (imageData.startsWith('data:image')) return imageData;
-  if (imageData.startsWith('http')) return imageData;
+  if (imageData.startsWith('http'))       return imageData;
   if (imageData.startsWith('/')) {
     if (typeof window !== 'undefined') return `${window.location.origin}${imageData}`;
     return `${baseUrl}${imageData}`;
@@ -549,10 +428,10 @@ async function loadLogoAsBase64(logoUrl) {
   if (!logoUrl) return null;
   try {
     const BACKEND = 'https://pool-costing-api.intelithon.in';
-    let fullUrl   = logoUrl;
+    let fullUrl = logoUrl;
     if (!fullUrl.startsWith('http')) {
       const clean = fullUrl.startsWith('/') ? fullUrl.substring(1) : fullUrl;
-      fullUrl     = `${BACKEND}/${clean}`;
+      fullUrl = `${BACKEND}/${clean}`;
     }
     const response = await fetch(fullUrl, { method: 'GET', cache: 'no-cache' });
     if (!response.ok) return null;
@@ -571,10 +450,10 @@ async function loadStampAsBase64(stampUrl) {
   if (!stampUrl) return null;
   try {
     const BACKEND = 'https://pool-costing-api.intelithon.in';
-    let fullUrl   = stampUrl;
+    let fullUrl = stampUrl;
     if (!fullUrl.startsWith('http')) {
       const clean = fullUrl.startsWith('/') ? fullUrl.substring(1) : fullUrl;
-      fullUrl     = `${BACKEND}/${clean}`;
+      fullUrl = `${BACKEND}/${clean}`;
     }
     const response = await fetch(fullUrl, { method: 'GET', cache: 'no-cache' });
     if (!response.ok) return null;
@@ -588,6 +467,23 @@ async function loadStampAsBase64(stampUrl) {
     });
   } catch { return null; }
 }
+
+const shouldUseLargePoolImages = (dimensions) => {
+  if (!dimensions) return false;
+  return (
+    Number(dimensions?.length || 0) *
+    Number(dimensions?.width  || 0) *
+    Number(dimensions?.depth  || 0)
+  ) >= 500;
+};
+
+const getExcelMepImage = (item, dimensions) => {
+  if (!shouldUseLargePoolImages(dimensions))
+    return item?.Image || item?.image || null;
+  const slNo = Number(item?.SlNo || item?.sl_no || 0);
+  const imageMap = { 1: "/filter1.png", 5: "/mpv1.png", 7: "/pump1.png", 9: "/md1.png", 13: "/gutter1.png", 19: "/dosing1.png" };
+  return imageMap[slNo] || item?.Image || item?.image || null;
+};
 
 // ================================
 // DEFAULT COMPANY PROFILE
@@ -641,17 +537,36 @@ function mc(sheet, r1, r2, c1, c2) {
 }
 
 // ================================
-// ✅ UPDATED: CIVIL TABLE BUILDER WITH SUBROWS
+// ✅ FULLY FIXED: CIVIL TABLE BUILDER
+//
+// All three bugs fixed:
+//  BUG 1 (9.2 rate=0):  getCivilSubRowData now reads rate from parentItem.Rate
+//  BUG 2 (10.x qty=0):  getCivilSubRowData now reads rcc_shuttering_split with direct key "10.1"/"10.2"
+//  BUG 3 (10.x rate=0): getCivilSubRowData now reads rate from parentItem.Rate for SlNo 10 too
 // ================================
 async function buildCivilTable(
-  sheet, startRow, title, items, remarks, colVis,
-  quantityMap, subQuantityMap, quantitiesData, resultData,
-  isBalanceTank = false, isPumpRoom = false, dimensions = null
+  sheet,
+  startRow,
+  title,
+  items,
+  remarks,
+  colVis,
+  quantityMap,
+  subQuantityMap,
+  quantitiesData,
+  resultData,
+  editableCivilQty = {},
+  editableBalanceQty = {},
+  editablePumpRoomQty = {},
+  editableSubRowQty = {},
+  isBalanceTank = false,
+  isPumpRoom = false,
+  dimensions = null
 ) {
   if (!items || items.length === 0) return { currentRow: startRow };
   let row = startRow;
 
-  // ── Section title
+  // Section title
   mc(sheet, row, row, 1, 11);
   let c = sheet.getCell(`A${row}`);
   c.value = title;
@@ -659,7 +574,7 @@ async function buildCivilTable(
   sheet.getRow(row).height = 20;
   row++;
 
-  // ── Header row
+  // Header row
   const hDefs = [
     [1, 'Sl.No'], [2, 'Code'], [3, 'Description'], [4, 'Image'],
     [5, 'Unit'],  [6, 'Qty'],  [7, 'Rate'],         [8, 'Amount'],
@@ -680,7 +595,7 @@ async function buildCivilTable(
   const civilData   = quantitiesData || resultData?.civil_quantities || {};
   let   sectionSubtotal = 0;
 
-  // ── Row renderer
+  // Row renderer
   const renderRow = async (item, idx, isSubItem = false, customQty = null, customRate = null) => {
     const bg          = idx % 2 === 0 ? COLORS.light : COLORS.highlight;
     const displaySlNo = item.displaySlNo || (isSubItem ? item.slNo : String(idx + 1));
@@ -690,29 +605,26 @@ async function buildCivilTable(
     let qty = 0, rate = 0, amt = 0;
 
     if (isSubItem) {
-      // Sub-row: use customQty/customRate passed in
       qty  = customQty  !== null ? cleanNumericValue(customQty)  : 0;
       rate = customRate !== null ? cleanNumericValue(customRate) : 0;
       amt  = qty * rate;
+      sectionSubtotal += amt;
     } else {
-      // ✅ CHECK if this parent item has subrows
       if (PARENT_ITEMS_WITH_SUBROWS.includes(Number(slNo)) && !isBalanceTank && !isPumpRoom) {
+        // Parent row with subrows — blank qty/rate/amount
         qty = -1; rate = -1; amt = -1;
       } else {
         qty = getUniversalQty({
           item,
           qtyMap: quantityMap,
           quantities: civilData,
-          resultData
+          resultData,
+          editableQtyMap: isBalanceTank ? editableBalanceQty : isPumpRoom ? editablePumpRoomQty : editableCivilQty,
         });
         rate = cleanNumericValue(item.calculatedRate ?? item.Rate ?? item.rate);
         amt  = qty * rate;
         sectionSubtotal += amt;
       }
-    }
-
-    if (isSubItem) {
-      sectionSubtotal += amt;
     }
 
     const code = item.actualCode  || item.Code  || '';
@@ -728,18 +640,18 @@ async function buildCivilTable(
     cell = sheet.getCell(rh, 5); cell.value = colVis.unit ? unit : ''; applyCell(cell, { fill: bg, h: 'center' });
 
     cell = sheet.getCell(rh, 6);
-    if (qty === -1) { cell.value = ''; applyCell(cell, { fill: bg, h: 'center' }); }
-    else if (colVis.qty) { setNumericCell(cell, qty); applyCell(cell, { fill: bg, h: 'center' }); }
-    else { cell.value = ''; applyCell(cell, { fill: bg, h: 'center' }); }
+    if (qty === -1)            { cell.value = ''; applyCell(cell, { fill: bg, h: 'center' }); }
+    else if (colVis.qty)       { setNumericCell(cell, qty); applyCell(cell, { fill: bg, h: 'center' }); }
+    else                       { cell.value = ''; applyCell(cell, { fill: bg, h: 'center' }); }
 
     cell = sheet.getCell(rh, 7);
-    if (rate === -1) { cell.value = ''; applyCell(cell, { fill: bg, h: 'right' }); }
-    else if (colVis.fixedRate) { setCurrencyCell(cell, rate, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' }); }
-    else { cell.value = ''; applyCell(cell, { fill: bg, h: 'right' }); }
+    if (rate === -1)            { cell.value = ''; applyCell(cell, { fill: bg, h: 'right' }); }
+    else if (colVis.fixedRate)  { setCurrencyCell(cell, rate, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' }); }
+    else                        { cell.value = ''; applyCell(cell, { fill: bg, h: 'right' }); }
 
     cell = sheet.getCell(rh, 8);
     if (amt === -1) { cell.value = ''; applyCell(cell, { fill: bg, h: 'right' }); }
-    else { setCurrencyCell(cell, amt, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' }); }
+    else            { setCurrencyCell(cell, amt, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' }); }
 
     mc(sheet, rh, rh, 9, 11);
     cell = sheet.getCell(rh, 9);
@@ -747,7 +659,9 @@ async function buildCivilTable(
     applyCell(cell, { fill: bg, wrap: true, v: 'top', fontSize: 10, color: COLORS.lightText });
 
     const lines       = Math.max(Math.ceil(desc.length / 55), 1);
-    const rowHeightPx = img ? Math.max(72, 18 + lines * 14) : (isSubItem ? 30 : Math.max(35, 18 + lines * 14));
+    const rowHeightPx = img
+      ? Math.max(72, 18 + lines * 14)
+      : (isSubItem ? 30 : Math.max(35, 18 + lines * 14));
     sheet.getRow(rh).height = rowHeightPx;
 
     if (colVis.image && img) {
@@ -773,71 +687,66 @@ async function buildCivilTable(
     return { row };
   };
 
-  // ── ✅ UPDATED: Render items with universal subrow hierarchy
+  // Render items with subrow hierarchy
   for (let idx = 0; idx < items.length; idx++) {
     const item = items[idx];
     const slNo = item.originalSlNo || item.SlNo;
 
-    // ✅ Check if this item has subrows (items 1, 9, 10)
     if (
       PARENT_ITEMS_WITH_SUBROWS.includes(Number(slNo)) &&
       !isBalanceTank &&
       !isPumpRoom
     ) {
-      // =========================================
-      // PARENT ROW (blank qty/rate/amount)
-      // =========================================
-      const parentResult = await renderRow(item, idx, false);
-      row = parentResult.row;
+      // ── PARENT ROW (blank qty/rate/amount) ──
+      await renderRow(item, idx, false);
 
-      // =========================================
-      // SUBROWS
-      // =========================================
+      // ── SUB ROWS ──
       const subRows = CIVIL_SUB_ITEMS[Number(slNo)] || [];
 
       for (let subIdx = 0; subIdx < subRows.length; subIdx++) {
         const subDef = subRows[subIdx];
 
+        // ✅ FIXED: Check editableSubRowQty first, then call fixed getCivilSubRowData
+        // Pass parentItem so getCivilSubRowData can read the rate from it
+        const editedQty = editableSubRowQty?.[subDef.slNo];
+
         const subData = getCivilSubRowData({
           resultData,
           civilQuantities: civilData,
           parentSlNo: Number(slNo),
-          subSlNo: subDef.slNo,
+          subSlNo:    subDef.slNo,
+          parentItem: item,   // ✅ NEW: pass parent for rate lookup
         });
+
+        const finalQty  = editedQty !== undefined ? cleanNumericValue(editedQty) : subData.qty;
+        const finalRate = subData.rate;
+
+        console.log(`✅ EXCEL SUB ROW ${subDef.slNo}: qty=${finalQty}, rate=${finalRate}, amount=${finalQty * finalRate}`);
 
         const subItem = {
           ...item,
-          slNo: subDef.slNo,
-          originalSlNo: subDef.slNo,
-          Description: subDef.description,
-          actualDescription: subDef.description,
-          Unit: subDef.unit,
-          actualUnit: subDef.unit,
-          displaySlNo: subDef.slNo,
-          isSubItem: true,
-          Rate: subData.rate,
-          calculatedRate: subData.rate,
+          slNo:               subDef.slNo,
+          originalSlNo:       subDef.slNo,
+          Description:        subDef.description,
+          actualDescription:  subDef.description,
+          Unit:               subDef.unit,
+          actualUnit:         subDef.unit,
+          displaySlNo:        subDef.slNo,
+          actualCode:         item.Code || '',
+          isSubItem:          true,
         };
 
-        const subResult = await renderRow(
-          subItem,
-          subIdx,
-          true,
-          subData.qty,
-          subData.rate
-        );
-        row = subResult.row;
+        await renderRow(subItem, subIdx, true, finalQty, finalRate);
       }
     } else {
       // Normal row (no subrows)
-      const result = await renderRow(item, idx, false);
-      row = result.row;
+      await renderRow(item, idx, false);
     }
   }
 
   await Promise.allSettled(imgPromises);
 
-  // ── Subtotal row
+  // Subtotal row
   mc(sheet, row, row, 1, 7);
   c = sheet.getCell(`A${row}`);
   c.value = `${title} — SUBTOTAL`;
@@ -858,11 +767,21 @@ async function buildCivilTable(
 }
 
 // ================================
-// MEP TABLE BUILDER (unchanged)
+// MEP TABLE BUILDER
 // ================================
 async function buildMEPTable(
-  sheet, startRow, title, items, colVis, mepQuantities, dynamicRates, resultData,
-  normPT = 'freeform', hasGutter = false
+  sheet,
+  startRow,
+  title,
+  items,
+  colVis,
+  mepQuantities,
+  editableMepQty = {},
+  dynamicRates,
+  resultData,
+  normPT = 'freeform',
+  hasGutter = false,
+  dimensions = null
 ) {
   if (!items || items.length === 0) return { currentRow: startRow };
   let row = startRow;
@@ -895,11 +814,11 @@ async function buildMEPTable(
   sheet.getRow(row).height = 20;
   row++;
 
-  const imgPromises  = [];
-  const isOverflow   = normPT === 'overflow';
-  const isInfinity   = normPT === 'infinity';
-  const isFreeform   = normPT === 'freeform' || normPT === 'curved';
-  const isJacuzzi    = normPT === 'jacuzzi';
+  const imgPromises   = [];
+  const isOverflow    = normPT === 'overflow';
+  const isInfinity    = normPT === 'infinity';
+  const isFreeform    = normPT === 'freeform' || normPT === 'curved';
+  const isJacuzzi     = normPT === 'jacuzzi';
 
   let supplySubtotal  = 0;
   let installSubtotal = 0;
@@ -911,7 +830,7 @@ async function buildMEPTable(
     const bg   = idx % 2 === 0 ? COLORS.light : COLORS.highlight;
     const slNo = item.originalSlNo || item.SlNo;
 
-    let desc = item.actualDescription || item.Description || '';
+    let desc = item.renderedDescription || item.actualDescription || item.Description || "";
     let unit = item.actualUnit || item.Unit || '';
     const uiSlNo      = getMepUiSlNo(slNo, normPT);
     const displaySlNo = item.displaySlNo || uiSlNo;
@@ -920,7 +839,8 @@ async function buildMEPTable(
       item,
       qtyMap: isJacuzzi ? JACUZZI_MEP_QTY_MAP : MEP_QTY_MAP,
       quantities: mepQuantities,
-      resultData
+      resultData,
+      editableQtyMap: editableMepQty,
     });
 
     if (isOverflow && slNo === 11) {
@@ -929,39 +849,51 @@ async function buildMEPTable(
       qty  = 2 * (pl + pw);
       desc = "Overflow Grating – Durable, anti-slip cover installed along the overflow channel perimeter.";
       unit = "RMT";
-    } else if (isOverflow && slNo === 13) {
-      qty = getUniversalQty({ item, qtyMap: MEP_QTY_MAP, quantities: mepQuantities, resultData });
     } else if (isFreeform) {
-      if (hasGutter && slNo === 11) {
-        qty  = 0;
-        desc = '❌ Skimmer (HIDDEN – Gutter system enabled)';
-      } else if (!hasGutter && slNo === 13) {
-        qty  = 0;
-        desc = '❌ Gutter Drain (HIDDEN – No gutter system)';
-      } else if (hasGutter && slNo === 13) {
-        qty = getUniversalQty({ item, qtyMap: MEP_QTY_MAP, quantities: mepQuantities, resultData });
-        desc = 'Gutter Drain – Full perimeter drainage system';
-      } else if (!hasGutter && slNo === 11) {
-        qty = getUniversalQty({ item, qtyMap: MEP_QTY_MAP, quantities: mepQuantities, resultData });
-        desc = 'Skimmer – Standard pool skimmer for surface debris collection';
-      }
+      if (hasGutter && slNo === 11)  { qty = 0; desc = '❌ Skimmer (HIDDEN – Gutter system enabled)'; }
+      else if (!hasGutter && slNo === 13) { qty = 0; desc = '❌ Gutter Drain (HIDDEN – No gutter system)'; }
+      else if (hasGutter && slNo === 13) { desc = 'Gutter Drain – Full perimeter drainage system'; }
+      else if (!hasGutter && slNo === 11) { desc = 'Skimmer – Standard pool skimmer for surface debris collection'; }
     } else if (isJacuzzi) {
       if (slNo === 26) desc = desc || 'Water Jets';
       if (slNo === 27) desc = desc || 'Air Controller';
       if (slNo === 28) desc = desc || 'Jet Pump';
     }
 
+    const filterDia = resultData?.filter_dia_mm || resultData?.system_parameters?.filter_dia_mm || dynamicRates?.filter_dia_mm || dynamicRates?.filter_dia || "";
+    const mpvSize   = resultData?.mpv_size || resultData?.system_parameters?.mpv_size || dynamicRates?.mpv_size || "";
+    const flowRate  = resultData?.flowrate_m3 || resultData?.system_parameters?.flowrate_m3 || resultData?.flow_rate_m3_per_hr || dynamicRates?.flowrate_m3 || "";
+
+    if (slNo === 1) {
+      const preResolvedDesc = resultData?.filter_description || resultData?.dynamicRates?.filter_description || dynamicRates?.filter_description || "";
+      if (preResolvedDesc && preResolvedDesc.length > 15 && !preResolvedDesc.includes('{{')) {
+        desc = preResolvedDesc;
+      } else {
+        desc = `Filter – Dia ${filterDia} mm with clamp lid and ${mpvSize} connections. Manufactured from high-grade FRP/GRP material, complete with pressure gauge, manual air release valve, drain plug and internal distribution system consisting of laterals and diffuser made of UPVC/Polypropylene. Suitable for maximum working pressure and designed for a filtration rate of ${flowRate} m³/hr.`;
+      }
+    }
+
+    if (slNo === 7) {
+      const preResolvedPumpDesc = resultData?.pump_description || resultData?.dynamicRates?.pump_description || dynamicRates?.pump_description || "";
+      if (preResolvedPumpDesc && preResolvedPumpDesc.length > 15 && !preResolvedPumpDesc.includes('{{')) {
+        desc = preResolvedPumpDesc;
+      } else {
+        const hp = resultData?.hp || resultData?.system_parameters?.hp || resultData?.system_parameters?.pump_hp || resultData?.pump_hp || dynamicRates?.hp || "";
+        if (hp) desc = `${desc} (${hp} HP)`;
+        if (flowRate) desc = desc.replace(/{{flowrate_m3}}/g, flowRate);
+      }
+    }
+
+    desc = desc
+      .replace(/{{filter_dia_mm}}/g, filterDia)
+      .replace(/{{mpv_size}}/g,      mpvSize)
+      .replace(/{{flowrate_m3}}/g,   flowRate)
+      .replace(/{{hp}}/g, resultData?.hp || resultData?.system_parameters?.hp || resultData?.pump_hp || dynamicRates?.hp || "");
+
     let rate = cleanNumericValue(item.calculatedRate || item.Rate || item.rate);
     if (slNo === 1 && dynamicRates?.filter_rate > 0) rate = cleanNumericValue(dynamicRates.filter_rate);
     if (slNo === 7 && dynamicRates?.pump_rate  > 0) rate = cleanNumericValue(dynamicRates.pump_rate);
     if (isOverflow && slNo === 11) rate = cleanNumericValue(dynamicRates?.grating_rate || 1850);
-
-    if (slNo === 1 && resultData?.filter_dia_mm) {
-      desc = `Filter with ${resultData.mpv_size || ''} MPV connection, ${resultData.filter_dia_mm}mm diameter`;
-    }
-    if (slNo === 7 && resultData?.hp) {
-      desc = `${desc} (${resultData.hp} HP)`;
-    }
 
     const supplyRate  = rate;
     const installRate = rate * INSTALLATION_PERCENT;
@@ -975,18 +907,18 @@ async function buildMEPTable(
 
     const rh   = row;
     const code = item.actualCode || item.Code || '';
-    const img  = item.actualImage || item.Image || item.image || null;
+    const img  = getExcelMepImage(item, dimensions);
 
     let cell;
-    cell = sheet.getCell(rh, 1); cell.value = displaySlNo; applyCell(cell, { fill: bg, h: 'center' });
-    cell = sheet.getCell(rh, 2); cell.value = colVis.code ? code : ''; applyCell(cell, { fill: bg, h: 'center', fontSize: 10 });
-    cell = sheet.getCell(rh, 3); cell.value = desc; applyCell(cell, { fill: bg, wrap: true, v: 'top' });
-    cell = sheet.getCell(rh, 4); cell.value = ''; applyCell(cell, { fill: bg, h: 'center', v: 'middle' });
-    cell = sheet.getCell(rh, 5); cell.value = colVis.unit ? unit : ''; applyCell(cell, { fill: bg, h: 'center' });
-    cell = sheet.getCell(rh, 6); setNumericCell(cell, qty); applyCell(cell, { fill: bg, h: 'center' });
-    cell = sheet.getCell(rh, 7); setCurrencyCell(cell, supplyRate, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
-    cell = sheet.getCell(rh, 8); setCurrencyCell(cell, installRate, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
-    cell = sheet.getCell(rh, 9); setCurrencyCell(cell, supplyAmt, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
+    cell = sheet.getCell(rh, 1);  cell.value = displaySlNo; applyCell(cell, { fill: bg, h: 'center' });
+    cell = sheet.getCell(rh, 2);  cell.value = colVis.code ? code : ''; applyCell(cell, { fill: bg, h: 'center', fontSize: 10 });
+    cell = sheet.getCell(rh, 3);  cell.value = desc; applyCell(cell, { fill: bg, wrap: true, v: 'top' });
+    cell = sheet.getCell(rh, 4);  cell.value = ''; applyCell(cell, { fill: bg, h: 'center', v: 'middle' });
+    cell = sheet.getCell(rh, 5);  cell.value = colVis.unit ? unit : ''; applyCell(cell, { fill: bg, h: 'center' });
+    cell = sheet.getCell(rh, 6);  setNumericCell(cell, qty); applyCell(cell, { fill: bg, h: 'center' });
+    cell = sheet.getCell(rh, 7);  setCurrencyCell(cell, supplyRate, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
+    cell = sheet.getCell(rh, 8);  setCurrencyCell(cell, installRate, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
+    cell = sheet.getCell(rh, 9);  setCurrencyCell(cell, supplyAmt, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
     cell = sheet.getCell(rh, 10); setCurrencyCell(cell, installAmt, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
     cell = sheet.getCell(rh, 11); setCurrencyCell(cell, totalAmt, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right', bold: true });
 
@@ -1021,10 +953,9 @@ async function buildMEPTable(
   c = sheet.getCell(`A${row}`);
   c.value = `${title} — SUBTOTAL`;
   applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 11, color: COLORS.headerText });
-
-  c = sheet.getCell(`G${row}`); setCurrencyCell(c, supplySubtotal, '₹#,##0.00'); applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 10, color: COLORS.primary });
+  c = sheet.getCell(`G${row}`); setCurrencyCell(c, supplySubtotal,  '₹#,##0.00'); applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 10, color: COLORS.primary });
   c = sheet.getCell(`H${row}`); setCurrencyCell(c, installSubtotal, '₹#,##0.00'); applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 10, color: COLORS.primary });
-  c = sheet.getCell(`K${row}`); setCurrencyCell(c, totalSubtotal, '₹#,##0.00'); applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 11, color: COLORS.primary });
+  c = sheet.getCell(`K${row}`); setCurrencyCell(c, totalSubtotal,   '₹#,##0.00'); applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 11, color: COLORS.primary });
   for (let col = 9; col <= 10; col++) { c = sheet.getCell(row, col); c.value = ''; applyCell(c, { fill: COLORS.subtotalBg }); }
   sheet.getRow(row).height = 20;
   row += 1;
@@ -1033,9 +964,9 @@ async function buildMEPTable(
 }
 
 // ================================
-// PIPING TABLE BUILDER (unchanged)
+// PIPING TABLE BUILDER
 // ================================
-async function buildPipingTable(sheet, startRow, title, items, colVis) {
+async function buildPipingTable(sheet, startRow, title, items, colVis, editablePipingQty = {}) {
   if (!items || items.length === 0) return { currentRow: startRow };
   let row = startRow;
   const COLS = 11;
@@ -1077,12 +1008,14 @@ async function buildPipingTable(sheet, startRow, title, items, colVis) {
     const bg          = idx % 2 === 0 ? COLORS.light : COLORS.highlight;
     const displaySlNo = item.displaySlNo || (idx + 1);
     const desc        = item.description || item.Description || '';
-    const qty    = cleanNumericValue(item.qty || item.Qty || 0);
-    const rate   = cleanNumericValue(item.rate || item.Rate || 0);
+    const finalQty    = editablePipingQty?.[item.sl_no] !== undefined
+      ? cleanNumericValue(editablePipingQty[item.sl_no])
+      : cleanNumericValue(item.qty ?? item.Qty ?? item.quantity ?? item.Quantity ?? 0);
+    const rate        = cleanNumericValue(item.rate || item.Rate || 0);
     const supplyRate  = rate;
     const installRate = rate * INSTALLATION_PERCENT;
-    const supplyAmt   = qty * supplyRate;
-    const installAmt  = qty * installRate;
+    const supplyAmt   = finalQty * supplyRate;
+    const installAmt  = finalQty * installRate;
     const rowTotal    = supplyAmt + installAmt;
 
     supplySubtotal  += supplyAmt;
@@ -1095,17 +1028,21 @@ async function buildPipingTable(sheet, startRow, title, items, colVis) {
     const rh   = row;
 
     let cell;
-    cell = sheet.getCell(rh, 1); cell.value = displaySlNo; applyCell(cell, { fill: bg, h: 'center' });
-    cell = sheet.getCell(rh, 2); cell.value = colVis.code ? code : ''; applyCell(cell, { fill: bg, h: 'center', fontSize: 10 });
-    cell = sheet.getCell(rh, 3); cell.value = desc; applyCell(cell, { fill: bg, wrap: true, v: 'top' });
-    cell = sheet.getCell(rh, 4); cell.value = ''; applyCell(cell, { fill: bg, h: 'center', v: 'middle' });
-    cell = sheet.getCell(rh, 5); cell.value = colVis.unit ? unit : ''; applyCell(cell, { fill: bg, h: 'center' });
-    cell = sheet.getCell(rh, 6); if (colVis.qty) { setNumericCell(cell, qty); applyCell(cell, { fill: bg, h: 'center' }); } else { cell.value = ''; applyCell(cell, { fill: bg, h: 'center' }); }
-    cell = sheet.getCell(rh, 7); if (colVis.fixedRate) { setCurrencyCell(cell, supplyRate, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' }); } else { cell.value = ''; applyCell(cell, { fill: bg, h: 'right' }); }
-    cell = sheet.getCell(rh, 8); setCurrencyCell(cell, installRate, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
-    cell = sheet.getCell(rh, 9); setCurrencyCell(cell, supplyAmt, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
-    cell = sheet.getCell(rh, 10); setCurrencyCell(cell, installAmt, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
-    cell = sheet.getCell(rh, 11); setCurrencyCell(cell, rowTotal, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right', bold: true });
+    cell = sheet.getCell(rh, 1);  cell.value = displaySlNo; applyCell(cell, { fill: bg, h: 'center' });
+    cell = sheet.getCell(rh, 2);  cell.value = colVis.code ? code : ''; applyCell(cell, { fill: bg, h: 'center', fontSize: 10 });
+    cell = sheet.getCell(rh, 3);  cell.value = desc; applyCell(cell, { fill: bg, wrap: true, v: 'top' });
+    cell = sheet.getCell(rh, 4);  cell.value = ''; applyCell(cell, { fill: bg, h: 'center', v: 'middle' });
+    cell = sheet.getCell(rh, 5);  cell.value = colVis.unit ? unit : ''; applyCell(cell, { fill: bg, h: 'center' });
+    cell = sheet.getCell(rh, 6);
+    if (colVis.qty) { setNumericCell(cell, finalQty); applyCell(cell, { fill: bg, h: 'center' }); }
+    else            { cell.value = ''; applyCell(cell, { fill: bg, h: 'center' }); }
+    cell = sheet.getCell(rh, 7);
+    if (colVis.fixedRate) { setCurrencyCell(cell, supplyRate, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' }); }
+    else                  { cell.value = ''; applyCell(cell, { fill: bg, h: 'right' }); }
+    cell = sheet.getCell(rh, 8);  setCurrencyCell(cell, installRate, '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
+    cell = sheet.getCell(rh, 9);  setCurrencyCell(cell, supplyAmt,   '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
+    cell = sheet.getCell(rh, 10); setCurrencyCell(cell, installAmt,  '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right' });
+    cell = sheet.getCell(rh, 11); setCurrencyCell(cell, rowTotal,    '₹#,##0.00'); applyCell(cell, { fill: bg, h: 'right', bold: true });
 
     const lines       = Math.max(Math.ceil(desc.length / 55), 1);
     const rowHeightPx = img ? Math.max(78, 20 + lines * 14) : Math.max(35, 20 + lines * 14);
@@ -1138,9 +1075,9 @@ async function buildPipingTable(sheet, startRow, title, items, colVis) {
   c = sheet.getCell(`A${row}`);
   c.value = `${title} — SUBTOTAL`;
   applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 11, color: COLORS.headerText });
-  c = sheet.getCell(`G${row}`); setCurrencyCell(c, supplySubtotal, '₹#,##0.00'); applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 10, color: COLORS.primary });
+  c = sheet.getCell(`G${row}`); setCurrencyCell(c, supplySubtotal,  '₹#,##0.00'); applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 10, color: COLORS.primary });
   c = sheet.getCell(`H${row}`); setCurrencyCell(c, installSubtotal, '₹#,##0.00'); applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 10, color: COLORS.primary });
-  c = sheet.getCell(`K${row}`); setCurrencyCell(c, totalSubtotal, '₹#,##0.00'); applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 11, color: COLORS.primary });
+  c = sheet.getCell(`K${row}`); setCurrencyCell(c, totalSubtotal,   '₹#,##0.00'); applyCell(c, { fill: COLORS.subtotalBg, bold: true, h: 'right', fontSize: 11, color: COLORS.primary });
   for (let col = 9; col <= 10; col++) { c = sheet.getCell(row, col); c.value = ''; applyCell(c, { fill: COLORS.subtotalBg }); }
   sheet.getRow(row).height = 20;
   row += 1;
@@ -1176,7 +1113,7 @@ function applyOuterBorder(sheet, startRow, endRow, totalCols) {
 }
 
 // ================================
-// MAIN GENERATOR — UNIVERSAL EXCEL EXPORT ENGINE
+// MAIN GENERATOR
 // ================================
 export const generateExcelReport = async (
   resultData,
@@ -1226,7 +1163,13 @@ export const generateExcelReport = async (
   hasGutter = false,
   pumpRoomDistance = 15,
   safetyFactor = 1.1,
-  excavationDepth = null
+  excavationDepth = null,
+  editableCivilQty = {},
+  editableBalanceQty = {},
+  editablePumpRoomQty = {},
+  editableMepQty = {},
+  editablePipingQty = {},
+  editableSubRowQty = {},
 ) => {
   const company = companyProfile || DEFAULT_COMPANY_PROFILE;
   const normPT  = normalizePoolType(poolTypeForFilter || poolType || 'freeform');
@@ -1241,7 +1184,15 @@ export const generateExcelReport = async (
 
   const showBalanceTank       = shouldShowBalanceTank(normPT, constructionType, hasGutter);
   const balanceTankItemsFinal = getBalanceTankItems(normPT, mainPoolData || [], balanceTankItems, hasGutter);
-  const filteredMepItems      = filterMepItemsByPoolType(mepItems || [], normPT, hasGutter);
+
+  const filteredMepItems = filterMepItemsByPoolType(mepItems || [], normPT, hasGutter)
+    .filter(item => {
+      const slNo = Number(item.originalSlNo ?? item.SlNo ?? item.sl_no);
+      if (ADVANCED_EQUIPMENT_IDS.includes(slNo)) {
+        return selectedAdvancedEquipment.includes(slNo);
+      }
+      return true;
+    });
 
   if (!Object.values(selTbl).some(Boolean)) {
     alert("⚠️ Please select at least one table to export!");
@@ -1255,24 +1206,27 @@ export const generateExcelReport = async (
   const mepTotalFinal         = cleanNumericValue(totalMepWithFittings);
 
   const projectSubtotal =
-    (selTbl.mainPool                                      ? mainPoolTotalFinal    : 0) +
-    (selTbl.balancingTank && showBalanceTank              ? balanceTankTotalFinal : 0) +
-    (selTbl.pumpRoom && normPT !== 'jacuzzi'              ? pumpRoomTotalFinal    : 0) +
-    (selTbl.mep                                           ? mepTotalFinal         : 0) +
-    (selTbl.piping && normPT !== 'infinity'               ? pipingTotalFinal      : 0);
+    (selTbl.mainPool                                  ? mainPoolTotalFinal    : 0) +
+    (selTbl.balancingTank && showBalanceTank          ? balanceTankTotalFinal : 0) +
+    (selTbl.pumpRoom && normPT !== 'jacuzzi'          ? pumpRoomTotalFinal    : 0) +
+    (selTbl.mep                                       ? mepTotalFinal         : 0) +
+    (selTbl.piping && normPT !== 'infinity'           ? pipingTotalFinal      : 0);
 
   const gstAmount  = projectSubtotal * 0.18;
   const grandTotal = projectSubtotal * 1.18;
 
   const poolLabels = {
     skimmer:  'SKIMMER POOL', overflow: 'OVERFLOW POOL', infinity: 'INFINITY POOL',
-    curved:   'FREEFORM POOL', freeform: 'FREEFORM POOL', jacuzzi:  'JACUZZI / SPA',
+    curved:   'FREEFORM POOL', freeform: 'FREEFORM POOL', jacuzzi: 'JACUZZI / SPA',
   };
   const poolLabel = poolLabels[normPT] || 'FREEFORM POOL';
 
   const tableData = {
-    mainPool: { items: [] }, balancingTank: { items: [] }, pumpRoom: { items: [] },
-    mep: { items: [], groups: [] }, piping: { headers: [], pipes: [], valves: [], flanges: [] },
+    mainPool:     { items: [] },
+    balancingTank:{ items: [] },
+    pumpRoom:     { items: [] },
+    mep:          { items: [], groups: [] },
+    piping:       { headers: [], pipes: [], valves: [], flanges: [] },
   };
 
   if (selTbl.mainPool && mainPoolData?.length) {
@@ -1284,10 +1238,7 @@ export const generateExcelReport = async (
         if (slNo === 1) description = description || 'Earthwork in excavation';
         if (slNo === 3) description = description || 'Consolidation of excavated earth';
         if (slNo === 4) description = description || 'Disposal of excess excavated earth';
-        return {
-          ...item, actualCode: item.Code || '', actualUnit: item.Unit || '',
-          actualDescription: description, actualImage: item.Image || null, originalSlNo: slNo,
-        };
+        return { ...item, actualCode: item.Code || '', actualUnit: item.Unit || '', actualDescription: description, actualImage: item.Image || null, originalSlNo: slNo };
       })
       .filter(Boolean)
       .sort((a, b) => a.originalSlNo - b.originalSlNo);
@@ -1300,12 +1251,7 @@ export const generateExcelReport = async (
         const slNo = item.SlNo;
         let description = templateDescriptions?.[slNo] || item.Description || '';
         if (slNo === 1) description = description || 'Earthwork in excavation';
-        if (slNo === 3) description = description || 'Consolidation of excavated earth';
-        if (slNo === 4) description = description || 'Disposal of excess excavated earth';
-        return {
-          ...item, actualCode: item.Code || '', actualUnit: item.Unit || '',
-          actualDescription: description, actualImage: item.Image || null, originalSlNo: slNo,
-        };
+        return { ...item, actualCode: item.Code || '', actualUnit: item.Unit || '', actualDescription: description, actualImage: item.Image || null, originalSlNo: slNo };
       })
       .filter(Boolean)
       .sort((a, b) => a.originalSlNo - b.originalSlNo);
@@ -1320,12 +1266,7 @@ export const generateExcelReport = async (
           const slNo = item.SlNo;
           let description = templateDescriptions?.[slNo] || item.Description || '';
           if (slNo === 1) description = description || 'Earthwork in excavation';
-          if (slNo === 3) description = description || 'Consolidation of excavated earth';
-          if (slNo === 4) description = description || 'Disposal of excess excavated earth';
-          return {
-            ...item, actualCode: item.Code || '', actualUnit: item.Unit || '',
-            actualDescription: description, actualImage: item.Image || null, originalSlNo: slNo,
-          };
+          return { ...item, actualCode: item.Code || '', actualUnit: item.Unit || '', actualDescription: description, actualImage: item.Image || null, originalSlNo: slNo };
         })
         .filter(Boolean)
         .sort((a, b) => a.originalSlNo - b.originalSlNo);
@@ -1334,55 +1275,48 @@ export const generateExcelReport = async (
 
   if (selTbl.mep && filteredMepItems.length > 0) {
     const base = filteredMepItems
-      .filter(item => {
-        if (normPT === 'jacuzzi') return item.SlNo >= 1 && item.SlNo <= 29;
-        return item.SlNo >= 1 && item.SlNo <= 34;
-      })
+      .filter(item => normPT === 'jacuzzi' ? item.SlNo <= 29 : item.SlNo <= 34)
       .map(item => {
         const slNo = item.SlNo;
         let desc = item.Description || '';
         let unit = item.Unit || '';
         if (normPT === 'overflow' && slNo === 11) { desc = 'Overflow Grating – Durable anti-slip cover installed along the overflow channel perimeter.'; unit = 'RMT'; }
         else if (normPT === 'freeform' || normPT === 'curved') {
-          if (hasGutter && slNo === 11) desc = '❌ Skimmer (HIDDEN – Gutter enabled)';
+          if (hasGutter && slNo === 11)  desc = '❌ Skimmer (HIDDEN – Gutter enabled)';
           else if (!hasGutter && slNo === 13) desc = '❌ Gutter Drain (HIDDEN)';
-          else if (hasGutter && slNo === 13) desc = 'Gutter Drain – Full perimeter drainage system';
+          else if (hasGutter && slNo === 13)  desc = 'Gutter Drain – Full perimeter drainage system';
           else if (!hasGutter && slNo === 11) desc = 'Skimmer – Standard pool skimmer for surface debris collection';
         } else if (normPT === 'jacuzzi') {
           if (slNo === 26) { desc = desc || 'Water Jets'; unit = unit || 'Nos'; }
           if (slNo === 27) { desc = desc || 'Air Controller'; unit = unit || 'Nos'; }
           if (slNo === 28) { desc = desc || 'Jet Pump'; unit = unit || 'Nos'; }
         }
-        return {
-          ...item, actualCode: item.Code || '', actualUnit: unit,
-          actualDescription: desc, actualImage: item.Image || null,
-          originalSlNo: slNo, uiSlNo: getMepUiSlNo(slNo, normPT),
-        };
+        return { ...item, actualCode: item.Code || '', actualUnit: unit, actualDescription: desc, actualImage: item.Image || null, originalSlNo: slNo, uiSlNo: getMepUiSlNo(slNo, normPT) };
       })
       .filter(Boolean);
     base.sort((a, b) => (a.uiSlNo || 0) - (b.uiSlNo || 0));
     const numbered = base.map((item, i) => ({ ...item, displaySlNo: i + 1 }));
-    const inRange = (item, lo, hi) => { const ui = item.uiSlNo || 0; return ui >= lo && ui <= hi; };
+    const inRange  = (item, lo, hi) => { const ui = item.uiSlNo || 0; return ui >= lo && ui <= hi; };
     const fittingsHi = normPT === 'infinity' ? 12 : 13;
 
     if (normPT === 'jacuzzi') {
       tableData.mep.groups = [
-        { title: 'FILTRATION & PUMP SYSTEMS', lo: 1, hi: 7 },
-        { title: 'POOL FITTINGS & DRAINS', lo: 8, hi: 9 },
-        { title: 'ELECTRICAL SYSTEMS', lo: 10, hi: 14 },
-        { title: 'CLEANING & MAINTENANCE', lo: 15, hi: 22 },
-        { title: 'CHEMICAL DOSING SYSTEM', lo: 23, hi: 25 },
-        { title: 'JACUZZI JET SYSTEM', lo: 26, hi: 28 },
+        { title: 'FILTRATION & PUMP SYSTEMS',     lo: 1,  hi: 7  },
+        { title: 'POOL FITTINGS & DRAINS',         lo: 8,  hi: 9  },
+        { title: 'ELECTRICAL SYSTEMS',             lo: 10, hi: 14 },
+        { title: 'CLEANING & MAINTENANCE',         lo: 15, hi: 22 },
+        { title: 'CHEMICAL DOSING SYSTEM',         lo: 23, hi: 25 },
+        { title: 'JACUZZI JET SYSTEM',             lo: 26, hi: 28 },
         { title: 'ADVANCED EQUIPMENT (OPTIONAL)', lo: 29, hi: 29 },
       ].map(g => ({ title: g.title, items: numbered.filter(item => inRange(item, g.lo, g.hi)) })).filter(g => g.items.length > 0);
     } else {
       tableData.mep.groups = [
-        { title: 'FILTRATION & PUMP SYSTEMS', lo: 1, hi: 7 },
-        { title: 'POOL FITTINGS & DRAINS', lo: 8, hi: fittingsHi },
-        { title: 'ELECTRICAL SYSTEMS', lo: 14, hi: 18 },
-        { title: 'CHEMICAL DOSING SYSTEM', lo: 19, hi: 21 },
-        { title: 'CLEANING & MAINTENANCE', lo: 22, hi: 29 },
-        { title: 'ADVANCED EQUIPMENT (OPTIONAL)', lo: 30, hi: 34 },
+        { title: 'FILTRATION & PUMP SYSTEMS',     lo: 1,       hi: 7          },
+        { title: 'POOL FITTINGS & DRAINS',         lo: 8,       hi: fittingsHi },
+        { title: 'ELECTRICAL SYSTEMS',             lo: 14,      hi: 18         },
+        { title: 'CHEMICAL DOSING SYSTEM',         lo: 19,      hi: 21         },
+        { title: 'CLEANING & MAINTENANCE',         lo: 22,      hi: 29         },
+        { title: 'ADVANCED EQUIPMENT (OPTIONAL)', lo: 30,      hi: 34         },
       ].map(g => ({ title: g.title, items: numbered.filter(item => inRange(item, g.lo, g.hi)) })).filter(g => g.items.length > 0);
     }
     tableData.mep.items = numbered;
@@ -1485,10 +1419,10 @@ export const generateExcelReport = async (
   c.value = `${poolLabel} — DETAILED QUOTATION`;
   applyCell(c, { fill: COLORS.primary, fontSize: 17, bold: true, color: COLORS.headerText, h: 'center' }); sheet.getRow(row).height = 36; row += 1;
 
-  const quoteNo = `${company.company_code || 'QT'}/${poolLabel.replace(/\s+/g, '')}/${now.getFullYear()}/${String(Math.floor(Math.random() * 9000) + 1000)}`;
-  const projRef = `${company.company_code || 'PROJ'}-${poolLabel.replace(/\s+/g, '')}-${now.getFullYear()}`;
-  const leftFields = [['Name:',''], ['Address:',''], ['Phone No:',''], ['PAN No:',''], ['GSTIN:',''], ['Delivery Address:','']];
-  const rightFields = [['Quotation No:', quoteNo], ['Date:', `${dateStr}  ${timeStr}`], ['Project Reference:', projRef], ['Prepared By:', company.company_name || '']];
+  const quoteNo  = `${company.company_code || 'QT'}/${poolLabel.replace(/\s+/g, '')}/${now.getFullYear()}/${String(Math.floor(Math.random() * 9000) + 1000)}`;
+  const projRef  = `${company.company_code || 'PROJ'}-${poolLabel.replace(/\s+/g, '')}-${now.getFullYear()}`;
+  const leftFields  = [['Name:',''],['Address:',''],['Phone No:',''],['PAN No:',''],['GSTIN:',''],['Delivery Address:','']];
+  const rightFields = [['Quotation No:', quoteNo],['Date:', `${dateStr}  ${timeStr}`],['Project Reference:', projRef],['Prepared By:', company.company_name || '']];
 
   mc(sheet, row, row, 1, 5); c = sheet.getCell(`A${row}`); c.value = 'BILL TO'; applyCell(c, { fill: COLORS.secondary, bold: true, fontSize: 11, color: COLORS.headerText, h: 'center' });
   mc(sheet, row, row, 6, COLS); c = sheet.getCell(`F${row}`); c.value = 'QUOTATION DETAILS'; applyCell(c, { fill: COLORS.secondary, bold: true, fontSize: 11, color: COLORS.headerText, h: 'center' }); sheet.getRow(row).height = 20; row++;
@@ -1513,14 +1447,19 @@ export const generateExcelReport = async (
   const poolVolume        = poolLength * poolWidth * poolDepth;
   const balanceTankVolume = cleanNumericValue(resultData?.balance_tank_volume || (poolVolume * 0.075));
   const additionalSources = { dynamicRates, filterDetails, mepCalculationData };
-  const filterDiameter = getPoolSpecificationValue(resultData, ['filter_dia', 'filter_dia_mm', 'filterDiameter', 'filter_size', 'diameter'], additionalSources);
-  const pumpCapacity   = getPoolSpecificationValue(resultData, ['hp', 'pump_hp', 'pumpCapacity'], additionalSources);
+  const getSpec = (keys, fallback = "N/A") => {
+    const sources = [resultData, resultData?.specifications, resultData?.system_parameters, resultData?.mep_calculation_data, resultData?.dynamicRates, dynamicRates, filterDetails, mepCalculationData];
+    for (const src of sources) { if (!src) continue; for (const k of keys) { const v = src?.[k]; if (v !== undefined && v !== null && v !== "") return v; } }
+    return fallback;
+  };
+  const filterDiameter  = getSpec(['filter_dia', 'filter_dia_mm', 'filterDiameter', 'filter_size', 'diameter']);
+  const pumpCapacity    = getSpec(['hp', 'pump_hp', 'pumpCapacity']);
   const totalWaterVolume = poolVolume + balanceTankVolume;
   const surfaceArea      = poolLength * poolWidth;
   const wallArea         = 2 * (poolLength + poolWidth) * poolDepth;
-  const flowRate = cleanNumericValue(resultData?.flowrate_m3_per_hr || resultData?.flow_rate || resultData?.flowRate || mepCalculationData?.flow_rate || mepCalculationData?.flowrate_m3_per_hr || (poolVolume / (resultData?.turnover || resultData?.turnover_hours || 4.5)));
-  const turnoverRate = cleanNumericValue(resultData?.turnover || resultData?.turnover_hours || resultData?.turnover_time || mepCalculationData?.turnover || 4.5);
-  const velocity = cleanNumericValue(resultData?.velocity || resultData?.flow_velocity || mepCalculationData?.velocity || 40);
+  const flowRate         = cleanNumericValue(resultData?.flowrate_m3_per_hr || resultData?.flow_rate || resultData?.flowRate || mepCalculationData?.flow_rate || mepCalculationData?.flowrate_m3_per_hr || (poolVolume / (resultData?.turnover || 4.5)));
+  const turnoverRate     = cleanNumericValue(resultData?.turnover || resultData?.turnover_hours || resultData?.turnover_time || mepCalculationData?.turnover || 4.5);
+  const velocity         = cleanNumericValue(resultData?.velocity || resultData?.flow_velocity || mepCalculationData?.velocity || 40);
 
   const specs = [];
   specs.push(['Project Type:', poolLabel]);
@@ -1562,14 +1501,14 @@ export const generateExcelReport = async (
   mc(sheet, row, row, 9, COLS); c = sheet.getCell(`I${row}`); c.value = 'Amount (₹)'; applyCell(c, { fill: COLORS.groupBg, bold: true, color: COLORS.headerText, h: 'center', fontSize: 11 }); sheet.getRow(row).height = 20; row++;
 
   const summaryRows = [];
-  if (selTbl.mainPool) summaryRows.push(['01', 'Main Pool Civil Works', mainPoolTotalFinal, false]);
-  if (selTbl.balancingTank && showBalanceTank) summaryRows.push(['02', 'Balance Tank Civil Works', balanceTankTotalFinal, false]);
-  if (selTbl.pumpRoom && normPT !== 'jacuzzi') summaryRows.push(['03', 'Pump Room Civil Works', pumpRoomTotalFinal, false]);
-  if (selTbl.mep) summaryRows.push(['04', 'MEP Systems & Equipment', mepTotalFinal, false]);
-  if (selTbl.piping && normPT !== 'infinity' && pipingTotalFinal > 0) summaryRows.push(['05', 'Piping System', pipingTotalFinal, false]);
-  summaryRows.push([null, 'PROJECT SUB-TOTAL', projectSubtotal, 'sub']);
-  summaryRows.push([null, 'GST @ 18%', gstAmount, false]);
-  summaryRows.push([null, 'GRAND TOTAL (INCL. GST)', grandTotal, 'grand']);
+  if (selTbl.mainPool)                                            summaryRows.push(['01', 'Main Pool Civil Works',      mainPoolTotalFinal,    false]);
+  if (selTbl.balancingTank && showBalanceTank)                   summaryRows.push(['02', 'Balance Tank Civil Works',   balanceTankTotalFinal, false]);
+  if (selTbl.pumpRoom && normPT !== 'jacuzzi')                   summaryRows.push(['03', 'Pump Room Civil Works',      pumpRoomTotalFinal,    false]);
+  if (selTbl.mep)                                                 summaryRows.push(['04', 'MEP Systems & Equipment',   mepTotalFinal,         false]);
+  if (selTbl.piping && normPT !== 'infinity' && pipingTotalFinal > 0) summaryRows.push(['05', 'Piping System',         pipingTotalFinal,      false]);
+  summaryRows.push([null, 'PROJECT SUB-TOTAL',              projectSubtotal, 'sub']);
+  summaryRows.push([null, 'GST @ 18%',                      gstAmount,       false]);
+  summaryRows.push([null, 'GRAND TOTAL (INCL. GST)',         grandTotal,      'grand']);
 
   summaryRows.forEach(([num, desc, amt, style], i) => {
     const bg = style === 'grand' ? COLORS.grandTotalBg : style === 'sub' ? COLORS.subtotalBg : (i % 2 === 0 ? COLORS.light : COLORS.highlight);
@@ -1581,48 +1520,93 @@ export const generateExcelReport = async (
 
   row = sectionDivider(sheet, row, '◆  DETAILED BILL OF QUANTITIES', COLS);
 
+  // MAIN POOL
   if (selTbl.mainPool && tableData.mainPool.items.length > 0) {
-    const res = await buildCivilTable(sheet, row, 'MAIN POOL — CIVIL WORKS', tableData.mainPool.items, mainPoolRemarks, colVis, MAIN_POOL_QTY_MAP, null, civilQuantities, resultData, false, false, dimensions);
+    const res = await buildCivilTable(
+      sheet, row, 'MAIN POOL CIVIL WORK', tableData.mainPool.items,
+      mainPoolRemarks, colVis, MAIN_POOL_QTY_MAP, {}, civilQuantities, resultData,
+      editableCivilQty, editableBalanceQty, editablePumpRoomQty, editableSubRowQty,
+      false, false, dimensions
+    );
     row = res.currentRow;
   }
 
+  // BALANCE TANK
   if (selTbl.balancingTank && showBalanceTank && tableData.balancingTank.items.length > 0) {
-    const res = await buildCivilTable(sheet, row, 'BALANCE TANK — CIVIL WORKS', tableData.balancingTank.items, balancingTankRemarks, colVis, BALANCE_TANK_QTY_MAP, null, balanceTankQuantities, resultData, true, false, balancingTankDimensions);
+    const res = await buildCivilTable(
+      sheet, row, 'BALANCE TANK CIVIL WORK', tableData.balancingTank.items,
+      balancingTankRemarks, colVis, BALANCE_TANK_QTY_MAP, {}, balanceTankQuantities, resultData,
+      editableCivilQty, editableBalanceQty, editablePumpRoomQty, editableSubRowQty,
+      true, false, balancingTankDimensions
+    );
     row = res.currentRow;
   }
 
+  // PUMP ROOM
   if (selTbl.pumpRoom && normPT !== 'jacuzzi' && tableData.pumpRoom.items.length > 0) {
-    const res = await buildCivilTable(sheet, row, 'PUMP ROOM — CIVIL WORKS', tableData.pumpRoom.items, pumpRoomRemarksExcel || pumpRoomRemarks, colVis, PUMP_ROOM_QTY_MAP, null, pumpRoomQuantities, resultData, false, true, pumpRoomDimensions);
+    const res = await buildCivilTable(
+      sheet, row, 'PUMP ROOM CIVIL WORK', tableData.pumpRoom.items,
+      pumpRoomRemarksExcel || pumpRoomRemarks, colVis, PUMP_ROOM_QTY_MAP, {}, pumpRoomQuantities, resultData,
+      editableCivilQty, editableBalanceQty, editablePumpRoomQty, editableSubRowQty,
+      false, true, pumpRoomDimensions
+    );
     row = res.currentRow;
   }
 
+  // MEP
   if (selTbl.mep && tableData.mep.groups.length > 0) {
-    mc(sheet, row, row, 1, COLS); c = sheet.getCell(`A${row}`); c.value = normPT === 'jacuzzi' ? 'JACUZZI MECHANICAL, ELECTRICAL & PLUMBING (MEP)' : 'MECHANICAL, ELECTRICAL & PLUMBING (MEP)';
+    mc(sheet, row, row, 1, COLS); c = sheet.getCell(`A${row}`);
+    c.value = normPT === 'jacuzzi' ? 'JACUZZI MECHANICAL, ELECTRICAL & PLUMBING (MEP)' : 'MECHANICAL, ELECTRICAL & PLUMBING (MEP)';
     applyCell(c, { fill: COLORS.primary, fontSize: 15, bold: true, color: COLORS.headerText, h: 'center' }); sheet.getRow(row).height = 24; row += 1;
     for (const grp of tableData.mep.groups) {
-      if (grp.items.length > 0) { const res = await buildMEPTable(sheet, row, grp.title, grp.items, colVis, mepQuantities, dynamicRates, resultData, normPT, hasGutter); row = res.currentRow; }
+      if (grp.items.length > 0) {
+        const res = await buildMEPTable(
+          sheet, row, grp.title, grp.items, colVis, mepQuantities, editableMepQty,
+          dynamicRates, resultData, normPT, hasGutter, dimensions
+        );
+        row = res.currentRow;
+      }
     }
   }
 
-  const anyPiping = (tableData.piping.headers.length + tableData.piping.pipes.length + tableData.piping.valves.length + tableData.piping.flanges.length);
+  // PIPING
+  const anyPiping = tableData.piping.headers.length + tableData.piping.pipes.length + tableData.piping.valves.length + tableData.piping.flanges.length;
   if (selTbl.piping && anyPiping > 0 && pipingTotalFinal > 0 && normPT !== 'infinity') {
     mc(sheet, row, row, 1, 11); c = sheet.getCell(`A${row}`); c.value = 'PIPING SYSTEM'; applyCell(c, { fill: COLORS.primary, fontSize: 15, bold: true, color: COLORS.headerText, h: 'center' }); sheet.getRow(row).height = 24; row += 1;
-    if (tableData.piping.headers.length > 0) { const r = await buildPipingTable(sheet, row, 'HEADERS', tableData.piping.headers, colVis); row = r.currentRow; }
-    if (tableData.piping.pipes.length   > 0) { const r = await buildPipingTable(sheet, row, 'PIPES',   tableData.piping.pipes,   colVis); row = r.currentRow; }
-    if (tableData.piping.valves.length  > 0) { const r = await buildPipingTable(sheet, row, 'VALVES',  tableData.piping.valves,  colVis); row = r.currentRow; }
-    if (tableData.piping.flanges.length > 0) { const r = await buildPipingTable(sheet, row, 'FLANGES', tableData.piping.flanges, colVis); row = r.currentRow; }
-    mc(sheet, row, row, 1, 8); mc(sheet, row, row, 9, 11); c = sheet.getCell(`A${row}`); c.value = 'PIPING SYSTEM — GRAND TOTAL'; applyCell(c, { fill: COLORS.grandTotalBg, bold: true, h: 'right', fontSize: 12, color: COLORS.headerText });
+    if (tableData.piping.headers.length > 0) { const r = await buildPipingTable(sheet, row, 'HEADERS', tableData.piping.headers, colVis, editablePipingQty); row = r.currentRow; }
+    if (tableData.piping.pipes.length   > 0) { const r = await buildPipingTable(sheet, row, 'PIPES',   tableData.piping.pipes,   colVis, editablePipingQty); row = r.currentRow; }
+    if (tableData.piping.valves.length  > 0) { const r = await buildPipingTable(sheet, row, 'VALVES',  tableData.piping.valves,  colVis, editablePipingQty); row = r.currentRow; }
+    if (tableData.piping.flanges.length > 0) { const r = await buildPipingTable(sheet, row, 'FLANGES', tableData.piping.flanges, colVis, editablePipingQty); row = r.currentRow; }
+    mc(sheet, row, row, 1, 8); mc(sheet, row, row, 9, 11);
+    c = sheet.getCell(`A${row}`); c.value = 'PIPING SYSTEM — GRAND TOTAL'; applyCell(c, { fill: COLORS.grandTotalBg, bold: true, h: 'right', fontSize: 12, color: COLORS.headerText });
     c = sheet.getCell(`I${row}`); setCurrencyCell(c, pipingTotalFinal, '₹#,##0.00'); applyCell(c, { fill: COLORS.grandTotalBg, bold: true, h: 'right', fontSize: 12, color: COLORS.headerText }); sheet.getRow(row).height = 24; row += 1;
   }
 
-  row += 1;
+  // PROJECT COST SUMMARY (before terms)
+  row += 2;
+  mc(sheet, row, row, 1, 11);
+  let summaryTitleCell = sheet.getCell(`A${row}`);
+  summaryTitleCell.value = "PROJECT COST SUMMARY";
+  applyCell(summaryTitleCell, { fill: COLORS.primary, fontSize: 13, bold: true, color: COLORS.headerText, h: "center" });
+  sheet.getRow(row).height = 24; row++;
+
+  mc(sheet, row, row, 1, 8); let subtotalLabelCell = sheet.getCell(`A${row}`); subtotalLabelCell.value = "Project Subtotal"; applyCell(subtotalLabelCell, { fill: COLORS.highlight, bold: true, h: "right" });
+  mc(sheet, row, row, 9, 11); let subtotalValueCell = sheet.getCell(`I${row}`); setCurrencyCell(subtotalValueCell, projectSubtotal, '₹#,##0.00'); applyCell(subtotalValueCell, { fill: COLORS.highlight, bold: true, h: "right" }); row++;
+
+  mc(sheet, row, row, 1, 8); let gstLabelCell = sheet.getCell(`A${row}`); gstLabelCell.value = "GST (18%)"; applyCell(gstLabelCell, { fill: COLORS.highlight, bold: true, h: "right" });
+  mc(sheet, row, row, 9, 11); let gstValueCell = sheet.getCell(`I${row}`); setCurrencyCell(gstValueCell, gstAmount, '₹#,##0.00'); applyCell(gstValueCell, { fill: COLORS.highlight, bold: true, h: "right" }); row++;
+
+  mc(sheet, row, row, 1, 8); let grandTotalLabelCell = sheet.getCell(`A${row}`); grandTotalLabelCell.value = "GRAND TOTAL"; applyCell(grandTotalLabelCell, { fill: COLORS.grandTotalBg, fontSize: 13, bold: true, color: COLORS.totalText, h: "right" });
+  mc(sheet, row, row, 9, 11); let grandTotalValueCell = sheet.getCell(`I${row}`); setCurrencyCell(grandTotalValueCell, grandTotal, '₹#,##0.00'); applyCell(grandTotalValueCell, { fill: COLORS.grandTotalBg, fontSize: 13, bold: true, color: COLORS.totalText, h: "right" });
+  sheet.getRow(row).height = 24; row += 2;
+
   row = sectionDivider(sheet, row, '◆  TERMS & CONDITIONS', COLS);
 
-  const bankDetails = company.bank_details || { account_name: "Rainbow Landscape Innovations India Pvt Ltd", account_number: "XXXXXXXXXX", bank_name: "HDFC BANK", ifsc_code: "XXXXXXXXXX", branch: "HORAMAVU AGARA BRANCH BANGALORE-560043" };
-  const registeredOffice = company.address || "No. 1, 1st Floor, Deepa Towers, Esther Enclave, Horamavu, Bangalore, Karnataka - 560043";
+  const bankDetails      = company.bank_details || { account_name: "Rainbow Landscape Innovations India Pvt Ltd", account_number: "XXXXXXXXXX", bank_name: "HDFC BANK", ifsc_code: "XXXXXXXXXX", branch: "HORAMAVU AGARA BRANCH BANGALORE-560043" };
   const companyEmail2    = company.email   || "info@intelithon.com";
   const companyPhone2    = company.phone   || "+91 1234567890";
   const companyWebsite2  = company.website || "www.intelithon.com";
+  const registeredOffice = company.address || "No. 1, 1st Floor, Deepa Towers, Esther Enclave, Horamavu, Bangalore, Karnataka - 560043";
 
   const terms = [
     { text: '1. Prices are valid for 30 days from the date of quotation', bold: true, height: 20 },
@@ -1674,7 +1658,7 @@ export const generateExcelReport = async (
   row += 1;
   mc(sheet, row, row, 1, COLS); c = sheet.getCell(`A${row}`); c.value = 'REGISTERED OFFICE'; applyCell(c, { fill: COLORS.primary, fontSize: 12, bold: true, color: COLORS.headerText, h: 'center' }); sheet.getRow(row).height = 20; row++;
 
-  const registeredDetails = [['Email:', companyEmail2], ['Phone:', companyPhone2], ['Website:', companyWebsite2], ['Address:', registeredOffice]];
+  const registeredDetails = [['Email:', companyEmail2],['Phone:', companyPhone2],['Website:', companyWebsite2],['Address:', registeredOffice]];
   registeredDetails.forEach(([label, value]) => {
     mc(sheet, row, row, 1, 3); c = sheet.getCell(`A${row}`); c.value = label; applyCell(c, { fill: COLORS.highlight, bold: true, h: 'left', fontSize: 10 });
     mc(sheet, row, row, 4, COLS); c = sheet.getCell(`D${row}`); c.value = value; applyCell(c, { fill: COLORS.light, h: 'left', fontSize: 10 }); sheet.getRow(row).height = 20; row++;
@@ -1683,7 +1667,7 @@ export const generateExcelReport = async (
   row += 1;
   mc(sheet, row, row, 1, COLS); c = sheet.getCell(`A${row}`); c.value = `Thank you for choosing ${company.company_name?.trim() || 'us'} for your pool project. We look forward to serving you.`; applyCell(c, { fill: COLORS.sectionBg, fontSize: 11, h: 'center', italic: true, color: COLORS.primary }); sheet.getRow(row).height = 20; row += 1;
 
-  const footerItems = [company.address ? `📍 ${company.address}` : '', company.phone ? `📞 ${company.phone}` : '', company.email ? `✉ ${company.email}` : '', company.website ? `🌐 ${company.website}` : ''].filter(Boolean).join('     |     ');
+  const footerItems = [company.address ? `📍 ${company.address}` : '', company.phone ? `📞 ${company.phone}` : '', company.email ? `✉ ${company.email}` : '', company.website ? `🌐 ${company.website}` : ''].filter(Boolean).join('     |    ');
   mc(sheet, row, row, 1, COLS); c = sheet.getCell(`A${row}`); c.value = footerItems; applyCell(c, { fill: COLORS.primary, fontSize: 9, h: 'center', color: COLORS.headerText }); sheet.getRow(row).height = 20; row += 1;
 
   row = sectionDivider(sheet, row, 'AUTHORIZED SIGNATORY', COLS);
@@ -1717,7 +1701,7 @@ export const generateExcelReport = async (
     return true;
   } catch (err) {
     console.error('❌ Error generating Excel:', err);
-    alert('Failed to generate Excel report. Please check the console for details.');
+    alert('Failed to generate Excel report. Please check the browser console for details.');
     return false;
   }
 };
@@ -1743,6 +1727,12 @@ const ExcelDownloadButton = ({
   hasGutter = false, pumpRoomDistance = 15, safetyFactor = 1.1,
   companyProfile, excavationDepth = null,
   mepIncludesPiping = MEP_INCLUDES_PIPING,
+  editableCivilQty = {},
+  editableBalanceQty = {},
+  editablePumpRoomQty = {},
+  editableMepQty = {},
+  editablePipingQty = {},
+  editableSubRowQty = {},
 }) => {
   const [isGenerating, setIsGenerating] = React.useState(false);
 
@@ -1771,7 +1761,7 @@ const ExcelDownloadButton = ({
         : [];
 
       const resolvedMepItems   = filterMepItemsByPoolType(mepItems || [], normPT, hasGutter);
-      const filteredMepData    = selectedTables.mep    ? resolvedMepItems                                    : [];
+      const filteredMepData    = selectedTables.mep    ? resolvedMepItems     : [];
       const filteredPipingData = (selectedTables.piping && normPT !== 'infinity') ? (pipingItems || []) : [];
 
       await generateExcelReport(
@@ -1789,7 +1779,9 @@ const ExcelDownloadButton = ({
         filteredPipingData, pipingTotal, finalProfile,
         civilQuantities, balanceTankQuantities, mepQuantities, dynamicRates,
         balancingTankDimensions, balanceTankItems, hasGutter,
-        pumpRoomDistance, safetyFactor, excavationDepth
+        pumpRoomDistance, safetyFactor, excavationDepth,
+        editableCivilQty, editableBalanceQty, editablePumpRoomQty,
+        editableMepQty, editablePipingQty, editableSubRowQty,
       );
     } catch (err) {
       console.error('❌ Excel generation error:', err);
@@ -1818,19 +1810,9 @@ const ExcelDownloadButton = ({
       disabled={isGenerating}
       className="excel-download-btn"
       style={btnStyle}
-      onMouseEnter={e => {
-        if (!isGenerating) {
-          e.currentTarget.style.background = `#${COLORS.secondary}`;
-          e.currentTarget.style.transform  = 'translateY(-1px)';
-        }
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.background = `#${COLORS.primary}`;
-        e.currentTarget.style.transform  = 'translateY(0)';
-      }}
-      title={companyProfile?.company_name
-        ? `Download Excel for ${companyProfile.company_name}`
-        : 'Download Excel Quotation'}
+      onMouseEnter={e => { if (!isGenerating) { e.currentTarget.style.background = `#${COLORS.secondary}`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+      onMouseLeave={e => { e.currentTarget.style.background = `#${COLORS.primary}`; e.currentTarget.style.transform = 'translateY(0)'; }}
+      title={companyProfile?.company_name ? `Download Excel for ${companyProfile.company_name}` : 'Download Excel Quotation'}
     >
       {isGenerating ? (
         <><span>⏳</span><span>Generating Excel…</span></>
@@ -1838,11 +1820,7 @@ const ExcelDownloadButton = ({
         <>
           <span>📊</span>
           <span>Download Excel Quotation</span>
-          <span style={{
-            fontSize: '11px', opacity: 0.75,
-            background: 'rgba(255,255,255,0.15)',
-            padding: '2px 6px', borderRadius: '4px',
-          }}>
+          <span style={{ fontSize: '11px', opacity: 0.75, background: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: '4px' }}>
             {selectedCount}/{totalCount} tables
           </span>
         </>

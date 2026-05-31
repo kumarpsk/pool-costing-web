@@ -895,3 +895,91 @@ body {
 .register-form-container_5::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+/* Add to TenantRegister.css */
+
+/* Readonly field styling */
+.readonly-field_5 {
+  background: #f5f5f5 !important;
+  cursor: not-allowed;
+  opacity: 0.9;
+  border: 1px solid #d9d9d9;
+  color: #333;
+}
+
+.readonly-field_5:focus {
+  outline: none;
+  box-shadow: none;
+  border-color: #d9d9d9;
+}
+
+/* Security helper text */
+.security-helper-text_5 {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.security-helper-text_5::before {
+  content: "🔒";
+  font-size: 10px;
+}
+
+/* Company code input wrapper with loading spinner */
+.company-code-wrapper_5 {
+  position: relative;
+}
+
+.input-loading-spinner_5 {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+
+.input-loading-spinner_5 svg {
+  width: 100%;
+  height: 100%;
+  color: #667eea;
+}
+
+@keyframes spin {
+  from {
+    transform: translateY(-50%) rotate(0deg);
+  }
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+.input-verified-icon_5 {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  color: #10b981;
+}
+
+.input-verified-icon_5 svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Disabled button styling when company code not verified */
+.register-button_5:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+}
+
+.register-button_5:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}

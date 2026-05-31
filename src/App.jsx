@@ -80,21 +80,45 @@ const App = () => {
     location.pathname.startsWith("/tenant/register") ||
     location.pathname.startsWith("/tenant/forgot-password") ||
     location.pathname.startsWith("/tenant/reset-password") ||
-    location.pathname.startsWith("/tenant/subscription") ||        // ✅ ADDED
-    location.pathname.startsWith("/tenant/subscription-success") || // ✅ ADDED
-    location.pathname.startsWith("/tenant/plans") ||               // ✅ ADDED (if needed)
-    location.pathname.startsWith("/tenant/payment");               // ✅ ADDED (if needed)
+    location.pathname.startsWith("/tenant/subscription") ||
+    location.pathname.startsWith("/tenant/subscription-success") ||
+    location.pathname.startsWith("/tenant/plans") ||
+    location.pathname.startsWith("/tenant/payment");
 
   // Hide Nav ONLY on admin dashboard (admin1 is the login page which should show Nav)
   const isAdminDashboardPage = location.pathname === "/admindashboard";
 
+  // ✅ STEP 1 — CREATE RESULTS PAGE CHECK
+  const isResultsPage =
+    location.pathname === "/result" ||
+    location.pathname === "/overflowresults" ||
+    location.pathname === "/infinityresults" ||
+    location.pathname === "/curvedresults" ||
+    location.pathname === "/waterbodyresults" ||
+    location.pathname === "/jacuzzi-spa-results" ||
+
+    // Delivery Pages
+    location.pathname === "/delivery" ||
+    location.pathname === "/waterbodydelivery" ||
+    location.pathname === "/jacuzzi-spa-delivery" ||
+
+    // Invoice Pages
+    location.pathname === "/proformainvoice" ||
+    location.pathname === "/tax";
+
   // Show Nav for:
-  // 1. Regular tenant app pages
-  // 2. Admin login page (/admin1)
+  // 1. Regular tenant app pages (input/form pages only)
   // Don't show Nav for:
   // 1. Tenant auth pages (including subscription)
   // 2. Admin dashboard (has its own navigation)
-  const showNav = !isTenantAuthPage && !isAdminDashboardPage;
+  // 3. Results pages (all calculation output pages)
+  // 4. Delivery pages
+  // 5. Invoice pages
+  // ✅ STEP 2 — UPDATE showNav
+  const showNav =
+    !isTenantAuthPage &&
+    !isAdminDashboardPage &&
+    !isResultsPage;
 
   return (
     <div>

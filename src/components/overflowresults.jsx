@@ -3,7 +3,6 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import "./result.css";
 
 import { generatePDF, PDFDownloadButton } from "./download";
-import { generateExcelReport } from "./excel";
 import ExcelDownloadButton from "./excel";
 import Timeline from "./timeline";
 import HelpModal from "./HelpModal";
@@ -16,40 +15,19 @@ const API_BASE_URL = "https://pool-costing-api.intelithon.in";
 const INSTALLATION_PERCENT = 0.15;
 const VISUALIZATION_3D_URL = "https://3d.intelithon.in";
 
-// ✅ SUB-ROW STRUCTURE FOR EXCAVATION, SHUTTERING, AND RCC
-// ✅ UPDATED WITH HARDCODED DESCRIPTIONS
+// SUB-ROW STRUCTURE FOR EXCAVATION, SHUTTERING, AND RCC
 const SUB_ROWS = {
   1: [
-    {
-      slNo: "1.1",
-      description: "Excavation up to 1.5m depth"
-    },
-    {
-      slNo: "1.2",
-      description: "Excavation from 1.5m to 3.0m depth"
-    }
+    { slNo: "1.1", description: "Excavation up to 1.5m depth" },
+    { slNo: "1.2", description: "Excavation from 1.5m to 3.0m depth" }
   ],
-
   9: [
-    {
-      slNo: "9.1",
-      description: "Raft"
-    },
-    {
-      slNo: "9.2",
-      description: "Retaining wall/ overflow drain"
-    }
+    { slNo: "9.1", description: "Raft" },
+    { slNo: "9.2", description: "Retaining wall/ overflow drain" }
   ],
-
   10: [
-    {
-      slNo: "10.1",
-      description: "Raft"
-    },
-    {
-      slNo: "10.2",
-      description: "Retaining wall"
-    }
+    { slNo: "10.1", description: "Raft" },
+    { slNo: "10.2", description: "Retaining wall" }
   ]
 };
 
@@ -92,7 +70,7 @@ const getNumericDiameter = (item) => {
 };
 
 // ================================
-// PIPING ITEM MAPPER - FIXED DESCRIPTION
+// PIPING ITEM MAPPER
 // ================================
 const mapPipingItem = (item, index) => {
   const sl_no = Number(item.SlNo ?? item.sl_no ?? index + 1);
@@ -279,7 +257,6 @@ function ResultPage() {
   const [mepItems, setMepItems] = useState([]);
   const [balanceTankItems, setBalanceTankItems] = useState([]);
 
-  // ✅ STATE FOR EXCAVATION RATES
   const [excavationRates, setExcavationRates] = useState([]);
 
   const [civilQuantities, setCivilQuantities] = useState({});
@@ -333,6 +310,7 @@ function ResultPage() {
   const [activeTab, setActiveTab] = useState(1);
   const [imageModal, setImageModal] = useState({ show: false, src: "" });
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showExcelExportModal, setShowExcelExportModal] = useState(false);
 
   const [currency, setCurrency] = useState('INR');
 
@@ -352,58 +330,123 @@ function ResultPage() {
   const [updatingDistance, setUpdatingDistance] = useState(false);
 
   const [saveOpen, setSaveOpen] = useState(false);
+  
+  // SIDEBAR COLLAPSED STATE
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // EDITABLE STATES
+  const [editableCivilQty, setEditableCivilQty] = useState({});
+  const [editableBalanceQty, setEditableBalanceQty] = useState({});
+  const [editablePumpRoomQty, setEditablePumpRoomQty] = useState({});
+  const [editableMepQty, setEditableMepQty] = useState({});
+  const [editablePipingQty, setEditablePipingQty] = useState({});
+  const [editableSubRowQty, setEditableSubRowQty] = useState({});
 
   // ================================
-  // STEP 1 — FIXED excavationRateMap
-  // Normalizes ALL keys to strings with String().trim()
-  // Handles BOTH lowercase and PascalCase API field names
-  // Works for 1.1, 1.2, 9.1, 9.2, 10.1, 10.2
+  // VOLUME CHECK FOR LARGE POOLS
   // ================================
+  const shouldUseLargePoolImages = useMemo(() => {
+    const length = Number(dimensions?.length || 0);
+    const width = Number(dimensions?.width || 0);
+    const depth = Number(dimensions?.depth || 0);
+    const volume = length * width * depth;
+
+    console.log("POOL VOLUME:", volume);
+    console.log("VOLUME THRESHOLD CHECK:", volume >= 500 ? "LARGE POOL - Use override images" : "SMALL/MEDIUM POOL - Use database images");
+
+    // Semi Olympic / Commercial pools (500 m³ and above)
+    return volume >= 500;
+  }, [dimensions]);
+
+  // ================================
+  // IMAGE OVERRIDE FUNCTION - VOLUME-BASED
+  // ================================
+  const getOverflowMepImage = (item) => {
+    // Only apply overrides for large pools
+    if (!shouldUseLargePoolImages) {
+      console.log("SKIP OVERRIDE: Pool volume < 500 m³ - using database images");
+      return null;
+    }
+
+    if (!item) return null;
+
+    const slNo = Number(
+      item?.SlNo ??
+      item?.sl_no ??
+      item?.slno ??
+      0
+    );
+
+    console.log("LARGE POOL - SLNO CHECK:", slNo, item);
+
+    const imageMap = {
+      1: "/filter1.png",
+      5: "/mpv1.png",
+      7: "/pump1.png",
+      9: "/md1.png",
+      13: "/gutter1.png",
+      19: "/dosing1.png",
+    };
+
+    const overrideImage = imageMap[slNo] || null;
+    if (overrideImage) {
+      console.log("OVERRIDE IMAGE SELECTED FOR SLNO", slNo, ":", overrideImage);
+    }
+    return overrideImage;
+  };
+
+  // COMMON QTY HANDLER
+  const handleQtyChange = (type, key, value) => {
+    const qty = Number(value) || 0;
+
+    switch (type) {
+      case "civil":
+        setEditableCivilQty(prev => ({ ...prev, [key]: qty }));
+        break;
+      case "balance":
+        setEditableBalanceQty(prev => ({ ...prev, [key]: qty }));
+        break;
+      case "pump":
+        setEditablePumpRoomQty(prev => ({ ...prev, [key]: qty }));
+        break;
+      case "mep":
+        setEditableMepQty(prev => ({ ...prev, [key]: qty }));
+        break;
+      case "piping":
+        setEditablePipingQty(prev => ({ ...prev, [key]: qty }));
+        break;
+      case "subrow":
+        setEditableSubRowQty(prev => ({ ...prev, [key]: qty }));
+        break;
+      default:
+        break;
+    }
+  };
+
   const excavationRateMap = useMemo(() => {
     const map = {};
     excavationRates.forEach((item) => {
-      // ✅ FIX: Normalize key — support both "code" and "Code", trim whitespace
-      const key = String(
-        item.code ??
-        item.Code ??
-        ""
-      ).trim();
+      const key = String(item.code ?? item.Code ?? "").trim();
       if (key) {
         map[key] = item;
       }
     });
-    console.log("🗺️ excavationRateMap built:", map);
     return map;
   }, [excavationRates]);
 
-  // ================================
-  // STEP 2 — SAFE RATE EXTRACTOR
-  // Handles both { rate: X } objects and plain numbers
-  // Returns 0 if nothing found — never crashes
-  // ================================
   const getExcavationRate = (subSlNo) => {
     const key = String(subSlNo).trim();
     const entry = excavationRateMap[key];
-    if (!entry) {
-      console.warn(`⚠️ No excavation rate found for key: "${key}"`);
-      return 0;
-    }
-    // entry.rate may be a number or a nested object — handle both
+    if (!entry) return 0;
     const rate = entry.rate ?? entry.Rate ?? entry ?? 0;
     return Number(rate) || 0;
   };
 
-  // ================================
-  // STEP 3 — SAFE QTY EXTRACTOR FOR SPLIT DATA
-  // Handles: { qty: X }, { Qty: X }, plain number, undefined
-  // ================================
   const getSplitQty = (splitData, subSlNo) => {
     if (!splitData) return 0;
     const entry = splitData[String(subSlNo).trim()];
     if (entry === undefined || entry === null) return 0;
-    // If entry is a plain number
     if (typeof entry === 'number') return entry;
-    // If entry is an object with qty/Qty/quantity
     if (typeof entry === 'object') {
       const qty = entry.qty ?? entry.Qty ?? entry.quantity ?? entry.Quantity ?? 0;
       return Number(qty) || 0;
@@ -411,12 +454,25 @@ function ResultPage() {
     return Number(entry) || 0;
   };
 
+  const getResolvedMepDescription = (slNo, fallbackItem) => {
+    const calcItem = resultData?.mep?.find(m => (m.SlNo ?? m.sl_no) === slNo);
+    if (calcItem?.Description && !calcItem.Description.includes('{{')) {
+      return calcItem.Description;
+    }
+    if (slNo === 1 && dynamicRates.filter_description && !dynamicRates.filter_description.includes('{{')) {
+      return dynamicRates.filter_description;
+    }
+    if (slNo === 7 && dynamicRates.pump_description && !dynamicRates.pump_description.includes('{{')) {
+      return dynamicRates.pump_description;
+    }
+    return fallbackItem?.Description || "N/A";
+  };
+
   const pipingItems = useMemo(() => {
     if (!resultData?.piping || !Array.isArray(resultData.piping)) return [];
     return resultData.piping.map((item, index) => mapPipingItem(item, index));
   }, [resultData]);
 
-  // ✅ SORTED PIPING CATEGORIES BY DIAMETER (ASCENDING)
   const pipes = useMemo(() =>
     pipingItems.filter(i => i.category === "pipe").sort((a, b) => getNumericDiameter(a) - getNumericDiameter(b)),
     [pipingItems]
@@ -450,48 +506,60 @@ function ResultPage() {
   const pipingTotals = useMemo(() => {
     const pipesSubtotal = pipingItems
       .filter(item => item.category === "pipe")
-      .reduce((sum, item) => sum + Number(item.total || 0), 0);
+      .reduce((sum, item) => {
+        const qty = editablePipingQty[item.sl_no] !== undefined ? editablePipingQty[item.sl_no] : item.quantity;
+        const rate = Number(item.supply_rate || 0) + Number(item.installation_rate || 0);
+        return sum + (qty * rate);
+      }, 0);
 
     const ballValvesSubtotal = pipingItems
       .filter(item => item.category === "ball_valve")
-      .reduce((sum, item) => sum + Number(item.total || 0), 0);
+      .reduce((sum, item) => {
+        const qty = editablePipingQty[item.sl_no] !== undefined ? editablePipingQty[item.sl_no] : item.quantity;
+        const rate = Number(item.supply_rate || 0) + Number(item.installation_rate || 0);
+        return sum + (qty * rate);
+      }, 0);
 
     const puddleFlangesSubtotal = pipingItems
       .filter(item => item.category === "puddle_flange")
-      .reduce((sum, item) => sum + Number(item.total || 0), 0);
+      .reduce((sum, item) => {
+        const qty = editablePipingQty[item.sl_no] !== undefined ? editablePipingQty[item.sl_no] : item.quantity;
+        const rate = Number(item.supply_rate || 0) + Number(item.installation_rate || 0);
+        return sum + (qty * rate);
+      }, 0);
 
     const headersSubtotal = pipingItems
       .filter(item => item.category === "header")
-      .reduce((sum, item) => sum + Number(item.total || 0), 0);
+      .reduce((sum, item) => {
+        const qty = editablePipingQty[item.sl_no] !== undefined ? editablePipingQty[item.sl_no] : item.quantity;
+        const rate = Number(item.supply_rate || 0) + Number(item.installation_rate || 0);
+        return sum + (qty * rate);
+      }, 0);
 
     const otherValvesSubtotal = pipingItems
       .filter(item => item.category === "valve")
-      .reduce((sum, item) => sum + Number(item.total || 0), 0);
+      .reduce((sum, item) => {
+        const qty = editablePipingQty[item.sl_no] !== undefined ? editablePipingQty[item.sl_no] : item.quantity;
+        const rate = Number(item.supply_rate || 0) + Number(item.installation_rate || 0);
+        return sum + (qty * rate);
+      }, 0);
 
     const otherFlangesSubtotal = pipingItems
       .filter(item => item.category === "flange")
-      .reduce((sum, item) => sum + Number(item.total || 0), 0);
+      .reduce((sum, item) => {
+        const qty = editablePipingQty[item.sl_no] !== undefined ? editablePipingQty[item.sl_no] : item.quantity;
+        const rate = Number(item.supply_rate || 0) + Number(item.installation_rate || 0);
+        return sum + (qty * rate);
+      }, 0);
 
-    const grandTotal =
-      pipesSubtotal +
-      ballValvesSubtotal +
-      puddleFlangesSubtotal +
-      headersSubtotal +
-      otherValvesSubtotal +
-      otherFlangesSubtotal;
+    const grandTotal = pipesSubtotal + ballValvesSubtotal + puddleFlangesSubtotal + headersSubtotal + otherValvesSubtotal + otherFlangesSubtotal;
 
     return {
-      pipesSubtotal,
-      ballValvesSubtotal,
-      puddleFlangesSubtotal,
-      headersSubtotal,
-      otherValvesSubtotal,
-      otherFlangesSubtotal,
-      totalSupply: grandTotal,
-      totalInstallation: 0,
-      grandTotal
+      pipesSubtotal, ballValvesSubtotal, puddleFlangesSubtotal, headersSubtotal,
+      otherValvesSubtotal, otherFlangesSubtotal,
+      totalSupply: grandTotal, totalInstallation: 0, grandTotal
     };
-  }, [pipingItems]);
+  }, [pipingItems, editablePipingQty]);
 
   const overflowGratingData = {
     SlNo: 11, Code: "OG-001",
@@ -500,50 +568,22 @@ function ResultPage() {
   };
 
   const MAIN_POOL_QTY_FIELDS = {
-    1: "EarthExcavation_QTY",
-    2: "BackFilling_QTY",
-    3: "Consolidation_QTY",
-    4: "Disposal_QTY",
-    5: "Soling_QTY",
-    6: "plaincement_QTY",
-    7: "BurntBrick_QTY",
-    8: "steelreinforcement_QTY",
-    9: "Shuttering_QTY",
-    10: "shotcreting_QTY",
-    11: "WaterProofing_QTY",
-    12: "plastering_QTY",
-    13: "Coping_QTY",
-    14: "Tiling_QTY"
+    1: "EarthExcavation_QTY", 2: "BackFilling_QTY", 3: "Consolidation_QTY", 4: "Disposal_QTY",
+    5: "Soling_QTY", 6: "plaincement_QTY", 7: "BurntBrick_QTY", 8: "steelreinforcement_QTY",
+    9: "Shuttering_QTY", 10: "shotcreting_QTY", 11: "WaterProofing_QTY", 12: "plastering_QTY",
+    13: "Coping_QTY", 14: "Tiling_QTY"
   };
 
   const BALANCE_TANK_QTY_FIELDS = {
-    1: "EarthExcavation_QTY_1",
-    2: "BackFilling_QTY_1",
-    3: "Consolidation_QTY_1",
-    4: "Disposal_QTY_1",
-    5: "Soling_QTY_1",
-    6: "plaincement_QTY_1",
-    7: "BurntBrick_QTY_1",
-    8: "steelreinforcement_QTY_1",
-    9: "Shuttering_QTY_1",
-    10: "shotcreting_QTY_1",
-    11: "WaterProofing_QTY_1",
-    12: "plastering_QTY_1"
+    1: "EarthExcavation_QTY_1", 2: "BackFilling_QTY_1", 3: "Consolidation_QTY_1", 4: "Disposal_QTY_1",
+    5: "Soling_QTY_1", 6: "plaincement_QTY_1", 7: "BurntBrick_QTY_1", 8: "steelreinforcement_QTY_1",
+    9: "Shuttering_QTY_1", 10: "shotcreting_QTY_1", 11: "WaterProofing_QTY_1", 12: "plastering_QTY_1"
   };
 
   const PUMP_ROOM_QTY_FIELDS = {
-    1: "EarthExcavation_QTY_2",
-    2: "BackFilling_QTY_2",
-    3: "Consolidation_QTY_2",
-    4: "Disposal_QTY_2",
-    5: "Soling_QTY_2",
-    6: "plaincement_QTY_2",
-    7: "BurntBrick_QTY_2",
-    8: "steelreinforcement_QTY_2",
-    9: "Shuttering_QTY_2",
-    10: "shotcreting_QTY_2",
-    11: "WaterProofing_QTY_2",
-    12: "plastering_QTY_2"
+    1: "EarthExcavation_QTY_2", 2: "BackFilling_QTY_2", 3: "Consolidation_QTY_2", 4: "Disposal_QTY_2",
+    5: "Soling_QTY_2", 6: "plaincement_QTY_2", 7: "BurntBrick_QTY_2", 8: "steelreinforcement_QTY_2",
+    9: "Shuttering_QTY_2", 10: "shotcreting_QTY_2", 11: "WaterProofing_QTY_2", 12: "plastering_QTY_2"
   };
 
   const MEP_QTY_FIELDS = {
@@ -716,8 +756,6 @@ function ResultPage() {
     fetchBalanceTankItems();
   }, [navigate]);
 
-  // ✅ FETCH EXCAVATION RATES FROM BACKEND
-  // ✅ FIX: Robust parsing that handles all API response shapes
   useEffect(() => {
     const fetchExcavationRates = async () => {
       try {
@@ -728,21 +766,10 @@ function ResultPage() {
         }
         const data = await response.json();
 
-        console.log("📋 excavationRates RAW API response:", JSON.stringify(data, null, 2));
-
-        // ✅ FIX: Handle ALL possible response shapes from backend:
-        // Shape A: { rates: { "1.1": { rate: 275, ... }, "9.1": { rate: 0, ... } } }
-        // Shape B: { success: true, rates: [...array...] }
-        // Shape C: { "1.1": { rate: 275 }, "9.1": { rate: 0 } }   (flat object)
-        // Shape D: [ { code: "1.1", rate: 275 }, ... ]             (direct array)
-
         let ratesArray = [];
-
-        // Step 1: unwrap success wrapper if present
         const ratesData = data.rates ?? data.data ?? data;
 
         if (Array.isArray(ratesData)) {
-          // Shape B or D — already an array
           ratesArray = ratesData.map(item => ({
             code: String(item.code ?? item.Code ?? "").trim(),
             description: item.description ?? item.Description ?? "",
@@ -750,9 +777,7 @@ function ResultPage() {
             unit: item.unit ?? item.Unit ?? "CUM"
           }));
         } else if (ratesData && typeof ratesData === 'object') {
-          // Shape A or C — object keyed by code string
           ratesArray = Object.entries(ratesData).map(([code, value]) => {
-            // value may be: a plain number, or { rate, description, unit }
             if (typeof value === 'number') {
               return { code: String(code).trim(), description: `Excavation ${code}`, rate: value, unit: "CUM" };
             }
@@ -765,7 +790,6 @@ function ResultPage() {
           });
         }
 
-        console.log("📋 excavationRates parsed array:", ratesArray);
         setExcavationRates(ratesArray);
       } catch (error) {
         if (error.message === "AUTH_MISSING") return;
@@ -803,8 +827,6 @@ function ResultPage() {
         `&update_database=${updateDatabase}` +
         `&pump_room_distance=${distanceToUse}`;
 
-      console.log("🚀 FETCHING MEP:", constructionType);
-
       const response = await fetch(url, { headers });
 
       if (!response.ok) {
@@ -818,8 +840,6 @@ function ResultPage() {
         return;
       }
 
-      console.log("✅ API RESPONSE:", data);
-
       setResultData(data);
 
       if (data.quantities) {
@@ -827,18 +847,11 @@ function ResultPage() {
       }
 
       const civilData = data.civil_quantities || data.main_pool_quantities || {};
-      console.log("🏢 CIVIL DATA:", civilData);
 
       if (constructionType === "terrace") {
-        console.log("🏢 TERRACE MODE ENABLED");
         setCivilQuantities({
-          EarthExcavation_QTY: 0,
-          BackFilling_QTY: 0,
-          Consolidation_QTY: 0,
-          Disposal_QTY: 0,
-          Soling_QTY: 0,
-          plaincement_QTY: 0,
-          BurntBrick_QTY: 0,
+          EarthExcavation_QTY: 0, BackFilling_QTY: 0, Consolidation_QTY: 0, Disposal_QTY: 0,
+          Soling_QTY: 0, plaincement_QTY: 0, BurntBrick_QTY: 0,
           steelreinforcement_QTY: civilData?.steelreinforcement_QTY ?? 0,
           Shuttering_QTY: civilData?.Shuttering_QTY ?? 0,
           shotcreting_QTY: civilData?.shotcreting_QTY ?? 0,
@@ -848,9 +861,9 @@ function ResultPage() {
           Tiling_QTY: civilData?.Tiling_QTY ?? 0,
           excavation_split: civilData?.excavation_split || {},
           rcc_shuttering_split: civilData?.rcc_shuttering_split || {},
+          shotcreting_split: civilData?.shotcreting_split || {},   
         });
       } else {
-        console.log("⛰️ IN-GROUND MODE ENABLED");
         setCivilQuantities(civilData || {});
       }
 
@@ -864,8 +877,24 @@ function ResultPage() {
         setDynamicRates({
           filter_rate: data.system_parameters.filter_rate ?? 0,
           pump_rate: data.system_parameters.pump_rate ?? 0,
-          filter_description: data.system_parameters.filter_description || "",
-          pump_description: data.system_parameters.pump_description || "",
+          filter_description: (() => {
+            const mepItem1 = data.mep?.find(m => (m.SlNo ?? m.sl_no) === 1);
+            if (mepItem1?.Description && !mepItem1.Description.includes('{{')) {
+              return mepItem1.Description;
+            }
+            const sp = data.system_parameters.filter_description || "";
+            if (sp && !sp.includes('{{')) return sp;
+            return "";
+          })(),
+          pump_description: (() => {
+            const mepItem7 = data.mep?.find(m => (m.SlNo ?? m.sl_no) === 7);
+            if (mepItem7?.Description && !mepItem7.Description.includes('{{')) {
+              return mepItem7.Description;
+            }
+            const sp = data.system_parameters.pump_description || "";
+            if (sp && !sp.includes('{{')) return sp;
+            return "";
+          })(),
           source: data.system_parameters.rate_source || "no_match",
           exact_match: data.system_parameters.rate_source === "mep_rates_exact",
           hp_overridden: data.system_parameters.hp_overridden || false,
@@ -923,6 +952,16 @@ function ResultPage() {
   }, [dimensions.length, dimensions.width, dimensions.depth, poolType, constructionType, includeHeatPump, updateDatabase]);
 
   useEffect(() => {
+    if (!resultData?.mep?.length || !mepItems.length) return;
+    setMepItems(prev => prev.map(item => {
+      const calcItem = resultData.mep.find(m => (m.SlNo ?? m.sl_no) === item.SlNo);
+      if (calcItem?.Description && !calcItem.Description.includes('{{'))
+        return { ...item, Description: calcItem.Description };
+      return item;
+    }));
+  }, [resultData?.mep?.length, resultData?.system_parameters?.filter_diameter]);
+
+  useEffect(() => {
     fetchRealTimeExchangeRate();
     const interval = setInterval(fetchRealTimeExchangeRate, 3600000);
     return () => clearInterval(interval);
@@ -935,6 +974,9 @@ function ResultPage() {
   }, []);
 
   const getCivilQuantity = (slNo) => {
+    if (editableCivilQty[slNo] !== undefined) {
+      return Number(editableCivilQty[slNo]);
+    }
     const fieldName = MAIN_POOL_QTY_FIELDS[slNo];
     if (!fieldName) return 0;
     const value = civilQuantities?.[fieldName];
@@ -942,6 +984,9 @@ function ResultPage() {
   };
 
   const getBalanceTankQuantity = (slNo) => {
+    if (editableBalanceQty[slNo] !== undefined) {
+      return Number(editableBalanceQty[slNo]);
+    }
     if (slNo > 12) return 0;
     const fieldName = BALANCE_TANK_QTY_FIELDS[slNo];
     if (!fieldName) return 0;
@@ -950,6 +995,9 @@ function ResultPage() {
   };
 
   const getPumpRoomQuantity = (slNo) => {
+    if (editablePumpRoomQty[slNo] !== undefined) {
+      return Number(editablePumpRoomQty[slNo]);
+    }
     if (slNo > 12) return 0;
     const fieldName = PUMP_ROOM_QTY_FIELDS[slNo];
     if (!fieldName) return 0;
@@ -958,6 +1006,9 @@ function ResultPage() {
   };
 
   const getMepQuantity = (slNo) => {
+    if (editableMepQty[slNo] !== undefined) {
+      return Number(editableMepQty[slNo]);
+    }
     const fieldName = MEP_QTY_FIELDS[slNo];
     if (!fieldName) return 0;
     if (slNo >= 30 && slNo <= 34) return selectedAdvancedEquipment.includes(slNo) ? 1 : 0;
@@ -985,7 +1036,7 @@ function ResultPage() {
       }
       return total;
     }, 0);
-  }, [mainPoolItems, civilQuantities]);
+  }, [mainPoolItems, civilQuantities, editableCivilQty, editableSubRowQty]);
 
   const balanceTankTotal = useMemo(() => {
     if (!balanceTankItems.length) return 0;
@@ -995,7 +1046,7 @@ function ResultPage() {
       }
       return total;
     }, 0);
-  }, [balanceTankItems, balanceTankQuantities]);
+  }, [balanceTankItems, balanceTankQuantities, editableBalanceQty]);
 
   const pumpRoomTotal = useMemo(() => {
     if (!includePumpRoom || !balanceTankItems.length) return 0;
@@ -1005,7 +1056,7 @@ function ResultPage() {
       }
       return total;
     }, 0);
-  }, [balanceTankItems, pumpRoomQuantities, includePumpRoom]);
+  }, [balanceTankItems, pumpRoomQuantities, includePumpRoom, editablePumpRoomQty]);
 
   const baseMepTotals = useMemo(() => {
     let totalSupply = 0, totalInstallation = 0;
@@ -1017,7 +1068,7 @@ function ResultPage() {
       totalInstallation += quantity * getInstallationRate(item);
     });
     return { totalSupply, totalInstallation, grand: totalSupply + totalInstallation };
-  }, [filteredMepItems, mepQuantities, resultData, dynamicRates, includeHeatPump]);
+  }, [filteredMepItems, mepQuantities, resultData, dynamicRates, includeHeatPump, editableMepQty]);
 
   const baseMepTotal = baseMepTotals.grand;
 
@@ -1158,14 +1209,51 @@ function ResultPage() {
     </div>
   );
 
-  const renderImage = (imageData) => {
-    if (!imageData) return null;
-    const getFullPath = () => {
-      if (imageData.startsWith('data:image') || imageData.startsWith('http') || imageData.startsWith('/')) return imageData;
-      return `${API_BASE_URL}/admin/static/${imageData}`;
-    };
-    const fullPath = getFullPath();
-    return <img src={fullPath} alt="Item" className="item-image" onClick={() => setImageModal({ show: true, src: fullPath })} onError={(e) => { e.target.style.display = 'none'; }} />;
+  // ================================
+  // UPDATED renderImage FUNCTION - Table-specific override
+  // ================================
+  const renderImage = (imageData, item = null, tableType = "default") => {
+    // Only apply overrides for MEP table
+    const overrideImage = tableType === "mep" ? getOverflowMepImage(item) : null;
+
+    const imageSource = overrideImage || imageData;
+
+    console.log("OVERRIDE:", overrideImage);
+    console.log("IMAGE SOURCE:", imageSource);
+    console.log("TABLE TYPE:", tableType);
+
+    if (!imageSource) return "-";
+
+    let fullPath = "";
+
+    // If path starts with / (root relative), use as is (public folder)
+    if (imageSource.startsWith("/")) {
+      fullPath = imageSource;
+    } else {
+      // Backend image - prepend API base URL
+      fullPath = `${API_BASE_URL}/admin/static/${imageSource}`;
+    }
+
+    console.log("FINAL IMAGE PATH:", fullPath);
+
+    return (
+      <img
+        src={fullPath}
+        alt="Item"
+        className="item-image"
+        loading="lazy"
+        onClick={() =>
+          setImageModal({
+            show: true,
+            src: fullPath
+          })
+        }
+        onError={(e) => {
+          console.log("FAILED IMAGE:", fullPath);
+          e.target.style.display = "none";
+        }}
+      />
+    );
   };
 
   const calculateColSpan = () => {
@@ -1190,34 +1278,12 @@ function ResultPage() {
     return colSpan;
   };
 
-  // ================================
   // RENDER MAIN POOL TABLE
-  //
-  // ✅ ROOT CAUSE FIX FOR 9.x / 10.x RATES:
-  //
-  // Previously the code used a long if-else chain with hardcoded string keys.
-  // This was correct in principle, but the excavationRateMap was not being
-  // populated for 9.x / 10.x entries because:
-  //
-  //   1. The backend returned rates as a nested object { "9.1": { rate: 0 }, ... }
-  //      but the old parser only handled { rate: X } or a plain number at the
-  //      top level — it never recursed into nested objects for those keys.
-  //
-  //   2. The qty extractor used `backendData.qty ?? backendData ?? 0`. When
-  //      rcc_shuttering_split["9.1"] is a plain number (e.g. 5.2), JS coerces
-  //      the object fallback `?? backendData` to [object Object] → Number(NaN) → 0.
-  //
-  // FIXES APPLIED:
-  //   • getExcavationRate(subSlNo)  — safe lookup with logging
-  //   • getSplitQty(splitData, key) — handles plain numbers AND objects
-  //   • excavationRates fetch useEffect — handles ALL 4 API response shapes
-  // ================================
   const renderMainPoolTable = () => {
     if (!mainPoolItems.length) return <div className="no-data-message">No main pool data available.</div>;
     const filteredItems = mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo]);
 
-    // ✅ GET SPLIT DATA FROM BACKEND (safe fallback to empty object)
-    const excavationSplit = civilQuantities?.excavation_split || {};
+    const excavationSplit = civilQuantities?.excavation_split_qty || {};
     const rccShutteringSplit = civilQuantities?.rcc_shuttering_split || {};
 
     return (
@@ -1240,14 +1306,14 @@ function ResultPage() {
             {filteredItems.flatMap((item) => {
               const baseQty = getCivilQuantity(item.SlNo);
               const rows = [];
+              const itemDescription = item.Description || item.description || "N/A";
 
-              // ADD PARENT ROW (Title Row)
               rows.push(
                 <tr key={`main-${item.SlNo}`} className="parent-row">
                   <td data-label="Sl.No" className="parent-slno">{item.SlNo}</td>
                   {columnVisibility.code && <td data-label="Code" className="parent-code">{item.Code || "N/A"}</td>}
                   <td data-label="Description" className="description-cell parent-desc">
-                    {item.Description || "N/A"}
+                    {itemDescription}
                     {item.SlNo === 3 && baseQty > 0 && (
                       <div className="consolidation-badge"><small>🔨 Backfill Compaction</small></div>
                     )}
@@ -1255,7 +1321,7 @@ function ResultPage() {
                       <div className="disposal-badge"><small>🚛 Excess Soil Removal</small></div>
                     )}
                   </td>
-                  {columnVisibility.image && <td data-label="Image" className="image-cell parent-image">{item.Image ? renderImage(item.Image) : "-"}</td>}
+                  {columnVisibility.image && <td data-label="Image" className="image-cell parent-image">{item.Image ? renderImage(item.Image, item, "civil") : "-"}</td>}
                   {columnVisibility.unit && <td data-label="Unit" className="parent-unit">{item.Unit || ""}</td>}
                   {columnVisibility.qty && <td data-label="QTY" className="parent-qty"></td>}
                   {columnVisibility.fixedRate && <td data-label="Fixed Rate" className="parent-fixed-rate"></td>}
@@ -1264,79 +1330,47 @@ function ResultPage() {
                 </tr>
               );
 
-              // ✅ ADD SUB-ROWS FOR ITEMS 1, 9, 10
               if (SUB_ROWS[item.SlNo]) {
                 SUB_ROWS[item.SlNo].forEach((sub) => {
-
-                  // ✅ FIX: Use getExcavationRate() helper for ALL sub-rows uniformly
-                  // This replaces the brittle if-else chain and uses the corrected map
                   const rate = getExcavationRate(sub.slNo);
-
-                  // ✅ FIX: Use getSplitQty() helper that handles both plain numbers
-                  // and { qty: X } objects returned by the backend
                   let qty = 0;
-                  if (item.SlNo === 1) {
-                    qty = getSplitQty(excavationSplit, sub.slNo);
-                  } else if (item.SlNo === 9 || item.SlNo === 10) {
-                    qty = getSplitQty(rccShutteringSplit, sub.slNo);
+                  const editableSubQty = editableSubRowQty[sub.slNo];
+                  if (editableSubQty !== undefined) {
+                    qty = Number(editableSubQty);
+                  } else {
+                    if (item.SlNo === 1) {
+                      qty = getSplitQty(excavationSplit, sub.slNo);
+                    } else if (item.SlNo === 9 || item.SlNo === 10) {
+                      qty = getSplitQty(rccShutteringSplit, sub.slNo);
+                    }
                   }
-
                   const amount = qty * rate;
-
-                  // image and unit always inherited from parent
                   const subImage = item.Image ?? null;
                   const subUnit = item.Unit ?? "";
 
                   rows.push(
                     <tr key={`sub-${sub.slNo}`} className="sub-row">
                       <td data-label="Sl.No" className="sub-slno">{sub.slNo}</td>
-                      {columnVisibility.code && (
-                        <td data-label="Code" className="sub-code"></td>
-                      )}
-                      <td data-label="Description" className="description-cell sub-desc">
-                        {/* ✅ HARDCODED DESCRIPTION FROM SUB_ROWS constant */}
-                        ↳ {sub.description}
-                      </td>
-                      {columnVisibility.image && (
-                        <td data-label="Image" className="image-cell sub-image">
-                          {subImage ? renderImage(subImage) : "-"}
-                        </td>
-                      )}
-                      {columnVisibility.unit && (
-                        <td data-label="Unit" className="sub-unit">
-                          {subUnit}
-                        </td>
-                      )}
+                      {columnVisibility.code && (<td data-label="Code" className="sub-code"></td>)}
+                      <td data-label="Description" className="description-cell sub-desc">↳ {sub.description}</td>
+                      {columnVisibility.image && (<td data-label="Image" className="image-cell sub-image">{subImage ? renderImage(subImage, item, "civil") : "-"}</td>)}
+                      {columnVisibility.unit && (<td data-label="Unit" className="sub-unit">{subUnit}</td>)}
                       {columnVisibility.qty && (
                         <td data-label="QTY" className={`sub-qty ${qty ? "quantity-filled" : ""}`}>
-                          {safeToFixed(qty, 3)}
+                          <input type="number" step="0.001" value={qty} onChange={(e) => handleQtyChange("subrow", sub.slNo, e.target.value)} className="qty-input subrow-input" />
                         </td>
                       )}
-                      {columnVisibility.fixedRate && (
-                        <td data-label="Fixed Rate" className="sub-fixed-rate">
-                          {/* ✅ DYNAMIC RATE FROM excavationRateMap via getExcavationRate() */}
-                          {formatCurrency(rate)}
-                        </td>
-                      )}
-                      <td data-label="Amount" className="amount-cell sub-amount">
-                        {formatCurrency(amount)}
-                      </td>
+                      {columnVisibility.fixedRate && (<td data-label="Fixed Rate" className="sub-fixed-rate">{formatCurrency(rate)}</td>)}
+                      <td data-label="Amount" className="amount-cell sub-amount">{formatCurrency(amount)}</td>
                       {columnVisibility.remarks && (
                         <td data-label="Remarks" className="remarks-cell sub-remarks">
-                          <textarea
-                            className="remarks-textbox"
-                            placeholder="Add remarks..."
-                            value={mainPoolRemarks[`${item.SlNo}_${sub.slNo}`] || ""}
-                            onChange={(e) => setMainPoolRemarks(prev => ({ ...prev, [`${item.SlNo}_${sub.slNo}`]: e.target.value }))}
-                            rows="2"
-                          />
+                          <textarea className="remarks-textbox" placeholder="Add remarks..." value={mainPoolRemarks[`${item.SlNo}_${sub.slNo}`] || ""} onChange={(e) => setMainPoolRemarks(prev => ({ ...prev, [`${item.SlNo}_${sub.slNo}`]: e.target.value }))} rows="2" />
                         </td>
                       )}
                     </tr>
                   );
                 });
               } else if (baseQty > 0 && item.SlNo !== 9 && item.SlNo !== 10) {
-                // ✅ SHOW VALUES ONLY FOR NON-SPLIT ITEMS WITH QTY > 0
                 const rate = item.Rate || 0;
                 const amount = baseQty * rate;
 
@@ -1345,44 +1379,27 @@ function ResultPage() {
                     <td data-label="Sl.No" className="parent-slno">{item.SlNo}</td>
                     {columnVisibility.code && <td data-label="Code" className="parent-code">{item.Code || "N/A"}</td>}
                     <td data-label="Description" className="description-cell parent-desc">
-                      {item.Description || "N/A"}
-                      {item.SlNo === 3 && baseQty > 0 && (
-                        <div className="consolidation-badge"><small>🔨 Backfill Compaction</small></div>
-                      )}
-                      {item.SlNo === 4 && baseQty > 0 && (
-                        <div className="disposal-badge"><small>🚛 Excess Soil Removal</small></div>
-                      )}
+                      {itemDescription}
+                      {item.SlNo === 3 && baseQty > 0 && (<div className="consolidation-badge"><small>🔨 Backfill Compaction</small></div>)}
+                      {item.SlNo === 4 && baseQty > 0 && (<div className="disposal-badge"><small>🚛 Excess Soil Removal</small></div>)}
                     </td>
-                    {columnVisibility.image && <td data-label="Image" className="image-cell parent-image">{item.Image ? renderImage(item.Image) : "-"}</td>}
+                    {columnVisibility.image && <td data-label="Image" className="image-cell parent-image">{item.Image ? renderImage(item.Image, item, "civil") : "-"}</td>}
                     {columnVisibility.unit && <td data-label="Unit" className="parent-unit">{item.Unit || ""}</td>}
                     {columnVisibility.qty && (
                       <td data-label="QTY" className={`parent-qty ${baseQty ? "quantity-filled" : ""}`}>
-                        {safeToFixed(baseQty, 3)}
+                        <input type="number" step="0.001" value={baseQty} onChange={(e) => handleQtyChange("civil", item.SlNo, e.target.value)} className="qty-input" />
                       </td>
                     )}
-                    {columnVisibility.fixedRate && (
-                      <td data-label="Fixed Rate" className="parent-fixed-rate">
-                        {formatCurrency(rate)}
-                      </td>
-                    )}
-                    <td data-label="Amount" className="amount-cell parent-amount">
-                      {formatCurrency(amount)}
-                    </td>
+                    {columnVisibility.fixedRate && (<td data-label="Fixed Rate" className="parent-fixed-rate">{formatCurrency(rate)}</td>)}
+                    <td data-label="Amount" className="amount-cell parent-amount">{formatCurrency(amount)}</td>
                     {columnVisibility.remarks && (
                       <td data-label="Remarks" className="remarks-cell parent-remarks">
-                        <textarea
-                          className="remarks-textbox"
-                          placeholder="Add remarks..."
-                          value={mainPoolRemarks[item.SlNo] || ""}
-                          onChange={(e) => setMainPoolRemarks(prev => ({ ...prev, [item.SlNo]: e.target.value }))}
-                          rows="2"
-                        />
+                        <textarea className="remarks-textbox" placeholder="Add remarks..." value={mainPoolRemarks[item.SlNo] || ""} onChange={(e) => setMainPoolRemarks(prev => ({ ...prev, [item.SlNo]: e.target.value }))} rows="2" />
                       </td>
                     )}
                   </tr>
                 );
               }
-
               return rows;
             })}
           </tbody>
@@ -1391,16 +1408,13 @@ function ResultPage() {
               <td colSpan={calculateColSpan()} style={{ textAlign: 'right', fontWeight: 'bold' }}>Total:</td>
               <td className="amount-cell total-amount" style={{ fontWeight: 'bold' }}>{formatCurrency(mainPoolTotal)}</td>
               {columnVisibility.remarks && <td></td>}
-            </tr>
+             </tr>
           </tfoot>
         </table>
       </div>
     );
   };
 
-  // ================================
-  // RENDER BALANCE TANK TABLE - NO SUB-ROWS
-  // ================================
   const renderBalanceTankTable = () => {
     if (loadingBalanceTank) return <div className="loading-spinner">Loading balance tank data...</div>;
     if (!balanceTankItems.length) return <div className="no-data-message">No balance tank data available.</div>;
@@ -1428,42 +1442,33 @@ function ResultPage() {
               const baseQty = getBalanceTankQuantity(item.SlNo);
               const rate = item.Rate || 0;
               const amount = baseQty * rate;
+              const itemDescription = item.Description || item.description || "N/A";
 
               return (
                 <tr key={`bt-${item.SlNo}`}>
                   <td data-label="Sl.No">{item.SlNo}</td>
                   {columnVisibility.code && <td data-label="Code">{item.Code || "N/A"}</td>}
                   <td data-label="Description" className="description-cell">
-                    {item.Description || "N/A"}
+                    {itemDescription}
                     <div className="balance-tank-badge"><small>Balance Tank</small></div>
-                    {item.SlNo === 3 && baseQty > 0 && (
-                      <div className="consolidation-badge"><small>🔨 Backfill Compaction</small></div>
-                    )}
-                    {item.SlNo === 4 && baseQty > 0 && (
-                      <div className="disposal-badge"><small>🚛 Excess Soil Removal</small></div>
-                    )}
+                    {item.SlNo === 3 && baseQty > 0 && (<div className="consolidation-badge"><small>🔨 Backfill Compaction</small></div>)}
+                    {item.SlNo === 4 && baseQty > 0 && (<div className="disposal-badge"><small>🚛 Excess Soil Removal</small></div>)}
                   </td>
-                  {columnVisibility.image && <td data-label="Image" className="image-cell">{item.Image ? renderImage(item.Image) : "-"}</td>}
+                  {columnVisibility.image && <td data-label="Image" className="image-cell">{item.Image ? renderImage(item.Image, item, "balance") : "-"}</td>}
                   {columnVisibility.unit && <td data-label="Unit">{item.Unit || ""}</td>}
                   {columnVisibility.qty && (
                     <td data-label="QTY" className={baseQty ? "quantity-filled" : ""}>
-                      {safeToFixed(baseQty, 3)}
+                      <input type="number" step="0.001" value={baseQty} onChange={(e) => handleQtyChange("balance", item.SlNo, e.target.value)} className="qty-input" />
                     </td>
                   )}
                   {columnVisibility.fixedRate && <td data-label="Fixed Rate">{formatCurrency(rate)}</td>}
                   <td data-label="Amount" className="amount-cell">{formatCurrency(amount)}</td>
                   {columnVisibility.remarks && (
                     <td data-label="Remarks" className="remarks-cell">
-                      <textarea
-                        className="remarks-textbox"
-                        placeholder="Add remarks..."
-                        value={balanceTankRemarks[item.SlNo] || ""}
-                        onChange={(e) => setBalanceTankRemarks(prev => ({ ...prev, [item.SlNo]: e.target.value }))}
-                        rows="2"
-                      />
+                      <textarea className="remarks-textbox" placeholder="Add remarks..." value={balanceTankRemarks[item.SlNo] || ""} onChange={(e) => setBalanceTankRemarks(prev => ({ ...prev, [item.SlNo]: e.target.value }))} rows="2" />
                     </td>
                   )}
-                </tr>
+                 </tr>
               );
             })}
           </tbody>
@@ -1479,9 +1484,6 @@ function ResultPage() {
     );
   };
 
-  // ================================
-  // RENDER PUMP ROOM TABLE - NO SUB-ROWS
-  // ================================
   const renderPumpRoomTable = () => {
     if (!includePumpRoom) {
       return (
@@ -1516,42 +1518,33 @@ function ResultPage() {
               const baseQty = getPumpRoomQuantity(item.SlNo);
               const rate = item.Rate || 0;
               const amount = baseQty * rate;
+              const itemDescription = item.Description || item.description || "N/A";
 
               return (
                 <tr key={`pr-${item.SlNo}`}>
                   <td data-label="Sl.No">{item.SlNo}</td>
                   {columnVisibility.code && <td data-label="Code">{item.Code || "N/A"}</td>}
                   <td data-label="Description" className="description-cell">
-                    {item.Description || "N/A"}
+                    {itemDescription}
                     <div className="pump-room-badge"><small>Pump Room</small></div>
-                    {item.SlNo === 3 && baseQty > 0 && (
-                      <div className="consolidation-badge"><small>🔨 Backfill Compaction</small></div>
-                    )}
-                    {item.SlNo === 4 && baseQty > 0 && (
-                      <div className="disposal-badge"><small>🚛 Excess Soil Removal</small></div>
-                    )}
-                  </td>
-                  {columnVisibility.image && <td data-label="Image" className="image-cell">{item.Image ? renderImage(item.Image) : "-"}</td>}
+                    {item.SlNo === 3 && baseQty > 0 && (<div className="consolidation-badge"><small>🔨 Backfill Compaction</small></div>)}
+                    {item.SlNo === 4 && baseQty > 0 && (<div className="disposal-badge"><small>🚛 Excess Soil Removal</small></div>)}
+                   </td>
+                  {columnVisibility.image && <td data-label="Image" className="image-cell">{item.Image ? renderImage(item.Image, item, "pump") : "-"}</td>}
                   {columnVisibility.unit && <td data-label="Unit">{item.Unit || ""}</td>}
                   {columnVisibility.qty && (
                     <td data-label="QTY" className={baseQty ? "quantity-filled" : ""}>
-                      {safeToFixed(baseQty, 3)}
+                      <input type="number" step="0.001" value={baseQty} onChange={(e) => handleQtyChange("pump", item.SlNo, e.target.value)} className="qty-input" />
                     </td>
                   )}
                   {columnVisibility.fixedRate && <td data-label="Fixed Rate">{formatCurrency(rate)}</td>}
                   <td data-label="Amount" className="amount-cell">{formatCurrency(amount)}</td>
                   {columnVisibility.remarks && (
                     <td data-label="Remarks" className="remarks-cell">
-                      <textarea
-                        className="remarks-textbox"
-                        placeholder="Add remarks..."
-                        value={pumpRoomRemarks[item.SlNo] || ""}
-                        onChange={(e) => setPumpRoomRemarks(prev => ({ ...prev, [item.SlNo]: e.target.value }))}
-                        rows="2"
-                      />
+                      <textarea className="remarks-textbox" placeholder="Add remarks..." value={pumpRoomRemarks[item.SlNo] || ""} onChange={(e) => setPumpRoomRemarks(prev => ({ ...prev, [item.SlNo]: e.target.value }))} rows="2" />
                     </td>
                   )}
-                </tr>
+                 </tr>
               );
             })}
           </tbody>
@@ -1606,15 +1599,8 @@ function ResultPage() {
                   {columnVisibility.remarks && <th rowSpan="2">Remarks</th>}
                 </tr>
                 <tr>
-                  {columnVisibility.fixedRate && (
-                    <>
-                      <th>Supply</th>
-                      <th>Installation</th>
-                    </>
-                  )}
-                  <th>Supply</th>
-                  <th>Installation</th>
-                  <th>Grand Total</th>
+                  {columnVisibility.fixedRate && (<><th>Supply</th><th>Installation</th></>)}
+                  <th>Supply</th><th>Installation</th><th>Grand Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -1628,64 +1614,36 @@ function ResultPage() {
                   const isZeroQuantity = quantity === 0;
                   const isOverflowGrating = hasOverflowGrating && item.SlNo === 11;
                   const isGutterDrain = hasOverflowGrating && item.SlNo === 13;
+                  let description = getResolvedMepDescription(item.SlNo, item);
 
                   return (
                     <tr key={item.SlNo} className={isZeroQuantity ? 'zero-quantity-row' : ''}>
                       <td data-label="Sl.No">{item.SlNo}</td>
                       {columnVisibility.code && <td data-label="Code">{item.Code || "N/A"}</td>}
                       <td data-label="Description" className="description-cell">
-                        {item.Description || "N/A"}
-                        {isOverflowGrating && (
-                          <div className="overflow-grating-badge">
-                            <small>⭐ Overflow Grating (replaces Skimmer)</small>
-                          </div>
-                        )}
-                        {isGutterDrain && (
-                          <div className="gutter-drain-badge">
-                            <small>Gutter Drain</small>
-                          </div>
-                        )}
+                        {description}
+                        {isOverflowGrating && (<div className="overflow-grating-badge"><small>⭐ Overflow Grating (replaces Skimmer)</small></div>)}
+                        {isGutterDrain && (<div className="gutter-drain-badge"><small>Gutter Drain</small></div>)}
                         {(item.SlNo === 1 || item.SlNo === 7) && (
                           <div className="dynamic-rate-indicator">
-                            <small>
-                              {dynamicRates.source === "mep_rates_exact"
-                                ? "✅ Exact match"
-                                : dynamicRates.source === "mep_rates_closest"
-                                ? "⚠️ Closest match"
-                                : "❌ No match - rate 0"}
-                            </small>
+                            <small>{dynamicRates.source === "mep_rates_exact" ? "✅ Exact match" : dynamicRates.source === "mep_rates_closest" ? "⚠️ Closest match" : "❌ No match - rate 0"}</small>
                           </div>
                         )}
-                      </td>
-                      {columnVisibility.image && (
-                        <td data-label="Image" className="image-cell">
-                          {item.Image ? renderImage(item.Image) : "-"}
-                        </td>
-                      )}
+                       </td>
+                      {columnVisibility.image && (<td data-label="Image" className="image-cell">{item.Image ? renderImage(item.Image, item, "mep") : "-"}</td>)}
                       {columnVisibility.unit && <td data-label="Unit">{item.Unit || ""}</td>}
                       {columnVisibility.qty && (
                         <td data-label="QTY" className={quantity ? "quantity-filled" : ""}>
-                          {safeToFixed(quantity, 2)}
+                          <input type="number" step="0.001" value={quantity} onChange={(e) => handleQtyChange("mep", item.SlNo, e.target.value)} className="qty-input" />
                         </td>
                       )}
-                      {columnVisibility.fixedRate && (
-                        <>
-                          <td data-label="Supply Rate">{formatCurrency(supplyRate)}</td>
-                          <td data-label="Installation Rate">{formatCurrency(installationRate)}</td>
-                        </>
-                      )}
+                      {columnVisibility.fixedRate && (<><td data-label="Supply Rate">{formatCurrency(supplyRate)}</td><td data-label="Installation Rate">{formatCurrency(installationRate)}</td></>)}
                       <td data-label="Supply Cost">{formatCurrency(supplyCost)}</td>
                       <td data-label="Installation Cost">{formatCurrency(installationCost)}</td>
                       <td data-label="Total Amount" className="amount-cell">{formatCurrency(totalAmount)}</td>
                       {columnVisibility.remarks && (
                         <td data-label="Remarks" className="remarks-cell">
-                          <textarea
-                            className="remarks-textbox"
-                            placeholder="Add remarks..."
-                            value={mepRemarks[item.SlNo] || ""}
-                            onChange={(e) => setMepRemarks(prev => ({ ...prev, [item.SlNo]: e.target.value }))}
-                            rows="2"
-                          />
+                          <textarea className="remarks-textbox" placeholder="Add remarks..." value={mepRemarks[item.SlNo] || ""} onChange={(e) => setMepRemarks(prev => ({ ...prev, [item.SlNo]: e.target.value }))} rows="2" />
                         </td>
                       )}
                     </tr>
@@ -1731,15 +1689,8 @@ function ResultPage() {
                   {columnVisibility.remarks && <th rowSpan="2">Remarks</th>}
                 </tr>
                 <tr>
-                  {columnVisibility.fixedRate && (
-                    <>
-                      <th>Supply</th>
-                      <th>Installation</th>
-                    </>
-                  )}
-                  <th>Supply</th>
-                  <th>Installation</th>
-                  <th>Total</th>
+                  {columnVisibility.fixedRate && (<><th>Supply</th><th>Installation</th></>)}
+                  <th>Supply</th><th>Installation</th><th>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -1751,44 +1702,26 @@ function ResultPage() {
                   const supplyCost = getSupplyCost(item, quantity);
                   const installationCost = getInstallationCost(item, quantity);
                   const totalAmount = getRowTotal(item, quantity);
+                  const itemDescription = item.Description || item.description || "N/A";
 
                   return (
                     <tr key={item.SlNo} className={!isSelected ? 'equipment-not-selected' : ''}>
                       <td>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleAdvancedEquipmentToggle(item.SlNo)}
-                        />
+                        <input type="checkbox" checked={isSelected} onChange={() => handleAdvancedEquipmentToggle(item.SlNo)} />
                       </td>
                       <td data-label="Sl.No">{item.SlNo}</td>
                       {columnVisibility.code && <td data-label="Code">{item.Code || "N/A"}</td>}
-                      <td data-label="Description" className="description-cell">{item.Description || "N/A"}</td>
-                      {columnVisibility.image && (
-                        <td data-label="Image" className="image-cell">
-                          {item.Image ? renderImage(item.Image) : "-"}
-                        </td>
-                      )}
+                      <td data-label="Description" className="description-cell">{itemDescription}</td>
+                      {columnVisibility.image && (<td data-label="Image" className="image-cell">{item.Image ? renderImage(item.Image, item, "mep") : "-"}</td>)}
                       {columnVisibility.unit && <td data-label="Unit">{item.Unit || ""}</td>}
                       {columnVisibility.qty && <td data-label="QTY">{isSelected ? "1" : "0"}</td>}
-                      {columnVisibility.fixedRate && (
-                        <>
-                          <td data-label="Supply Rate">{formatCurrency(supplyRate)}</td>
-                          <td data-label="Installation Rate">{formatCurrency(installationRate)}</td>
-                        </>
-                      )}
+                      {columnVisibility.fixedRate && (<><td data-label="Supply Rate">{formatCurrency(supplyRate)}</td><td data-label="Installation Rate">{formatCurrency(installationRate)}</td></>)}
                       <td data-label="Supply Cost">{formatCurrency(supplyCost)}</td>
                       <td data-label="Installation Cost">{formatCurrency(installationCost)}</td>
                       <td data-label="Total Amount" className="amount-cell">{formatCurrency(totalAmount)}</td>
                       {columnVisibility.remarks && (
                         <td data-label="Remarks" className="remarks-cell">
-                          <textarea
-                            className="remarks-textbox"
-                            placeholder="Add remarks..."
-                            value={mepRemarks[item.SlNo] || ""}
-                            onChange={(e) => setMepRemarks(prev => ({ ...prev, [item.SlNo]: e.target.value }))}
-                            rows="2"
-                          />
+                          <textarea className="remarks-textbox" placeholder="Add remarks..." value={mepRemarks[item.SlNo] || ""} onChange={(e) => setMepRemarks(prev => ({ ...prev, [item.SlNo]: e.target.value }))} rows="2" />
                         </td>
                       )}
                     </tr>
@@ -1858,31 +1791,45 @@ function ResultPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
-                  <tr key={`${item.sl_no}-${item.type}`} className={item.quantity === 0 ? 'zero-quantity-row' : ''}>
-                    <td data-label="Sl.No">{item.sl_no}</td>
-                    {columnVisibility.code && <td data-label="Code">{item.code || "-"}</td>}
-                    <td data-label="Description" className="description-cell">{item.description || "-"}</td>
-                    <td data-label="Dia (mm)">{item.dia !== undefined && item.dia !== null && item.dia !== 0 ? `${item.dia} mm` : "-"}</td>
-                    {columnVisibility.qty && <td data-label="Qty" className={item.quantity ? "quantity-filled" : "quantity-zero"}>{safeToFixed(item.quantity, 2)}</td>}
-                    {columnVisibility.unit && <td data-label="Unit">{item.unit}</td>}
-                    {columnVisibility.fixedRate && <><td data-label="Supply Rate">{formatCurrency(item.supply_rate)}</td><td data-label="Installation Rate">{formatCurrency(item.installation_rate)}</td></>}
-                    <td data-label="Supply Cost">{formatCurrency(item.supply_cost)}</td>
-                    <td data-label="Installation Cost">{formatCurrency(item.installation_cost)}</td>
-                    <td data-label="Total Amount" className="amount-cell">{formatCurrency(item.total)}</td>
-                    {columnVisibility.remarks && (
-                      <td data-label="Remarks" className="remarks-cell">
-                        <textarea className="remarks-textbox" placeholder="Add remarks..." value={mepRemarks[`piping_${item.sl_no}`] || ""} onChange={(e) => setMepRemarks(prev => ({ ...prev, [`piping_${item.sl_no}`]: e.target.value }))} rows="2" />
-                      </td>
-                    )}
-                  </tr>
-                ))}
+                {items.map((item) => {
+                  const quantity = editablePipingQty[item.sl_no] !== undefined ? editablePipingQty[item.sl_no] : item.quantity;
+                  const supplyCost = quantity * item.supply_rate;
+                  const installationCost = quantity * item.installation_rate;
+                  const total = supplyCost + installationCost;
+
+                  return (
+                    <tr key={`${item.sl_no}-${item.type}`} className={quantity === 0 ? 'zero-quantity-row' : ''}>
+                      <td data-label="Sl.No">{item.sl_no}</td>
+                      {columnVisibility.code && <td data-label="Code">{item.code || "-"}</td>}
+                      <td data-label="Description" className="description-cell">{item.description || "-"}</td>
+                      <td data-label="Dia (mm)">{item.dia !== undefined && item.dia !== null && item.dia !== 0 ? `${item.dia} mm` : "-"}</td>
+                      {columnVisibility.qty && (
+                        <td data-label="Qty" className={quantity ? "quantity-filled" : "quantity-zero"}>
+                          <input type="number" step="0.001" value={quantity} onChange={(e) => handleQtyChange("piping", item.sl_no, e.target.value)} className="qty-input" />
+                        </td>
+                      )}
+                      {columnVisibility.unit && <td data-label="Unit">{item.unit}</td>}
+                      {columnVisibility.fixedRate && (<><td data-label="Supply Rate">{formatCurrency(item.supply_rate)}</td><td data-label="Installation Rate">{formatCurrency(item.installation_rate)}</td></>)}
+                      <td data-label="Supply Cost">{formatCurrency(supplyCost)}</td>
+                      <td data-label="Installation Cost">{formatCurrency(installationCost)}</td>
+                      <td data-label="Total Amount" className="amount-cell">{formatCurrency(total)}</td>
+                      {columnVisibility.remarks && (
+                        <td data-label="Remarks" className="remarks-cell">
+                          <textarea className="remarks-textbox" placeholder="Add remarks..." value={mepRemarks[`piping_${item.sl_no}`] || ""} onChange={(e) => setMepRemarks(prev => ({ ...prev, [`piping_${item.sl_no}`]: e.target.value }))} rows="2" />
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="table-subtotal">
                   <td colSpan={calculatePipingColSpan()} style={{ textAlign: 'right', fontWeight: 'bold' }}>Section Total:</td>
-                  <td className="amount-cell" style={{ fontWeight: 'bold' }}>{formatCurrency(items.reduce((sum, item) => sum + item.total, 0))}</td>
-                  {columnVisibility.remarks && <td></td>}
+                  <td className="amount-cell" style={{ fontWeight: 'bold' }}>{formatCurrency(items.reduce((sum, item) => {
+                    const qty = editablePipingQty[item.sl_no] !== undefined ? editablePipingQty[item.sl_no] : item.quantity;
+                    return sum + (qty * (item.supply_rate + item.installation_rate));
+                  }, 0))}</td>
+                  {columnVisibility.remarks && <td className="subtotal-empty"></td>}
                 </tr>
               </tfoot>
             </table>
@@ -1946,414 +1893,422 @@ function ResultPage() {
   };
 
   const downloadPDF = async () => {
-    try {
-      if (!Object.values(selectedTables).some(Boolean)) {
-        alert("⚠️ Please select at least one table to export!");
-        return;
-      }
-
-      const safeMainPoolItems = Array.isArray(mainPoolItems)
-        ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo])
-        : [];
-
-      const safeBalanceTankItems = Array.isArray(balanceTankItems)
-        ? balanceTankItems.filter(item => item.SlNo <= 12 && BALANCE_TANK_QTY_FIELDS[item.SlNo])
-        : [];
-
-      const safeMepItems = Array.isArray(filteredMepItems) ? filteredMepItems : [];
-      const safePumpRoomItems = Array.isArray(pumpRoomItems) ? pumpRoomItems : [];
-      const safePipingItems = Array.isArray(pipingItems) ? pipingItems : [];
-      const safeCivilQuantities = civilQuantities || {};
-      const safeMepQuantities = mepQuantities || {};
-      const safeBalanceTankQuantities = balanceTankQuantities || {};
-      const safePumpRoomQuantities = pumpRoomQuantities || {};
-      const safeDynamicRates = dynamicRates || {};
-      const safeCompanyProfile = companyProfile || {};
-
-      const detectedPoolType =
-        resultData?.pool_type ||
-        resultData?.system_parameters?.pool_type ||
-        poolType ||
-        "overflow";
-
-      const detectedConstructionType =
-        resultData?.constructionType ||
-        resultData?.construction_type ||
-        "in-ground";
-
-      await generatePDF({
-        resultData,
-        poolType: detectedPoolType,
-        constructionType: detectedConstructionType,
-        dimensions: dimensions || {},
-        pumpRoomDimensions: pumpRoomDimensions || {},
-        mainPoolItems: selectedTables.mainPool ? safeMainPoolItems : [],
-        mainPoolTotal: Number(mainPoolTotal || 0),
-        civilQuantities: safeCivilQuantities,
-        mainPoolRemarks: mainPoolRemarks || {},
-        hasBalancingTank: true,
-        balanceTankItems: selectedTables.balancingTank ? safeBalanceTankItems : [],
-        balanceTankQuantities: safeBalanceTankQuantities,
-        balanceTankTotal: Number(balanceTankTotal || 0),
-        balanceTankRemarks: balanceTankRemarks || {},
-        mepItems: selectedTables.mep ? safeMepItems : [],
-        mepQuantities: safeMepQuantities,
-        mepTotal: Number(totalMepCost || 0),
-        mepRemarks: mepRemarks || {},
-        includePumpRoom: selectedTables.pumpRoom ? (includePumpRoom || false) : false,
-        pumpRoomItems: selectedTables.pumpRoom ? safePumpRoomItems : [],
-        pumpRoomQuantities: safePumpRoomQuantities,
-        pumpRoomTotal: selectedTables.pumpRoom ? Number(pumpRoomTotal || 0) : 0,
-        pumpRoomRemarks: pumpRoomRemarks || {},
-        pipingItems: selectedTables.piping ? safePipingItems : [],
-        pipingTotal: Number(pipingTotals?.grandTotal || 0),
-        pumpRoomDistance: pumpRoomDistance || 15,
-        overflowGratingData: detectedPoolType === "overflow" ? overflowGratingData : null,
-        dynamicRates: safeDynamicRates,
-        templateDescriptions: templateDescriptions || {},
-        selectedTables: selectedTables || {},
-        columnVisibility: columnVisibility || {},
-        selectedAdvancedEquipment: selectedAdvancedEquipment || [],
-        currency: currency || "INR",
-        exchangeRate: exchangeRate || 83,
-        companyProfile: safeCompanyProfile,
-        excavationSplit: civilQuantities?.excavation_split || {},
-        rccShutteringSplit: civilQuantities?.rcc_shuttering_split || {},
-        excavationRates: excavationRates || [],
-      });
-
-    } catch (error) {
-      console.error("❌ Overflow PDF Error:", error);
-      alert("PDF generation failed. Check console for details.");
+  try {
+    if (!Object.values(selectedTables).some(Boolean)) {
+      alert("⚠️ Please select at least one table to export!");
+      return;
     }
-  };
 
-  const downloadExcel = async () => {
-    if (!Object.values(selectedTables).some(Boolean)) { alert("⚠️ Please select at least one table to export!"); return; }
-    await generateExcelReport(
+    // ============================================================
+    // STEP 1 — SAFE ARRAYS
+    // ============================================================
+    const safeMainPoolItems = Array.isArray(mainPoolItems)
+      ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo])
+      : [];
+
+    const safeBalanceTankItems = Array.isArray(balanceTankItems)
+      ? balanceTankItems.filter(
+          item => item.SlNo <= 12 && BALANCE_TANK_QTY_FIELDS[item.SlNo]
+        )
+      : [];
+
+    const safeMepItems   = Array.isArray(filteredMepItems) ? filteredMepItems : [];
+    const safePumpRoomItems = Array.isArray(pumpRoomItems)  ? pumpRoomItems   : [];
+    const safePipingItems   = Array.isArray(pipingItems)    ? pipingItems     : [];
+
+    // ============================================================
+    // STEP 2 — SAFE OBJECTS
+    // ============================================================
+    const safeCivilQuantities     = civilQuantities     || {};
+    const safeMepQuantities        = mepQuantities       || {};
+    const safeBalanceTankQuantities = balanceTankQuantities || {};
+    const safePumpRoomQuantities   = pumpRoomQuantities  || {};
+    const safeDynamicRates         = dynamicRates        || {};
+    const safeCompanyProfile       = companyProfile      || {};
+
+    // ============================================================
+    // STEP 3 — DETECTED POOL / CONSTRUCTION TYPE
+    // ============================================================
+    const detectedPoolType =
+      resultData?.pool_type ||
+      resultData?.system_parameters?.pool_type ||
+      poolType ||
+      "overflow";
+
+    const detectedConstructionType =
+      resultData?.construction_type ||
+      resultData?.constructionType ||
+      constructionType ||
+      "in-ground";
+
+    // ============================================================
+    // STEP 4 — EXCAVATION SPLIT (SlNo 1 sub-rows)
+    // ============================================================
+    const excavationSplit =
+      safeCivilQuantities?.excavation_split ||
+      safeCivilQuantities?.excavation_split_qty ||
+      resultData?.civil_quantities?.excavation_split ||
+      {};
+
+    // ============================================================
+    // STEP 5 — SHOTCRETING SPLIT (SlNo 10 → 10.1 / 10.2)
+    //
+    // Overflow backend stores this inside civil_quantities.
+    // We set civilQuantities = civilData (raw data.civil_quantities)
+    // for non-terrace, so safeCivilQuantities IS civil_quantities.
+    //
+    // Key priority:
+    //   1. shotcreting_split  — overflow non-terrace standard key
+    //   2. rcc_shuttering_split — overflow sometimes uses a combined split
+    //   3. rcc_split            — skimmer fallback key
+    //   4. resultData direct    — last resort
+    // ============================================================
+    const shotcretingSplit =
+      safeCivilQuantities?.shotcreting_split        ||
+      safeCivilQuantities?.rcc_shuttering_split     ||   // ← overflow may combine both here
+      safeCivilQuantities?.rcc_split                ||
+      resultData?.civil_quantities?.shotcreting_split ||
+      resultData?.civil_quantities?.rcc_shuttering_split ||
+      resultData?.shotcreting_split                 ||
+      resultData?.rcc_subrows                       ||
+      {};
+
+    // ============================================================
+    // STEP 6 — RCC SHUTTERING SPLIT (SlNo 9 → 9.1 / 9.2)
+    //
+    // Same logic — prefer the more specific key first.
+    // ============================================================
+    const rccShutteringSplit =
+      safeCivilQuantities?.rcc_shuttering_split     ||
+      safeCivilQuantities?.shuttering_split         ||
+      safeCivilQuantities?.shotcreting_split        ||   // ← if backend uses one key for both
+      resultData?.civil_quantities?.rcc_shuttering_split ||
+      resultData?.civil_quantities?.shuttering_split ||
+      resultData?.rcc_shuttering_split              ||
+      resultData?.shuttering_subrows                ||
+      {};
+
+    // ============================================================
+    // STEP 7 — DEBUG LOG (remove after confirming fix)
+    // ============================================================
+    console.log("=== OVERFLOW PDF SPLIT DEBUG ===");
+    console.log("civilQuantities keys    :", Object.keys(safeCivilQuantities));
+    console.log("excavationSplit         :", excavationSplit);
+    console.log("shotcretingSplit (10.x) :", shotcretingSplit);
+    console.log("rccShutteringSplit (9.x):", rccShutteringSplit);
+    console.log("10.1 value              :", shotcretingSplit?.["10.1"]);
+    console.log("10.2 value              :", shotcretingSplit?.["10.2"]);
+    console.log("9.1  value              :", rccShutteringSplit?.["9.1"]);
+    console.log("9.2  value              :", rccShutteringSplit?.["9.2"]);
+    console.log("================================");
+
+    // ============================================================
+    // STEP 8 — CALL generatePDF
+    // Note: shotcretingSplit and rccShutteringSplit MUST be passed
+    // with exactly these key names — the safe wrapper in download.jsx
+    // reads pdfData.shotcretingSplit and pdfData.rccShutteringSplit.
+    // ============================================================
+    await generatePDF({
+      // ── Core ───────────────────────────────────────────────────
       resultData,
-      selectedTables.mainPool ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo]) : [],
-      selectedTables.mep ? filteredMepItems : [],
-      selectedTables.balancingTank ? balanceTankItems.filter(item => item.SlNo <= 12 && BALANCE_TANK_QTY_FIELDS[item.SlNo]) : [],
-      dimensions, totalMepCost, mainPoolTotal,
-      selectedTables.balancingTank ? balanceTankTotal : 0,
-      mainPoolRemarks, mepRemarks, balanceTankRemarks, {},
-      dynamicRates, currency, exchangeRate,
-      selectedTables.pumpRoom ? includePumpRoom : false,
-      pumpRoomDimensions, constructionType, selectedAdvancedEquipment,
-      columnVisibility, selectedTables, 'overflow',
-      selectedTables.pumpRoom ? pumpRoomTotal : 0, pumpRoomRemarks, pumpRoomQuantities,
-      0, 0, 0, 0,
-      poolType === "overflow" ? overflowGratingData : null,
-      selectedTables.piping ? pipingItems : [], pipingTotals.grandTotal,
-      companyProfile
-    );
-  };
+      poolType:          detectedPoolType,
+      constructionType:  detectedConstructionType,
+      dimensions:        dimensions          || {},
+      pumpRoomDimensions: pumpRoomDimensions || {},
 
+      // ── Main Pool Civil ────────────────────────────────────────
+      mainPoolItems:     selectedTables.mainPool ? safeMainPoolItems : [],
+      mainPoolTotal:     Number(mainPoolTotal || 0),
+      civilQuantities:   safeCivilQuantities,
+      mainPoolRemarks:   mainPoolRemarks || {},
+
+      // ── Balance Tank ───────────────────────────────────────────
+      hasBalancingTank:        true,
+      balanceTankItems:        selectedTables.balancingTank ? safeBalanceTankItems : [],
+      balanceTankQuantities:   safeBalanceTankQuantities,
+      balanceTankTotal:        Number(balanceTankTotal || 0),
+      balanceTankRemarks:      balanceTankRemarks || {},
+
+      // ── MEP ────────────────────────────────────────────────────
+      mepItems:        selectedTables.mep ? safeMepItems : [],
+      mepQuantities:   safeMepQuantities,
+      mepTotal:        Number(totalMepCost || 0),
+      mepRemarks:      mepRemarks || {},
+
+      // ── Pump Room ──────────────────────────────────────────────
+      includePumpRoom:    selectedTables.pumpRoom ? (includePumpRoom || false) : false,
+      pumpRoomItems:      selectedTables.pumpRoom ? safePumpRoomItems : [],
+      pumpRoomQuantities: safePumpRoomQuantities,
+      pumpRoomTotal:      selectedTables.pumpRoom ? Number(pumpRoomTotal || 0) : 0,
+      pumpRoomRemarks:    pumpRoomRemarks || {},
+
+      // ── Piping ─────────────────────────────────────────────────
+      pipingItems:      selectedTables.piping ? safePipingItems : [],
+      pipingTotal:      Number(pipingTotals?.grandTotal || 0),
+      pumpRoomDistance: pumpRoomDistance || 15,
+
+      // ── MEP Rates / Equipment ──────────────────────────────────
+      dynamicRates:             safeDynamicRates,
+      selectedAdvancedEquipment: selectedAdvancedEquipment || [],
+
+      // ── Overflow specific ──────────────────────────────────────
+      overflowGratingData:
+        detectedPoolType === "overflow" ? overflowGratingData : null,
+
+      // ── Display Options ────────────────────────────────────────
+      templateDescriptions: templateDescriptions || {},
+      selectedTables:       selectedTables       || {},
+      columnVisibility:     columnVisibility     || {},
+      currency:             currency             || "INR",
+      exchangeRate:         exchangeRate         || 83,
+      companyProfile:       safeCompanyProfile,
+
+      // ── SPLIT DATA — exact key names required by generatePDF ───
+      shotcretingSplit:  shotcretingSplit,    // SlNo 10 → 10.1 / 10.2
+      rccShutteringSplit: rccShutteringSplit, // SlNo 9  → 9.1  / 9.2
+
+      // ── Extra refs (used by excavation sub-rows) ───────────────
+      excavationSplit:  excavationSplit,
+      excavationRates:  excavationRates || [],
+    });
+
+  } catch (error) {
+    console.error("❌ Overflow PDF Error:", error);
+    alert("PDF generation failed. Check console.");
+  }
+};
+
+  // ============================================================
+  // MAIN RETURN WITH COLLAPSIBLE SIDEBAR
+  // ============================================================
   return (
     <div className="result-page">
+      <style>{`
+        .qty-input {
+          width: 90px;
+          min-width: 90px;
+          padding: 6px 8px;
+          border: 1px solid #cfd8dc;
+          border-radius: 6px;
+          text-align: center;
+          font-size: 14px;
+          font-weight: 600;
+          background: #fff;
+          transition: all 0.2s ease;
+        }
+        .qty-input:focus {
+          outline: none;
+          border-color: #1976d2;
+          box-shadow: 0 0 4px rgba(25,118,210,0.3);
+        }
+        .subrow-input {
+          background: #f8f9fa;
+        }
+        .quantity-filled input {
+          background: #f1fff3;
+        }
+      `}</style>
+
       <header className="header-section">
         <div className="page-header">
           <div className="header-content">
             <h1>Overflow Pool Calculation Results</h1>
-            <p className="subtitle">A detailed summary of your Overflow Pool's construction, MEP components, piping system, and cost estimates</p>
+            <p className="subtitle" style={{ color: "gray" }}>A detailed summary of your Overflow Pool's construction, MEP components, piping system, and cost estimates</p>
           </div>
-
-          <div className="header-actions_1">
-            <div className="dropdown">
-              <button className="download-button" onClick={(e) => { e.stopPropagation(); toggleDropdown('download'); }}>
-                <span className="download-icon">⬇️</span> Download
-              </button>
-              <div className={`dropdown-menu ${openDropdown === 'download' ? 'show' : ''}`}>
-                <button onClick={downloadPDF} className="dropdown-item"><span className="download-icon">📄</span> PDF Report</button>
-                <ExcelDownloadButton
-  resultData={resultData}
-  mainPoolData={selectedTables.mainPool ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo]) : []}
-  mepItems={selectedTables.mep ? filteredMepItems : []}
-  dimensions={dimensions}
-  totalMep={selectedTables.mep ? totalMepCost : 0}
-  mainPoolTotal={selectedTables.mainPool ? mainPoolTotal : 0}
-  balancingRows={selectedTables.balancingTank ? balanceTankItems : []}
-  balancingTankTotal={selectedTables.balancingTank ? balanceTankTotal : 0}
-  poolType="overflow"
-  hasBalancingTank={true}
-  includePumpRoomExcel={selectedTables.pumpRoom ? includePumpRoom : false}
-  mainPoolRemarks={mainPoolRemarks}
-  balancingTankRemarks={balanceTankRemarks}
-  mepRemarks={mepRemarks}
-  pumpRoomRemarks={pumpRoomRemarks}
-  templateDescriptions={{}}
-  totalMepWithFittings={selectedTables.mep ? totalMepCost : 0}
-  currentRates={dynamicRates}
-  currency={currency}
-  exchangeRate={exchangeRate}
-  pumpRoomDimensions={pumpRoomDimensions}
-  pumpRoomQuantities={pumpRoomQuantities}
-  constructionType={constructionType}
-  pumpRoomTotal={selectedTables.pumpRoom && includePumpRoom ? pumpRoomTotal : 0}
-  pumpRoomRemarksExcel={pumpRoomRemarks}
-  selectedAdvancedEquipment={selectedAdvancedEquipment}
-  pumpRoomData={selectedTables.pumpRoom ? balanceTankItems : []}
-  pumpRoomRows={[]}
-  columnVisibility={columnVisibility}
-  selectedTables={selectedTables}
-  poolTypeForFilter="overflow"
-  overflowGratingData={poolType === "overflow" ? overflowGratingData : null}
-  pipingItems={selectedTables.piping ? pipingItems : []}
-  pipingTotal={selectedTables.piping ? pipingTotals.grandTotal : 0}
-  
-  // ✅ COMPLETELY REWRITTEN civilQuantities with proper rate extraction
-  civilQuantities={(() => {
-    // Step 1: Get the raw split data from all possible sources
-    const rawSplit = 
-      civilQuantities?.rcc_shuttering_split || 
-      resultData?.civil_quantities?.rcc_shuttering_split || 
-      resultData?.rcc_shuttering_split || 
-      {};
-    
-    const rawExcavation = 
-      civilQuantities?.excavation_split || 
-      resultData?.civil_quantities?.excavation_split || 
-      resultData?.excavation_split || 
-      {};
-    
-    // Step 2: Get rates from excavationRateMap (same as Results page uses)
-    const getRateForKey = (key) => {
-      // Try from excavationRates first (same source as Results page)
-      const rateEntry = excavationRateMap[key];
-      if (rateEntry) {
-        const rate = rateEntry.rate ?? rateEntry.Rate ?? rateEntry;
-        if (rate && rate > 0) return Number(rate);
-      }
-      
-      // Try from dynamicRates
-      if (dynamicRates?.rates?.[key]) return Number(dynamicRates.rates[key]);
-      
-      // Try from the split data itself if it has rate
-      const splitEntry = rawSplit[key];
-      if (splitEntry && typeof splitEntry === 'object') {
-        const rate = splitEntry.rate ?? splitEntry.Rate ?? splitEntry.fixedRate;
-        if (rate && rate > 0) return Number(rate);
-      }
-      
-      // Default rates as fallback
-      const defaultRates = {
-        "9.1": 1055, "9.2": 1055,
-        "10.1": 7950, "10.2": 7950
-      };
-      return defaultRates[key] || 0;
-    };
-    
-    // Step 3: Build enhanced split objects with both qty AND rate
-    const enhanceSplit = (rawData) => {
-      const enhanced = {};
-      Object.keys(rawData).forEach(key => {
-        const value = rawData[key];
-        
-        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-          // Object format: { qty: X, rate: Y }
-          enhanced[key] = {
-            qty: Number(value.qty ?? value.Qty ?? value.quantity ?? value.Quantity ?? 0),
-            rate: Number(value.rate ?? value.Rate ?? value.fixedRate ?? getRateForKey(key) ?? 0)
-          };
-        } else {
-          // Plain number: just quantity, get rate separately
-          enhanced[key] = {
-            qty: Number(value || 0),
-            rate: getRateForKey(key)
-          };
-        }
-      });
-      return enhanced;
-    };
-    
-    const enhancedSplit = enhanceSplit(rawSplit);
-    const enhancedExcavation = enhanceSplit(rawExcavation);
-    
-    // Debug log to verify
-    console.log("🔍 ENHANCED CIVIL QUANTITIES:", {
-      enhancedSplit,
-      enhancedExcavation,
-      sample91: enhancedSplit["9.1"],
-      sample101: enhancedSplit["10.1"],
-      sample11: enhancedExcavation["1.1"],
-    });
-    
-    // Step 4: Return complete object with all required keys
-    return {
-      // Base civil quantities
-      ...civilQuantities,
-      ...(resultData?.civil_quantities || {}),
-      
-      // Enhanced split objects with BOTH qty and rate
-      rcc_shuttering_split: enhancedSplit,
-      shuttering_split: enhancedSplit,
-      rcc_split: enhancedSplit,
-      excavation_split: enhancedExcavation,
-    };
-  })()}
-  
-  balanceTankQuantities={balanceTankQuantities}
-  mepQuantities={mepQuantities}
-  dynamicRates={dynamicRates}
-  balancingTankDimensions={balanceTankDimensions}
-  balanceTankItems={balanceTankItems}
-  hasGutter={true}
-  companyProfile={companyProfile}
-  className="dropdown-item"
->
-  <span className="download-icon">📊</span> Excel Report
-</ExcelDownloadButton>
-              </div>
-            </div>
-
-            <button
-              className="download-button"
-              onClick={() => setShowShareModal(true)}
-            >
-              <span className="download-icon">🔗</span>
-              Share
-            </button>
-
-            <div className="dropdown">
-              <button className="download-button" onClick={(e) => { e.stopPropagation(); toggleDropdown('compare'); }}>
-                <span className="download-icon">⚖️</span> Compare
-              </button>
-              <div className={`dropdown-menu ${openDropdown === 'compare' ? 'show' : ''}`}>
-                <button onClick={() => setShowComparison(true)}>Compare Results</button>
-              </div>
-            </div>
-
-            <button className="download-button proforma-button" onClick={() => navigate('/proformainvoice', {
-              state: {
-                resultData, dimensions,
-                mainPoolTotal, mepTotal: totalMepCost,
-                pipingTotal: pipingTotals?.grandTotal || 0,
-                pumpRoomTotal: includePumpRoom ? pumpRoomTotal : 0, grandTotal,
-                poolType: "overflow", includePumpRoom, hasBalancingTank: true,
-                selectedAdvancedEquipment, includeHeatPump,
-                companyProfile, currency, exchangeRate, dynamicRates, pumpRoomDistance,
-                filteredMainPoolItems: mainPoolItems || [],
-                filteredMepItems: filteredMepItems || [],
-                pumpRoomItems: balanceTankItems || [],
-                balanceTankItems: balanceTankItems || [],
-                pipingItems: resultData?.piping || [],
-                mainPoolRemarks, mepRemarks, pumpRoomRemarks, templateDescriptions: {},
-                civilQuantities: civilQuantities || resultData,
-                mepQuantities: mepQuantities || resultData,
-                pumpRoomQuantities: pumpRoomQuantities || resultData,
-                balanceTankQuantities: balanceTankQuantities || resultData,
-                selectedTables, columnVisibility
-              }
-            })}>
-              <span className="download-icon">📄</span> Proforma Invoice (Overflow)
-            </button>
-
-            <button className="download-button" onClick={() => navigate('/delivery', {
-              state: {
-                result: { ...resultData, ...civilQuantities, ...mepQuantities, ...pumpRoomQuantities },
-                dimensions,
-                filteredMainPoolItems: mainPoolItems || [],
-                filteredMepItems: filteredMepItems || [],
-                balanceTankItems: balanceTankItems || [],
-                pumpRoomItems: selectedTables.pumpRoom ? balanceTankItems : [],
-                pipingItems: selectedTables.piping ? pipingItems : [],
-                pipingTotal: selectedTables.piping ? (pipingTotals?.grandTotal || 0) : 0,
-                pumpRoomQuantities, pumpRoomDimensions, templateDescriptions: {},
-                poolType: 'overflow', hasBalancingTank: true, hasGutter: true,
-                includePumpRoom: selectedTables.pumpRoom || false,
-                selectedTables, selectedAdvancedEquipment, overflowGratingData, constructionType
-              }
-            })}>
-              📦 Delivery Challan
-            </button>
-
-            <button className="download-button" onClick={() => navigate('/tax', {
-              state: {
-                result: resultData, dimensions,
-                mainPoolData: selectedTables.mainPool ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo]) : [],
-                mepItems: selectedTables.mep ? filteredMepItems : [],
-                pumpRoomData: selectedTables.pumpRoom ? balanceTankItems.filter(item => item.SlNo <= 12 && PUMP_ROOM_QTY_FIELDS[item.SlNo]) : [],
-                mainPoolTotal: mainPoolTotal || 0, mepTotal: totalMepCost || 0,
-                pumpRoomTotal: includePumpRoom ? pumpRoomTotal : 0,
-                balanceTankTotal: balanceTankTotal || 0,
-                pipingItems: selectedTables.piping ? pipingItems : [],
-                pipingTotal: selectedTables.piping ? pipingTotals.grandTotal : 0,
-                templateDescriptions: {}, poolType: 'overflow', includePumpRoom,
-                currency, exchangeRate, selectedTables, constructionType, finalTotal: grandTotal,
-                selectedAdvancedEquipment, percentageAmounts: { item35: 0, item36: 0, item37: 0, item38: 0 },
-                overflowGratingData: poolType === "overflow" ? overflowGratingData : null
-              }
-            })}>
-              <span className="button-icon">🧾</span> Tax Invoice
-            </button>
+          <div className="header-currency-toggle">
+            <CurrencyToggle />
+            <button onClick={() => setSaveOpen(true)} style={{ padding: "10px 20px", background: "#4CAF50", color: "#fff", borderRadius: "8px", border: "none", cursor: "pointer" }}>💾 Save Project</button>
           </div>
-        </div>
-
-        <div className="header-currency-toggle"><CurrencyToggle />
-          <button className="download-button" onClick={() => setSaveOpen(true)}
-            style={{ padding: "10px 20px", background: "#4CAF50", color: "#fff" }}>
-            <span className="download-icon">💾</span> Save Project
-          </button>
         </div>
       </header>
 
       {showHelpModal && <HelpModal onClose={() => setShowHelpModal(false)} />}
-      <div><ColumnVisibilityControls /></div>
-      <div className="global-table-selection"><TableSelectionControls /></div>
 
-      <nav className="tab-navigation" aria-label="Result page tabs">
-        <div className="tab-buttons">
-          {[
-            { id: 1, icon: "📊", label: "Calculation & 3D" },
-            { id: 4, icon: "🔧", label: "MEP Amount (34 items)" },
-            { id: 2, icon: "🏊", label: "Civil work of Main Pool (14 items)" },
-            { id: 6, icon: "⚖️", label: "Civil work of Balance Tank (12 items)" },
-            { id: 5, icon: "⚙️", label: "Civil works of Pump Room (12 items)" },
-            { id: "piping", icon: "🔩", label: `Piping System (${pipingItems.length})` },
-            { id: "total", icon: "💰", label: "Total Cost" },
-            { id: "visualization", icon: "📈", label: "Visualization" },
-            { id: 3, icon: "📅", label: "Timeline" },
-          ].map(tab => (
-            <button key={tab.id} className={`tab-button ${activeTab === tab.id ? "active" : ""}`} onClick={() => setActiveTab(tab.id)} aria-selected={activeTab === tab.id}>
-              <span className="tab-icon">{tab.icon}</span>
-              <span className="tab-label">{tab.label}</span>
+      <div className="results-dashboard-layout">
+        <aside className={`results-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
+          <button className="sidebar-toggle-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
+            <span className="toggle-arrow">{sidebarCollapsed ? "→" : "←"}</span>
+          </button>
+          <div className="sidebar-inner">
+            <div className="sidebar-divider" />
+            <h3 style={{ marginBottom: "3%", color: "gray" }}>Views</h3>
+            <div className="sidebar-tab-buttons">
+              {[
+                { id: 1, icon: "📊", label: "Calculation & 3D" },
+                { id: 2, icon: "🏊", label: `Civil Work (${mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo]).length})` },
+                { id: 6, icon: "⚖️", label: `Balance Tank (${balanceTankItems.filter(item => item.SlNo <= 12 && BALANCE_TANK_QTY_FIELDS[item.SlNo]).length})` },
+                { id: 5, icon: "⚙️", label: `Pump Room (${balanceTankItems.filter(item => item.SlNo <= 12 && PUMP_ROOM_QTY_FIELDS[item.SlNo]).length})` },
+                { id: 4, icon: "🔧", label: "MEP Amount" },
+                { id: "piping", icon: "🔩", label: `Piping (${pipingItems.length})` },
+                { id: "total", icon: "💰", label: "Total Cost" },
+                { id: "visualization", icon: "📈", label: "Visualization" },
+                { id: 3, icon: "📅", label: "Timeline" }
+              ].map(tab => (
+                <button key={tab.id} className={`sidebar-tab-btn ${activeTab === tab.id ? "active" : ""}`} onClick={() => setActiveTab(tab.id)} data-tooltip={tab.label}>
+                  <span className="sidebar-tab-icon">{tab.icon}</span>
+                  <span className="tab-label-text">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+            <h3 style={{ marginBottom: "3%", color: "gray" }}>Actions</h3>
+            <div className="sidebar-actions">
+              <button
+                className="sidebar-action-btn primary-btn"
+                data-tooltip="Download PDF Report"
+                onClick={downloadPDF}
+              >
+                📄 Download PDF
+              </button>
+              <button className="sidebar-action-btn" onClick={() => setShowExcelExportModal(true)} data-tooltip="Export Excel">
+                <span className="sidebar-tab-icon">📊</span>
+                <span className="btn-text">Export Excel</span>
+              </button>
+              <button className="sidebar-action-btn" onClick={() => setShowShareModal(true)} data-tooltip="Share Project">
+                <span className="sidebar-tab-icon">🔗</span>
+                <span className="btn-text">Share Project</span>
+              </button>
+              <button className="sidebar-action-btn" onClick={() => setShowComparison(true)} data-tooltip="Compare">
+                <span className="sidebar-tab-icon">⚖</span>
+                <span className="btn-text">Compare</span>
+              </button>
+              <button className="sidebar-action-btn proforma-btn" onClick={() => navigate("/proformainvoice", {
+                state: {
+                  resultData, dimensions,
+                  mainPoolTotal, mepTotal: totalMepCost,
+                  pipingTotal: pipingTotals?.grandTotal || 0,
+                  pumpRoomTotal: includePumpRoom ? pumpRoomTotal : 0,
+                  balanceTankTotal: balanceTankTotal || 0,
+                  grandTotal,
+                  poolType: "overflow",
+                  includePumpRoom,
+                  hasBalancingTank: true,
+                  selectedAdvancedEquipment,
+                  includeHeatPump,
+                  companyProfile,
+                  currency,
+                  exchangeRate,
+                  dynamicRates,
+                  pumpRoomDistance,
+                  filteredMainPoolItems: mainPoolItems || [],
+                  filteredMepItems: filteredMepItems || [],
+                  pumpRoomItems: balanceTankItems || [],
+                  balanceTankItems: balanceTankItems || [],
+                  pipingItems: resultData?.piping || [],
+                  mainPoolRemarks,
+                  mepRemarks,
+                  pumpRoomRemarks,
+                  templateDescriptions: {},
+                  civilQuantities: civilQuantities || resultData,
+                  mepQuantities: mepQuantities || resultData,
+                  pumpRoomQuantities: pumpRoomQuantities || resultData,
+                  balanceTankQuantities: balanceTankQuantities || resultData,
+                  selectedTables,
+                  columnVisibility
+                }
+              })} data-tooltip="Proforma Invoice">
+                <span className="sidebar-tab-icon">📄</span>
+                <span className="btn-text">Proforma Invoice</span>
+              </button>
+              <button className="sidebar-action-btn" onClick={() => navigate("/delivery", {
+                state: {
+                  result: { ...resultData, ...civilQuantities, ...mepQuantities, ...pumpRoomQuantities },
+                  dimensions,
+                  filteredMainPoolItems: mainPoolItems || [],
+                  filteredMepItems: filteredMepItems || [],
+                  balanceTankItems: balanceTankItems || [],
+                  pumpRoomItems: selectedTables.pumpRoom ? balanceTankItems : [],
+                  pipingItems: selectedTables.piping ? pipingItems : [],
+                  pipingTotal: selectedTables.piping ? (pipingTotals?.grandTotal || 0) : 0,
+                  pumpRoomQuantities,
+                  pumpRoomDimensions,
+                  templateDescriptions: {},
+                  poolType: 'overflow',
+                  hasBalancingTank: true,
+                  hasGutter: true,
+                  includePumpRoom: selectedTables.pumpRoom || false,
+                  selectedTables,
+                  selectedAdvancedEquipment,
+                  overflowGratingData,
+                  constructionType
+                }
+              })} data-tooltip="Delivery Challan">
+                <span className="sidebar-tab-icon">📦</span>
+                <span className="btn-text">Delivery Challan</span>
+              </button>
+              <button className="sidebar-action-btn" onClick={() => navigate("/tax", {
+                state: {
+                  result: resultData,
+                  dimensions,
+                  mainPoolData: selectedTables.mainPool ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo]) : [],
+                  mepItems: selectedTables.mep ? filteredMepItems : [],
+                  pumpRoomData: selectedTables.pumpRoom ? balanceTankItems.filter(item => item.SlNo <= 12 && PUMP_ROOM_QTY_FIELDS[item.SlNo]) : [],
+                  mainPoolTotal: mainPoolTotal || 0,
+                  mepTotal: totalMepCost || 0,
+                  pumpRoomTotal: includePumpRoom ? pumpRoomTotal : 0,
+                  balanceTankTotal: balanceTankTotal || 0,
+                  pipingItems: selectedTables.piping ? pipingItems : [],
+                  pipingTotal: selectedTables.piping ? pipingTotals.grandTotal : 0,
+                  templateDescriptions: {},
+                  poolType: 'overflow',
+                  includePumpRoom,
+                  currency,
+                  exchangeRate,
+                  selectedTables,
+                  constructionType,
+                  finalTotal: grandTotal,
+                  selectedAdvancedEquipment,
+                  percentageAmounts: { item35: 0, item36: 0, item37: 0, item38: 0 },
+                  overflowGratingData: poolType === "overflow" ? overflowGratingData : null
+                }
+              })} data-tooltip="Tax Invoice">
+                <span className="sidebar-tab-icon">🧾</span>
+                <span className="btn-text">Tax Invoice</span>
+              </button>
+              <button className="sidebar-action-btn save-project-btn" onClick={() => setSaveOpen(true)} data-tooltip="Save Project">
+                <span className="sidebar-tab-icon">💾</span>
+                <span className="btn-text">Save Project</span>
+              </button>
+            </div>
+          </div>
+          <div className="sidebar-footer">
+            <button className="back-to-top-btn" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} data-tooltip="Back to Top">
+              <span className="top-icon">↑</span>
+              <span className="top-text">Back to Top</span>
             </button>
-          ))}
-        </div>
-      </nav>
+          </div>
+        </aside>
 
-      <main className="tab-content-container">
-        {activeTab === 1 && (
-          <section className="tab-content active" aria-live="polite">
-            {loadingCalc ? <div className="loading-spinner">Loading calculation data...</div> : !resultData ? (
-              <div className="error-message">No calculation data available.</div>
-            ) : (
-              <>
-                <div className="section-header">
-                  <h2 className="section-title">Pool Specifications</h2>
-                  <div className="header-controls"><ConstructionTypeDisplay /></div>
-                </div>
-                <div className="specs-controls"><DatabaseUpdateToggle /></div>
-                <HPOverrideDisplay />
-                <div className="removed-items-notice-specs" style={{ background: "rgba(99,179,237,0.05)", border: "1px solid rgba(99,179,237,0.15)", borderRadius: "8px", padding: "8px 12px", marginBottom: "16px" }}>
-                  <span style={{ color: "#63b3ed", fontSize: "12px" }}>📌 Items 35-38 moved to Piping System tab</span>
-                </div>
-                <div className="specs-container_1">
-                  <div className="specs-table-container">
-                    <div className="specs-table-wrapper">
-                      <table className="excel-preview-table">
-                        <tbody>
-                          <tr><td className="spec-label"><strong>Dimensions</strong></td><td className="spec-value">{resultData.dimensions || `${dimensions.length || 0} × ${dimensions.width || 0} × ${dimensions.depth || 0} m`}</td></tr>
-                          <tr><td className="spec-label"><strong>Volume</strong></td><td className="spec-value">{safeToFixed(resultData.volume_m3 || (dimensions.length * dimensions.width * dimensions.depth))} m³ ({safeToFixed(resultData.liters || (dimensions.length * dimensions.width * dimensions.depth * 1000), 0)} L)</td></tr>
-                          <tr><td className="spec-label"><strong>Floor Area</strong></td><td className="spec-value">{safeToFixed(resultData.floor_area_m2 || (dimensions.length * dimensions.width))} m²</td></tr>
-                          <tr><td className="spec-label"><strong>Wall Area</strong></td><td className="spec-value">{safeToFixed(resultData.wall_area_m2 || (2 * (dimensions.length + dimensions.width) * dimensions.depth))} m²</td></tr>
-                          <tr><td className="spec-label"><strong>Turnover Time</strong></td><td className="spec-value">{safeToFixed(resultData.turnover_hours || turnover || 4.5)} hours</td></tr>
-                          <tr><td className="spec-label"><strong>Flow Rate</strong></td><td className="spec-value">{safeToFixed(resultData.flowrate_m3_per_hr || ((dimensions.length * dimensions.width * dimensions.depth) / 4.5))} m³/hr</td></tr>
-                          <tr><td className="spec-label"><strong>Filter Diameter</strong></td><td className="spec-value">{resultData.filter_dia_mm || dynamicRates.filter_dia || "N/A"} mm</td></tr>
-                          <tr><td className="spec-label"><strong>Pump Capacity</strong></td><td className="spec-value">{resultData.hp || dynamicRates.hp || "N/A"} HP{dynamicRates.hp_overridden && <span className="hp-override-indicator"> (from DB)</span>}</td></tr>
-                        </tbody>
-                      </table>
+        <div className="results-main-content">
+          {activeTab === 1 && (
+            <section className="tab-content active">
+              {loadingCalc ? (
+                <div className="loading-spinner">Loading calculation data...</div>
+              ) : !resultData ? (
+                <div className="error-message">No calculation data available.</div>
+              ) : (
+                <>
+                  <div className="section-header">
+                    <h2 className="section-title">Pool Specifications</h2>
+                    <div className="header-controls"><ConstructionTypeDisplay /></div>
+                  </div>
+                  <div className="specs-controls"><DatabaseUpdateToggle /></div>
+                  <HPOverrideDisplay />
+                  <div className="specs-container_1">
+                    <div className="specs-table-container">
+                      <div className="specs-table-wrapper">
+                        <table className="excel-preview-table">
+                          <tbody>
+                            <tr><td className="spec-label"><strong>Dimensions</strong></td><td className="spec-value">{resultData.dimensions || `${dimensions.length || 0} × ${dimensions.width || 0} × ${dimensions.depth || 0} m`}</td></tr>
+                            <tr><td className="spec-label"><strong>Volume</strong></td><td className="spec-value">{safeToFixed(resultData.volume_m3 || (dimensions.length * dimensions.width * dimensions.depth))} m³ ({safeToFixed(resultData.liters || (dimensions.length * dimensions.width * dimensions.depth * 1000), 0)} L)</td></tr>
+                            <tr><td className="spec-label"><strong>Floor Area</strong></td><td className="spec-value">{safeToFixed(resultData.floor_area_m2 || (dimensions.length * dimensions.width))} m²</td></tr>
+                            <tr><td className="spec-label"><strong>Wall Area</strong></td><td className="spec-value">{safeToFixed(resultData.wall_area_m2 || (2 * (dimensions.length + dimensions.width) * dimensions.depth))} m²</td></tr>
+                            <tr><td className="spec-label"><strong>Turnover Time</strong></td><td className="spec-value">{safeToFixed(resultData.turnover_hours || turnover || 4.5)} hours</td></tr>
+                            <tr><td className="spec-label"><strong>Flow Rate</strong></td><td className="spec-value">{safeToFixed(resultData.flowrate_m3_per_hr || ((dimensions.length * dimensions.width * dimensions.depth) / 4.5))} m³/hr</td></tr>
+                            <tr><td className="spec-label"><strong>Filter Diameter</strong></td><td className="spec-value">{resultData.filter_dia_mm || dynamicRates.filter_dia || "N/A"} mm</td></tr>
+                            <tr><td className="spec-label"><strong>Pump Capacity</strong></td><td className="spec-value">{resultData.hp || dynamicRates.hp || "N/A"} HP{dynamicRates.hp_overridden && <span className="hp-override-indicator"> (from DB)</span>}</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                   <div className="preview-section" style={{ flex: 1, minWidth: 0 }}>
@@ -2362,177 +2317,146 @@ function ResultPage() {
                     </div>
                     <PoolVisualization3D dimensions={dimensions} />
                   </div>
+                </>
+              )}
+            </section>
+          )}
+
+          {activeTab === 2 && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2>Civil Works - Main Pool (Items 1-14)</h2>
+                <div className="header-controls">
+                  <div className="total-amount-box"><span className="total-label">Total Amount:</span><span className="total-value">{formatCurrency(mainPoolTotal)}</span></div>
                 </div>
-              </>
-            )}
-          </section>
-        )}
+              </div>
+              {loadingMainPool ? <div className="loading-spinner">Loading data...</div> : <>{renderMainPoolTable()}<div className="boq-note"><div><strong>Note:</strong> Estimates based on current industry standards. Actual costs may vary ±10–15%.{constructionType === "terrace" && <div className="terrace-note"><strong>Terrace Pool Note:</strong> Excludes excavation, soling, and backfilling items.</div>}</div><div style={{ marginTop: "8px", fontSize: "12px", color: "#666" }}><strong>New Items:</strong> Consolidation (SlNo 3) - Backfill compaction | Disposal (SlNo 4) - Excess soil removal</div><div style={{ marginTop: "8px", fontSize: "12px", color: "#666", fontStyle: "italic" }}><strong>Split Items:</strong> All subrows (1.1/1.2, 9.1/9.2, 10.1/10.2) — descriptions and rates sourced from excavation_rates table</div></div></>}
+            </section>
+          )}
 
-        {activeTab === 2 && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <div className="table-selection-indicator">
-                <span className={`selection-status ${selectedTables.mainPool ? 'selected' : 'not-selected'}`}>{selectedTables.mainPool ? '✓ Selected for export' : '✗ Not selected for export'}</span>
-              </div>
-              <h2>Civil Works - Main Pool (14 Items)</h2>
-              <div className="header-controls">
-                <div className="total-amount-box" aria-live="polite"><span className="total-label">Total Amount:</span><span className="total-value">{formatCurrency(mainPoolTotal)}</span></div>
-              </div>
-            </div>
-            {loadingMainPool ? <div className="loading-spinner">Loading data...</div> : (
-              <>
-                {renderMainPoolTable()}
-                <div className="boq-note">
-                  <div><strong>Note:</strong> Estimates based on current industry standards. Actual costs may vary ±10–15%.{constructionType === "terrace" && <div className="terrace-note"><strong>Terrace Pool Note:</strong> Excludes excavation, soling, and backfilling items.</div>}</div>
-                  <div style={{ marginTop: "8px", fontSize: "12px", color: "#666" }}><strong>New Items:</strong> Consolidation (SlNo 3) - Backfill compaction | Disposal (SlNo 4) - Excess soil removal</div>
-                  <div style={{ marginTop: "8px", fontSize: "12px", color: "#666", fontStyle: "italic" }}>
-                    <strong>Split Items:</strong> All subrows (1.1/1.2, 9.1/9.2, 10.1/10.2) — descriptions and rates sourced from excavation_rates table
-                  </div>
+          {activeTab === 3 && (
+            <section className="tab-content active">
+              <Timeline poolSize={dimensions} resultData={resultData} currency={currency} exchangeRate={exchangeRate} includePumpRoom={includePumpRoom} pumpRoomDimensions={pumpRoomDimensions} constructionType={constructionType} selectedAdvancedEquipment={selectedAdvancedEquipment} columnVisibility={columnVisibility} selectedTables={selectedTables} filteredMepItems={filteredMepItems} hasBalancingTank={true} balanceTankDimensions={balanceTankDimensions} pipingItems={pipingItems} pipingTotal={pipingTotals.grandTotal} />
+            </section>
+          )}
+
+          {activeTab === 4 && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2>MEP (Mechanical, Electrical, Plumbing) Items</h2>
+                <div className="header-controls">
+                  <ConstructionTypeDisplay />
+                  <div className="total-amount-box"><span className="total-label">Total Amount:</span><span className="total-value">{formatCurrency(totalMepCost)}</span></div>
                 </div>
-              </>
-            )}
-          </section>
-        )}
-
-        {activeTab === 3 && (
-          <section className="tab-content active" aria-live="polite">
-            <Timeline poolSize={dimensions} resultData={resultData} currency={currency} exchangeRate={exchangeRate} includePumpRoom={includePumpRoom} pumpRoomDimensions={pumpRoomDimensions} constructionType={constructionType} selectedAdvancedEquipment={selectedAdvancedEquipment} columnVisibility={columnVisibility} selectedTables={selectedTables} filteredMepItems={filteredMepItems} hasBalancingTank={true} balanceTankDimensions={balanceTankDimensions} pipingItems={pipingItems} pipingTotal={pipingTotals.grandTotal} />
-          </section>
-        )}
-
-        {activeTab === 4 && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <h2>MEP (Mechanical, Electrical, Plumbing) Items</h2>
-              <div className="header-controls">
-                <ConstructionTypeDisplay />
-                <div className="total-amount-box"><span className="total-label">Total Amount:</span><span className="total-value">{formatCurrency(totalMepCost)}</span></div>
               </div>
-            </div>
-            {loadingMep ? <div className="loading-spinner">Loading MEP data...</div> : !Array.isArray(filteredMepItems) || filteredMepItems.length === 0 ? (
-              <div className="error-message">No MEP items available.</div>
-            ) : (
-              <>
-                {loadingMepCalculation && <div className="calculation-status"><span className="status-icon">⏳</span><span>Calculating MEP quantities...</span></div>}
-                {renderMepTable()}
-                <div className="mep-grand-total">
-                  <div className="grand-total-box">
-                    <div className="total-breakdown">
-                      <div className="breakdown-item"><span className="breakdown-label">Base MEP (Items 1-29):</span><span className="breakdown-value">{formatCurrency(baseMepTotals.grand)}</span></div>
-                      <div className="breakdown-item"><span className="breakdown-label">Advanced Equipment (Items 30-34):</span><span className="breakdown-value">{formatCurrency(advancedEquipmentTotals.grand)}</span></div>
-                      <div className="breakdown-total" style={{ color: "white" }}><span className="breakdown-label">Total MEP Cost:</span><span className="breakdown-value" style={{ color: "white" }}>{formatCurrency(totalMepCost)}</span></div>
+              {loadingMep ? <div className="loading-spinner">Loading MEP data...</div> : !Array.isArray(filteredMepItems) || filteredMepItems.length === 0 ? (
+                <div className="error-message">No MEP items available.</div>
+              ) : (
+                <>
+                  {loadingMepCalculation && <div className="calculation-status"><span className="status-icon">⏳</span><span>Calculating MEP quantities...</span></div>}
+                  {renderMepTable()}
+                  <div className="mep-grand-total">
+                    <div className="grand-total-box">
+                      <div className="total-breakdown">
+                        <div className="breakdown-item"><span className="breakdown-label">Base MEP (Items 1-29):</span><span className="breakdown-value">{formatCurrency(baseMepTotals.grand)}</span></div>
+                        <div className="breakdown-item"><span className="breakdown-label">Advanced Equipment (Items 30-34):</span><span className="breakdown-value">{formatCurrency(advancedEquipmentTotals.grand)}</span></div>
+                        <div className="breakdown-total" style={{ color: "white" }}><span className="breakdown-label">Total MEP Cost:</span><span className="breakdown-value" style={{ color: "white" }}>{formatCurrency(totalMepCost)}</span></div>
+                      </div>
                     </div>
                   </div>
+                  <div className="boq-note"><div><strong>Note:</strong> Estimates based on current industry standards. Actual costs may vary ±10–15%.</div></div>
+                </>
+              )}
+            </section>
+          )}
+
+          {activeTab === 5 && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2>Civil Works - Pump Room (12 Items)</h2>
+                <div className="header-controls">
+                  <div className="total-amount-box"><span className="total-label">Total Amount:</span><span className="total-value">{formatCurrency(pumpRoomTotal)}</span></div>
                 </div>
-                <div className="boq-note"><div><strong>Note:</strong> Estimates based on current industry standards. Actual costs may vary ±10–15%.</div></div>
-              </>
-            )}
-          </section>
-        )}
-
-        {activeTab === 5 && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <div className="table-selection-indicator">
-                <span className={`selection-status ${selectedTables.pumpRoom ? 'selected' : 'not-selected'}`}>{selectedTables.pumpRoom ? '✓ Selected for export' : '✗ Not selected for export'}</span>
               </div>
-              <h2>Civil Works - Pump Room (12 Items)</h2>
-              <div className="header-controls">
-                <div className="total-amount-box" aria-live="polite"><span className="total-label">Total Amount:</span><span className="total-value">{formatCurrency(pumpRoomTotal)}</span></div>
-              </div>
-            </div>
-            {renderPumpRoomTable()}
-            <div className="boq-note">
-              <div><strong>Note:</strong> Pump room quantities are calculated as 15% of main pool quantities. Variations of ±10–15% are common.</div>
-            </div>
-          </section>
-        )}
+              {renderPumpRoomTable()}
+              <div className="boq-note"><div><strong>Note:</strong> Pump room quantities are calculated as 15% of main pool quantities. Variations of ±10–15% are common.</div></div>
+            </section>
+          )}
 
-        {activeTab === 6 && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <div className="table-selection-indicator">
-                <span className={`selection-status ${selectedTables.balancingTank ? 'selected' : 'not-selected'}`}>{selectedTables.balancingTank ? '✓ Selected for export' : '✗ Not selected for export'}</span>
-              </div>
-              <h2>Civil Works - Balance Tank (12 Items)</h2>
-              <div className="header-controls">
-                <div className="total-amount-box" aria-live="polite"><span className="total-label">Total Amount:</span><span className="total-value">{formatCurrency(balanceTankTotal)}</span></div>
-              </div>
-            </div>
-            {renderBalanceTankTable()}
-            <div className="boq-note">
-              <div><strong>Note:</strong> Balance tank quantities are 7.5% of main pool quantities for in-ground pools. Terrace pools have 0 balance tank quantities.</div>
-            </div>
-          </section>
-        )}
-
-        {activeTab === "piping" && (
-          <section className="tab-content active" aria-live="polite">{renderPipingTable()}</section>
-        )}
-
-        {activeTab === "total" && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <h2 className="section-title">Total Pool Cost Summary</h2>
-              <div className="header-controls"><ConstructionTypeDisplay /></div>
-            </div>
-            <div className="summary-cards">
-              {[
-                { icon: "🏊", label: "Main Pool (Civil Works)", amount: mainPoolTotal, items: "14 items" },
-                { icon: "⚖️", label: "Balance Tank", amount: balanceTankTotal, items: "12 items" },
-                ...(includePumpRoom ? [{ icon: "⚙️", label: "Pump Room", amount: pumpRoomTotal, items: "12 items" }] : []),
-                { icon: "🔧", label: "MEP Systems", amount: totalMepCost, items: "34 items" },
-                { icon: "🔩", label: "Piping System", amount: pipingTotals.grandTotal, items: `${pipingItems.length} items` },
-              ].map((card, i) => (
-                <div key={i} className="summary-card">
-                  <div className="summary-icon">{card.icon}</div>
-                  <div className="summary-details">
-                    <h3>{card.label}</h3>
-                    <p className="summary-amount">{formatCurrency(card.amount)}</p>
-                    <p className="summary-items">{card.items}</p>
-                  </div>
+          {activeTab === 6 && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2>Civil Works - Balance Tank (12 Items)</h2>
+                <div className="header-controls">
+                  <div className="total-amount-box"><span className="total-label">Total Amount:</span><span className="total-value">{formatCurrency(balanceTankTotal)}</span></div>
                 </div>
-              ))}
-            </div>
-            <div className="grand-total_1">
-              <h3>Grand Total</h3>
-              {(() => {
-                const gstAmount = grandTotal * 0.18;
-                const grandTotalWithGST = grandTotal + gstAmount;
-                return (
+              </div>
+              {renderBalanceTankTable()}
+              <div className="boq-note"><div><strong>Note:</strong> Balance tank quantities are 7.5% of main pool quantities for in-ground pools. Terrace pools have 0 balance tank quantities.</div></div>
+            </section>
+          )}
+
+          {activeTab === "piping" && (
+            <section className="tab-content active">
+              {renderPipingTable()}
+            </section>
+          )}
+
+          {activeTab === "total" && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2 className="section-title">Total Pool Cost Summary</h2>
+                <div className="header-controls"><ConstructionTypeDisplay /></div>
+              </div>
+              <div className="summary-cards">
+                <div className="summary-card"><div className="summary-icon">🏊</div><div className="summary-details"><h3>Main Pool (Civil Works)</h3><p className="summary-amount">{formatCurrency(mainPoolTotal)}</p><p className="summary-items">14 items</p></div></div>
+                <div className="summary-card"><div className="summary-icon">⚖️</div><div className="summary-details"><h3>Balance Tank</h3><p className="summary-amount">{formatCurrency(balanceTankTotal)}</p><p className="summary-items">12 items</p></div></div>
+                {includePumpRoom && (<div className="summary-card"><div className="summary-icon">⚙️</div><div className="summary-details"><h3>Pump Room</h3><p className="summary-amount">{formatCurrency(pumpRoomTotal)}</p><p className="summary-items">12 items</p></div></div>)}
+                <div className="summary-card"><div className="summary-icon">🔧</div><div className="summary-details"><h3>MEP Systems</h3><p className="summary-amount">{formatCurrency(totalMepCost)}</p><p className="summary-items">34 items</p></div></div>
+                <div className="summary-card"><div className="summary-icon">🔩</div><div className="summary-details"><h3>Piping System</h3><p className="summary-amount">{formatCurrency(pipingTotals.grandTotal)}</p><p className="summary-items">{pipingItems.length} items</p></div></div>
+              </div>
+              <div className="grand-total_1">
+                <h3>Grand Total</h3>
+                {(() => { const gstAmount = grandTotal * 0.18; const grandTotalWithGST = grandTotal + gstAmount; return (
                   <>
-                    <div className="amount-breakdown_1">
-                      <div className="breakdown-item_1"><span>Subtotal (All Items):</span><span>{formatCurrency(grandTotal)}</span></div>
-                      <div className="breakdown-item_1"><span>GST (18%):</span><span>{formatCurrency(gstAmount)}</span></div>
-                    </div>
+                    <div className="amount-breakdown_1"><div className="breakdown-item_1"><span>Subtotal (All Items):</span><span>{formatCurrency(grandTotal)}</span></div><div className="breakdown-item_1"><span>GST (18%):</span><span>{formatCurrency(gstAmount)}</span></div></div>
                     <div className="grand-total-amount_1">{formatCurrency(grandTotalWithGST)}<span className="gst-label_1"> (incl. GST)</span></div>
                   </>
-                );
-              })()}
-            </div>
-          </section>
-        )}
+                ); })()}
+                <p className="grand-total-note_1">Includes {constructionType === "terrace" ? "structural civil works" : "complete civil works with excavation"}, MEP equipment{selectedAdvancedEquipment.length > 0 ? " (with selected advanced equipment)" : ""}, complete piping system, balance tank, and pump room construction<br /><span className="gst-note_1">All prices include 18% GST as per applicable tax regulations</span></p>
+              </div>
+            </section>
+          )}
 
-        {activeTab === "visualization" && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <h2 className="section-title">Cost Breakdown Visualization</h2>
-              <div className="header-controls"><ConstructionTypeDisplay /></div>
-            </div>
-            <CostBreakdownChart
-              mainPoolCost={mainPoolTotal} mepCost={totalMepCost || 0}
-              balancingTankCost={balanceTankTotal} pumpRoomCost={includePumpRoom ? pumpRoomTotal : 0}
-              pipingCost={pipingTotals.grandTotal} currency={currency} exchangeRate={exchangeRate}
-              includePumpRoom={includePumpRoom} hasBalancingTank={true} constructionType={constructionType}
-              selectedAdvancedEquipment={selectedAdvancedEquipment} advancedEquipmentTotal={advancedEquipmentTotal}
-              columnVisibility={columnVisibility} selectedTables={selectedTables}
-              filteredMepItems={filteredMepItems}
-              overflowGratingData={poolType === "overflow" ? overflowGratingData : null}
-              pipingItems={pipingItems}
-            />
-          </section>
-        )}
-      </main>
+          {activeTab === "visualization" && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2 className="section-title">Cost Breakdown Visualization</h2>
+                <div className="header-controls"><ConstructionTypeDisplay /></div>
+              </div>
+              <CostBreakdownChart
+                mainPoolCost={mainPoolTotal}
+                mepCost={totalMepCost || 0}
+                balancingTankCost={balanceTankTotal}
+                pumpRoomCost={includePumpRoom ? pumpRoomTotal : 0}
+                pipingCost={pipingTotals.grandTotal}
+                currency={currency}
+                exchangeRate={exchangeRate}
+                includePumpRoom={includePumpRoom}
+                hasBalancingTank={true}
+                constructionType={constructionType}
+                selectedAdvancedEquipment={selectedAdvancedEquipment}
+                advancedEquipmentTotal={advancedEquipmentTotal}
+                columnVisibility={columnVisibility}
+                selectedTables={selectedTables}
+                filteredMepItems={filteredMepItems}
+                overflowGratingData={poolType === "overflow" ? overflowGratingData : null}
+                pipingItems={pipingItems}
+              />
+            </section>
+          )}
+        </div>
+      </div>
 
       {imageModal.show && (
         <div className="image-modal-overlay" onClick={() => setImageModal({ show: false, src: "" })}>
@@ -2545,98 +2469,56 @@ function ResultPage() {
 
       {showComparison && (
         <ComparisonTool
-          currentData={resultData} currentTotal={grandTotal} savedCalculations={savedCalculations}
-          onClose={() => setShowComparison(false)} hasBalancingTank={true}
-          mainPoolCost={mainPoolTotal} balancingTankCost={balanceTankTotal}
-          pumpRoomCost={includePumpRoom ? pumpRoomTotal : 0} mepCost={totalMepCost}
+          currentData={resultData}
+          currentTotal={grandTotal}
+          savedCalculations={savedCalculations}
+          onClose={() => setShowComparison(false)}
+          hasBalancingTank={true}
+          mainPoolCost={mainPoolTotal}
+          balancingTankCost={balanceTankTotal}
+          pumpRoomCost={includePumpRoom ? pumpRoomTotal : 0}
+          mepCost={totalMepCost}
           pipingCost={pipingTotals.grandTotal}
-          mainPoolRemarks={mainPoolRemarks} balancingTankRemarks={balanceTankRemarks}
-          mepRemarks={mepRemarks} pumpRoomRemarks={pumpRoomRemarks}
-          templateDescriptions={{}} currentRates={dynamicRates}
-          currency={currency} exchangeRate={exchangeRate} includePumpRoom={includePumpRoom}
-          pumpRoomDimensions={pumpRoomDimensions} constructionType={constructionType}
-          selectedAdvancedEquipment={selectedAdvancedEquipment} columnVisibility={columnVisibility}
-          selectedTables={selectedTables} filteredMepItems={filteredMepItems}
+          mainPoolRemarks={mainPoolRemarks}
+          balancingTankRemarks={balanceTankRemarks}
+          mepRemarks={mepRemarks}
+          pumpRoomRemarks={pumpRoomRemarks}
+          templateDescriptions={{}}
+          currentRates={dynamicRates}
+          currency={currency}
+          exchangeRate={exchangeRate}
+          includePumpRoom={includePumpRoom}
+          pumpRoomDimensions={pumpRoomDimensions}
+          constructionType={constructionType}
+          selectedAdvancedEquipment={selectedAdvancedEquipment}
+          columnVisibility={columnVisibility}
+          selectedTables={selectedTables}
+          filteredMepItems={filteredMepItems}
           overflowGratingData={poolType === "overflow" ? overflowGratingData : null}
-          pipingItems={pipingItems} pipingTotal={pipingTotals.grandTotal}
+          pipingItems={pipingItems}
+          pipingTotal={pipingTotals.grandTotal}
           pumpRoomDistance={pumpRoomDistance}
         />
       )}
 
       {showShareModal && (
-        <div
-          className="share-modal-overlay"
-          onClick={() => setShowShareModal(false)}
-        >
-          <div
-            className="share-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="share-modal-close"
-              onClick={() => setShowShareModal(false)}
-            >
-              ✕
-            </button>
-
+        <div className="share-modal-overlay" onClick={() => setShowShareModal(false)}>
+          <div className="share-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="share-modal-close" onClick={() => setShowShareModal(false)}>✕</button>
             <ShareResults
               resultData={resultData}
-              mainPoolData={
-                selectedTables.mainPool
-                  ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo])
-                  : []
-              }
-              mepItems={
-                selectedTables.mep
-                  ? filteredMepItems
-                  : []
-              }
-              balancingRows={
-                selectedTables.balancingTank
-                  ? balanceTankItems.filter(item => item.SlNo <= 12 && BALANCE_TANK_QTY_FIELDS[item.SlNo])
-                  : []
-              }
-              balanceTankData={
-                selectedTables.balancingTank
-                  ? balanceTankItems.filter(item => item.SlNo <= 12 && BALANCE_TANK_QTY_FIELDS[item.SlNo])
-                  : []
-              }
-              pumpRoomData={
-                selectedTables.pumpRoom
-                  ? balanceTankItems.filter(item => item.SlNo <= 12 && PUMP_ROOM_QTY_FIELDS[item.SlNo])
-                  : []
-              }
+              mainPoolData={selectedTables.mainPool ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo]) : []}
+              mepItems={selectedTables.mep ? filteredMepItems : []}
+              balancingRows={selectedTables.balancingTank ? balanceTankItems.filter(item => item.SlNo <= 12 && BALANCE_TANK_QTY_FIELDS[item.SlNo]) : []}
+              balanceTankData={selectedTables.balancingTank ? balanceTankItems.filter(item => item.SlNo <= 12 && BALANCE_TANK_QTY_FIELDS[item.SlNo]) : []}
+              pumpRoomData={selectedTables.pumpRoom ? balanceTankItems.filter(item => item.SlNo <= 12 && PUMP_ROOM_QTY_FIELDS[item.SlNo]) : []}
               dimensions={dimensions}
-              totalMep={
-                selectedTables.mep
-                  ? totalMepCost
-                  : 0
-              }
-              mainPoolTotal={
-                selectedTables.mainPool
-                  ? mainPoolTotal
-                  : 0
-              }
-              balancingTankTotal={
-                selectedTables.balancingTank
-                  ? balanceTankTotal
-                  : 0
-              }
-              balanceTankTotal={
-                selectedTables.balancingTank
-                  ? balanceTankTotal
-                  : 0
-              }
-              pumpRoomTotal={
-                selectedTables.pumpRoom && includePumpRoom
-                  ? pumpRoomTotal
-                  : 0
-              }
-              pipingTotal={
-                selectedTables.piping
-                  ? pipingTotals.grandTotal
-                  : 0
-              }
+              totalMep={selectedTables.mep ? totalMepCost : 0}
+              mainPoolTotal={selectedTables.mainPool ? mainPoolTotal : 0}
+              balancingTankTotal={selectedTables.balancingTank ? balanceTankTotal : 0}
+              balanceTankTotal={selectedTables.balancingTank ? balanceTankTotal : 0}
+              pumpRoomTotal={selectedTables.pumpRoom && includePumpRoom ? pumpRoomTotal : 0}
+              pipingTotal={selectedTables.piping ? pipingTotals.grandTotal : 0}
               finalTotal={grandTotal}
               hasBalancingTank={true}
               poolType="overflow"
@@ -2653,43 +2535,88 @@ function ResultPage() {
               dynamicRates={dynamicRates}
               currency={currency}
               exchangeRate={exchangeRate}
-              includePumpRoom={
-                selectedTables.pumpRoom
-                  ? includePumpRoom
-                  : false
-              }
+              includePumpRoom={selectedTables.pumpRoom ? includePumpRoom : false}
               selectedAdvancedEquipment={selectedAdvancedEquipment}
               columnVisibility={columnVisibility}
               selectedTables={selectedTables}
               apiBaseUrl={`${API_BASE_URL}/admin`}
-              pipingItems={
-                selectedTables.piping
-                  ? pipingItems
-                  : []
-              }
-              filteredMepItems={
-                selectedTables.mep
-                  ? filteredMepItems
-                  : []
-              }
+              pipingItems={selectedTables.piping ? pipingItems : []}
+              filteredMepItems={selectedTables.mep ? filteredMepItems : []}
             />
           </div>
         </div>
       )}
 
-      <SaveProjectModal
-        open={saveOpen}
-        onClose={() => setSaveOpen(false)}
-        resultData={resultDataForSave}
-        dimensions={dimensions}
-        projectType="overflow"
-      />
+      {showExcelExportModal && (
+        <div className="excel-export-modal-overlay" onClick={() => setShowExcelExportModal(false)}>
+          <div className="excel-export-modal" onClick={e => e.stopPropagation()}>
+            <div className="excel-export-header"><h2>📊 Export Excel Report</h2><button className="close-modal-btn" onClick={() => setShowExcelExportModal(false)}>✕</button></div>
+            <div className="excel-export-body">
+              <div className="export-section"><ColumnVisibilityControls /></div>
+              <div className="export-section"><TableSelectionControls /></div>
+            </div>
+            <div className="excel-export-footer">
+              <button className="cancel-export-btn" onClick={() => setShowExcelExportModal(false)}>Cancel</button>
+              <ExcelDownloadButton
+                resultData={resultData}
+                mainPoolData={selectedTables.mainPool ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo]) : []}
+                mepItems={selectedTables.mep ? filteredMepItems : []}
+                dimensions={dimensions}
+                totalMep={selectedTables.mep ? totalMepCost : 0}
+                mainPoolTotal={selectedTables.mainPool ? mainPoolTotal : 0}
+                balancingRows={selectedTables.balancingTank ? balanceTankItems : []}
+                balancingTankTotal={selectedTables.balancingTank ? balanceTankTotal : 0}
+                poolType="overflow"
+                hasBalancingTank={true}
+                includePumpRoomExcel={selectedTables.pumpRoom ? includePumpRoom : false}
+                mainPoolRemarks={mainPoolRemarks}
+                balancingTankRemarks={balanceTankRemarks}
+                mepRemarks={mepRemarks}
+                pumpRoomRemarks={pumpRoomRemarks}
+                templateDescriptions={{}}
+                totalMepWithFittings={selectedTables.mep ? totalMepCost : 0}
+                currentRates={dynamicRates}
+                currency={currency}
+                exchangeRate={exchangeRate}
+                pumpRoomDimensions={pumpRoomDimensions}
+                pumpRoomQuantities={pumpRoomQuantities}
+                constructionType={constructionType}
+                pumpRoomTotal={selectedTables.pumpRoom && includePumpRoom ? pumpRoomTotal : 0}
+                pumpRoomRemarksExcel={pumpRoomRemarks}
+                selectedAdvancedEquipment={selectedAdvancedEquipment}
+                pumpRoomData={selectedTables.pumpRoom ? balanceTankItems : []}
+                pumpRoomRows={[]}
+                columnVisibility={columnVisibility}
+                selectedTables={selectedTables}
+                poolTypeForFilter="overflow"
+                overflowGratingData={poolType === "overflow" ? overflowGratingData : null}
+                pipingItems={selectedTables.piping ? pipingItems : []}
+                pipingTotal={selectedTables.piping ? pipingTotals.grandTotal : 0}
+                civilQuantities={civilQuantities}
+                balanceTankQuantities={balanceTankQuantities}
+                mepQuantities={mepQuantities}
+                dynamicRates={dynamicRates}
+                balancingTankDimensions={balanceTankDimensions}
+                balanceTankItems={balanceTankItems}
+                hasGutter={true}
+                companyProfile={companyProfile}
+                editableCivilQty={editableCivilQty}
+                editableBalanceQty={editableBalanceQty}
+                editablePumpRoomQty={editablePumpRoomQty}
+                editableMepQty={editableMepQty}
+                editablePipingQty={editablePipingQty}
+                editableSubRowQty={editableSubRowQty}
+                onDownloadComplete={() => setShowExcelExportModal(false)}
+                className="excel-export-btn"
+              >
+                <span className="download-icon">📊</span> Download Excel
+              </ExcelDownloadButton>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <footer className="action-buttons">
-        <button className="download-button" onClick={saveCalculation}><span className="button-icon">💾</span> Save Calculation</button>
-        <button className="download-button" onClick={() => navigate("/")}><span className="button-icon">←</span> Back to Calculator</button>
-        <button className="download-button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><span className="button-icon">↑</span> Back to top</button>
-      </footer>
+      <SaveProjectModal open={saveOpen} onClose={() => setSaveOpen(false)} resultData={resultDataForSave} dimensions={dimensions} projectType="overflow" />
     </div>
   );
 }

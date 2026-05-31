@@ -10,10 +10,15 @@ const TenantRegister = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [mounted, setMounted] = useState(false);
   
+  // ✅ NEW: Company code verification states
+  const [companyLookupLoading, setCompanyLookupLoading] = useState(false);
+  const [companyCodeVerified, setCompanyCodeVerified] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState('');
+  
   const [formData, setFormData] = useState({
     company_code: '',
     company_name: '',
-    director_name: '',
+    owner_name: '',  // ✅ CHANGED: director_name → owner_name
     gst_number: '',
     address: '',
     phone: '',
@@ -25,7 +30,7 @@ const TenantRegister = () => {
   const [logo, setLogo] = useState(null);
   const [logoPreview, setLogoPreview] = useState('');
   
-  // ✅ NEW: Stamp upload state
+  // Stamp upload state
   const [stamp, setStamp] = useState(null);
   const [stampPreview, setStampPreview] = useState('');
 
@@ -36,12 +41,99 @@ const TenantRegister = () => {
     setMounted(true);
   }, []);
 
+  // ✅ UPDATED: Handle input change with company code verification reset
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // If user edits company code, reset verification state
+    if (name === 'company_code') {
+      setCompanyCodeVerified(false);
+      setVerificationMessage('');
+      setFormData(prev => ({
+        ...prev,
+        company_code: value,
+        company_name: '',  // Clear auto-filled company name
+        owner_name: ''      // Clear auto-filled owner name
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  // ✅ UPDATED: Company code verification function (called by button)
+  const verifyCompanyCode = async () => {
+    const code = formData.company_code;
+    
+    if (!code?.trim()) {
+      setError('Please enter a company code');
+      setCompanyCodeVerified(false);
+      setVerificationMessage('');
+      return;
+    }
+
+    try {
+      setCompanyLookupLoading(true);
+      setError('');
+      setVerificationMessage('');
+
+      const normalizedCode = code.trim().toUpperCase();
+      
+      console.log('🔍 Verifying company code:', normalizedCode);
+      
+      const response = await fetch(
+        `https://pool-costing-api.intelithon.in/admin/tenant/by-code/${normalizedCode}`
+      );
+
+      const data = await response.json();
+
+      console.log('🏢 COMPANY LOOKUP RESPONSE:', data);
+
+      if (!response.ok || !data.success) {
+        setCompanyCodeVerified(false);
+        setFormData(prev => ({
+          ...prev,
+          company_name: '',
+          owner_name: ''
+        }));
+        
+        // Show error message
+        const errorMsg = data.message || 'Invalid company code';
+        setError(errorMsg);
+        setVerificationMessage(errorMsg);
+        return;
+      }
+
+      // Auto-fill company details from secure lookup - USING owner_name
+      setFormData(prev => ({
+        ...prev,
+        company_code: normalizedCode,
+        company_name: data.data.company_name || '',
+        owner_name: data.data.owner_name || ''
+      }));
+
+      setCompanyCodeVerified(true);
+      setVerificationMessage('✅ Company verified successfully!');
+      setError(''); // Clear any previous errors
+      
+      console.log('✅ Company code verified successfully');
+
+    } catch (err) {
+      console.error('❌ Company verification error:', err);
+      const errorMsg = err.message || 'Failed to verify company code';
+      setError(errorMsg);
+      setVerificationMessage(errorMsg);
+      setCompanyCodeVerified(false);
+      setFormData(prev => ({
+        ...prev,
+        company_name: '',
+        owner_name: ''
+      }));
+    } finally {
+      setCompanyLookupLoading(false);
+    }
   };
 
   // Logo handlers
@@ -78,7 +170,7 @@ const TenantRegister = () => {
     if (fileInput) fileInput.value = '';
   };
 
-  // ✅ NEW: Stamp handlers
+  // Stamp handlers
   const handleStampChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -113,7 +205,12 @@ const TenantRegister = () => {
   };
 
   const validateForm = () => {
-    const requiredFields = ['company_code', 'company_name', 'gst_number', 'address', 'phone', 'email', 'password'];
+    // ✅ Check if company code is verified
+    if (!companyCodeVerified) {
+      return 'Please verify a valid company code before registration';
+    }
+
+    const requiredFields = ['company_code', 'company_name', 'owner_name', 'gst_number', 'address', 'phone', 'email', 'password'];
     
     for (const field of requiredFields) {
       if (!formData[field]?.trim()) {
@@ -152,6 +249,11 @@ const TenantRegister = () => {
     setSuccess('');
 
     try {
+      // ✅ Block registration if company code is not verified
+      if (!companyCodeVerified) {
+        throw new Error('Please verify a valid company code before registration');
+      }
+
       const validationError = validateForm();
       if (validationError) {
         throw new Error(validationError);
@@ -161,7 +263,7 @@ const TenantRegister = () => {
       
       formDataToSend.append("company_code", formData.company_code.trim());
       formDataToSend.append("company_name", formData.company_name.trim());
-      formDataToSend.append("director_name", formData.director_name.trim());
+      formDataToSend.append("owner_name", formData.owner_name.trim());
       formDataToSend.append("gst_number", formData.gst_number.trim());
       formDataToSend.append("address", formData.address.trim());
       formDataToSend.append("phone", formData.phone.trim());
@@ -173,7 +275,6 @@ const TenantRegister = () => {
         formDataToSend.append("logo", logo);
       }
       
-      // ✅ NEW: Append stamp if present
       if (stamp) {
         formDataToSend.append("stamp", stamp);
       }
@@ -212,12 +313,12 @@ const TenantRegister = () => {
         throw new Error(data.message || data.error || 'Registration failed');
       }
 
-      // Store tenant info
+      // Store tenant info - USING owner_name
       localStorage.setItem('tenant_info', JSON.stringify({
         tenant_id: data.tenant_id,
         company_name: data.company_name,
         company_code: data.company_code,
-        director_name: formData.director_name.trim(),
+        owner_name: formData.owner_name.trim(),
         email: formData.email
       }));
       
@@ -230,7 +331,7 @@ const TenantRegister = () => {
         setFormData({
           company_code: '',
           company_name: '',
-          director_name: '',
+          owner_name: '',
           gst_number: '',
           address: '',
           phone: '',
@@ -238,8 +339,10 @@ const TenantRegister = () => {
           password: '',
           website: ''
         });
+        setCompanyCodeVerified(false);
+        setVerificationMessage('');
         handleRemoveLogo();
-        handleRemoveStamp(); // ✅ Clear stamp as well
+        handleRemoveStamp();
         setTimeout(() => {
           navigate('/');
         }, 2000);
@@ -249,7 +352,7 @@ const TenantRegister = () => {
         setFormData({
           company_code: '',
           company_name: '',
-          director_name: '',
+          owner_name: '',
           gst_number: '',
           address: '',
           phone: '',
@@ -257,8 +360,10 @@ const TenantRegister = () => {
           password: '',
           website: ''
         });
+        setCompanyCodeVerified(false);
+        setVerificationMessage('');
         handleRemoveLogo();
-        handleRemoveStamp(); // ✅ Clear stamp as well
+        handleRemoveStamp();
         setTimeout(() => {
           navigate('/tenant/subscription');
         }, 2000);
@@ -350,7 +455,22 @@ const TenantRegister = () => {
               </div>
             )}
 
+            {/* ✅ UPDATED: Company verification message */}
+            {verificationMessage && (
+              <div className={`alert_5 ${verificationMessage.includes('✅') ? 'alert-success_5' : 'alert-error_5'}`}>
+                <svg className="alert-icon_5" viewBox="0 0 20 20" fill="currentColor">
+                  {verificationMessage.includes('✅') ? (
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                  ) : (
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"/>
+                  )}
+                </svg>
+                <span>{verificationMessage}</span>
+              </div>
+            )}
+
             <div className="form-grid_5">
+              {/* ✅ UPDATED: Company Code Input with Verify Button */}
               <div className="form-group_5">
                 <label htmlFor="company_code" className="form-label_5">
                   <span>Company Code *</span>
@@ -358,19 +478,68 @@ const TenantRegister = () => {
                     <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z"/>
                   </svg>
                 </label>
-                <input
-                  id="company_code"
-                  type="text"
-                  name="company_code"
-                  value={formData.company_code}
-                  onChange={handleInputChange}
-                  placeholder="Enter company code"
-                  className="form-input_5"
-                  required
-                  disabled={loading}
-                />
+                <div className="company-code-input-group_5" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div className="input-wrapper_5" style={{ flex: 1, position: 'relative' }}>
+                    <input
+                      id="company_code"
+                      type="text"
+                      name="company_code"
+                      value={formData.company_code}
+                      onChange={handleInputChange}
+                      placeholder="Enter company code (e.g., INT002)"
+                      className="form-input_5"
+                      required
+                      disabled={loading || companyCodeVerified}
+                    />
+                    {companyCodeVerified && formData.company_code && (
+                      <div className="input-verified-icon_5" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#10b981' }}>
+                        <svg viewBox="0 0 20 20" fill="currentColor" style={{ width: '20px', height: '20px' }}>
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={verifyCompanyCode}
+                    className={`verify-button_5 ${companyCodeVerified ? 'verified_5' : ''}`}
+                    disabled={companyLookupLoading || companyCodeVerified || !formData.company_code?.trim()}
+                    style={{
+                      padding: '10px 24px',
+                      borderRadius: '12px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      cursor: (companyLookupLoading || companyCodeVerified || !formData.company_code?.trim()) ? 'not-allowed' : 'pointer',
+                      background: companyCodeVerified ? '#10b981' : (companyLookupLoading ? '#cbd5e1' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'),
+                      color: 'white',
+                      border: 'none',
+                      transition: 'all 0.3s ease',
+                      minWidth: '100px'
+                    }}
+                  >
+                    {companyLookupLoading ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="button-spinner_5" style={{ width: '16px', height: '16px', border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }}></span>
+                        <span>Verifying...</span>
+                      </span>
+                    ) : companyCodeVerified ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg viewBox="0 0 20 20" fill="currentColor" style={{ width: '18px', height: '18px' }}>
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                        </svg>
+                        <span>VERIFIED</span>
+                      </span>
+                    ) : (
+                      <span>VERIFY</span>
+                    )}
+                  </button>
+                </div>
+                <p className="security-helper-text_5" style={{ marginTop: '8px' }}>
+                  Enter the company code provided by your administrator and click VERIFY
+                </p>
               </div>
 
+              {/* ✅ UPDATED: Company Name - READONLY after verification */}
               <div className="form-group_5">
                 <label htmlFor="company_name" className="form-label_5">
                   <span>Company Name *</span>
@@ -383,33 +552,38 @@ const TenantRegister = () => {
                   type="text"
                   name="company_name"
                   value={formData.company_name}
-                  onChange={handleInputChange}
-                  placeholder="Enter company name"
-                  className="form-input_5"
+                  placeholder="Company name will auto-fill after verification"
+                  className="form-input_5 readonly-field_5"
+                  disabled={true}
                   required
-                  disabled={loading}
                 />
+                <p className="security-helper-text_5">
+                  {companyCodeVerified ? '✓ Company identity verified and locked' : 'Company identity will be locked after verification'}
+                </p>
               </div>
             </div>
 
+            {/* ✅ UPDATED: Owner Name - READONLY after verification */}
             <div className="form-group_5">
-              <label htmlFor="director_name" className="form-label_5">
-                <span>Director Name</span>
+              <label htmlFor="owner_name" className="form-label_5">
+                <span>Owner Name *</span>
                 <svg className="label-icon_5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
                 </svg>
               </label>
               <input
-                id="director_name"
+                id="owner_name"
                 type="text"
-                name="director_name"
-                value={formData.director_name}
-                onChange={handleInputChange}
-                placeholder="Enter Director Name"
-                className="form-input_5"
-                disabled={loading}
-                maxLength="200"
+                name="owner_name"
+                value={formData.owner_name}
+                placeholder="Owner name will auto-fill after verification"
+                className="form-input_5 readonly-field_5"
+                disabled={true}
+                required
               />
+              <p className="security-helper-text_5">
+                {companyCodeVerified ? '✓ Owner information verified and locked' : 'Owner information will be locked after verification'}
+              </p>
             </div>
 
             <div className="form-grid_5">
@@ -556,7 +730,7 @@ const TenantRegister = () => {
               </div>
             </div>
 
-            {/* Logo Upload Section (unchanged) */}
+            {/* Logo Upload Section */}
             <div className="form-group_5 logo-upload-group_5">
               <label htmlFor="logo" className="form-label_5">
                 <span>Company Logo *</span>
@@ -613,7 +787,7 @@ const TenantRegister = () => {
               </div>
             </div>
 
-            {/* ✅ NEW: Stamp Upload Section */}
+            {/* Stamp Upload Section */}
             <div className="form-group_5 logo-upload-group_5">
               <label htmlFor="stamp" className="form-label_5">
                 <span>Company Stamp *</span>
@@ -673,7 +847,7 @@ const TenantRegister = () => {
             <button 
               type="submit" 
               className={`register-button_5 ${loading ? "loading_5" : ""}`}
-              disabled={loading}
+              disabled={loading || !companyCodeVerified}
             >
               {loading ? (
                 <>

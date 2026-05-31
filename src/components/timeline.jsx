@@ -139,12 +139,12 @@ const Timeline = ({ poolSize, resultData }) => {
   }, [poolSize, resultData]);
 
   if (loading) {
-    return <div className="loading-spinner">Calculating timeline...</div>;
+    return <div className="loading-spinner_7">Calculating timeline...</div>;
   }
 
   if (!poolSize || !resultData) {
     return (
-      <div className="error-message">
+      <div className="error-message_7">
         No pool dimension data available for timeline calculation.
       </div>
     );
@@ -156,19 +156,19 @@ const Timeline = ({ poolSize, resultData }) => {
   );
 
   return (
-    <div className="timeline-container">
-      <div className="timeline-header">
+    <div className="timeline-container_7">
+      <div className="timeline-header_7">
         <h3>Construction Timeline</h3>
-        <div className="total-duration">
-          <span className="duration-label">Total Duration:</span>
-          <span className="duration-value">
+        <div className="total-duration_7">
+          <span className="duration-label_7">Total Duration:</span>
+          <span className="duration-value_7">
             {totalDuration} working days
           </span>
         </div>
-        <div className="pool-dimensions">
-          <span className="dimensions-label">Based on Pool: </span>
-          <span className="dimensions-value">
-            {resultData.dimensions || "N/A"} m (
+        <div className="pool-dimensions_7">
+          <span className="dimensions-label_7">Based on Pool: </span>
+          <span className="dimensions-value_7">
+             (
             {safeToFixed(
               resultData.volume_m3 ||
                 poolSize.length * poolSize.width * poolSize.depth
@@ -178,24 +178,24 @@ const Timeline = ({ poolSize, resultData }) => {
         </div>
       </div>
 
-      <div className="timeline">
+      <div className="timeline_7">
         {timelineData.map((phase, index) => (
-          <div key={index} className={`timeline-phase ${phase.status}`}>
-            <div className="phase-header">
-              <div className="phase-icon">
+          <div key={index} className={`timeline-phase_7 ${phase.status}_7`}>
+            <div className="phase-header_7">
+              <div className="phase-icon_7">
                 {phase.status === "completed" && "✅"}
                 {phase.status === "in-progress" && "🔄"}
                 {phase.status === "pending" && "⏳"}
               </div>
-              <div className="phase-info">
-                <h4 className="phase-title">{phase.phase}</h4>
+              <div className="phase-info_7">
+                <h4 className="phase-title_7">{phase.phase}</h4>
                 
               </div>
             </div>
-            <p className="phase-description">{phase.description}</p>
-            <div className="progress-bar">
+            <p className="phase-description_7">{phase.description}</p>
+            <div className="progress-bar_7">
               <div
-                className={`progress-fill ${phase.status}`}
+                className={`progress-fill_7 ${phase.status}_7`}
                 style={{
                   width:
                     phase.status === "completed"
@@ -210,12 +210,12 @@ const Timeline = ({ poolSize, resultData }) => {
         ))}
       </div>
 
-      <div className="timeline-note-highlight">
-  <div className="timeline-note-title">
-    <span className="timeline-note-icon">📋</span>
+      <div className="timeline-note-highlight_7">
+  <div className="timeline-note-title_7">
+    <span className="timeline-note-icon_7">📋</span>
     Project Timeline Disclaimer
   </div>
-  <p className="timeline-note-content">
+  <p className="timeline-note-content_7">
     <strong>Estimated Schedule:</strong> The provided timeline is calculated using industry-standard 
     metrics for pool construction. While we strive for accuracy, actual completion dates may be 
     influenced by external factors including weather conditions, regulatory approvals, and onsite 

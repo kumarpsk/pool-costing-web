@@ -1,260 +1,122 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./delivery.css";
 
 const API_BASE_URL = "https://pool-costing-api.intelithon.in";
 const INSTALLATION_PERCENT = 0.15;
 
-// Helper function to load image as base64 for PDF
-const loadImageAsBase64 = (url) =>
-  new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.onload = function () {
-      const canvas = document.createElement("canvas");
-      canvas.width = this.width;
-      canvas.height = this.height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(this, 0, 0);
-      resolve(canvas.toDataURL("image/png"));
-    };
-    img.onerror = () => {
-      resolve("");
-    };
-    img.src = url;
-  });
-
 // ================================
 // UTILITY FUNCTIONS
 // ================================
 function safeToFixed(value, decimals = 2) {
-  if (value === null || value === undefined || isNaN(value)) {
-    return "0.00";
-  }
+  if (value === null || value === undefined || isNaN(value)) return "0.00";
   return Number(value).toFixed(decimals);
 }
 
 function cleanTextForPDF(text) {
   if (!text) return "";
-  return text
+  return String(text)
     .replace(/&/g, 'and')
-    .replace(/</g, '')
-    .replace(/>/g, '')
-    .replace(/"/g, '')
-    .replace(/'/g, '')
-    .replace(/\*/g, '')
-    .replace(/#/g, '');
+    .replace(/[<>"'\*\#]/g, '')
+    .trim();
 }
 
 const formatDimensions = (dimensions) => {
   if (!dimensions) return "N/A";
   if (typeof dimensions === 'string') return dimensions;
-  if (typeof dimensions === 'object') {
-    if (dimensions.length && dimensions.width && dimensions.depth) {
-      return `${dimensions.length}m × ${dimensions.width}m × ${dimensions.depth}m`;
-    }
-    return "N/A";
+  if (typeof dimensions === 'object' && dimensions.length && dimensions.width && dimensions.depth) {
+    return `${dimensions.length}m × ${dimensions.width}m × ${dimensions.depth}m`;
   }
   return "N/A";
 };
 
-// Simple type normalization for grouping
-const normalizeType = (type) => {
-  return String(type || "")
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "")
-    .trim();
-};
+// Improved image loading helper with timeout
+const loadImageAsBase64 = (url) =>
+  new Promise((resolve) => {
+    if (!url) { 
+      resolve(""); 
+      return; 
+    }
+    
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    
+    const timeout = setTimeout(() => {
+      console.log(`⏰ Logo load timeout for: ${url}`);
+      img.src = '';
+      resolve("");
+    }, 5000);
+    
+    img.onload = function () {
+      clearTimeout(timeout);
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.min(this.naturalWidth || this.width, 400);
+        canvas.height = Math.min(this.naturalHeight || this.height, 400);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(this, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/png");
+        console.log(`✅ Logo loaded: ${url}`);
+        resolve(dataUrl);
+      } catch (e) {
+        console.error(`❌ Canvas error for ${url}:`, e);
+        resolve("");
+      }
+    };
+    
+    img.onerror = () => {
+      clearTimeout(timeout);
+      console.log(`❌ Failed to load: ${url}`);
+      resolve("");
+    };
+    
+    if (url.startsWith('/') || url.includes('localhost') || url.includes('8009')) {
+      img.src = `${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`;
+    } else {
+      img.src = url;
+    }
+  });
 
 // ================================
-// QUANTITY FIELD MAPPINGS - Same as result pages
+// QUANTITY FIELD MAPPINGS
 // ================================
-
 const MAIN_POOL_QTY_FIELDS = {
-  1: "EarthExcavation_QTY",
-  2: "BackFilling_QTY",
-  3: "Soling_QTY",
-  4: "plaincement_QTY",
-  5: "BurntBrick_QTY",
-  6: "steelreinforcement_QTY",
-  7: "Shuttering_QTY",
-  8: "shotcreting_QTY",
-  9: "WaterProofing_QTY",
-  10: "plastering_QTY",
-  11: "Coping_QTY",
-  12: "Tiling_QTY"
+  1: "EarthExcavation_QTY", 2: "BackFilling_QTY", 3: "Consolidation_QTY",
+  4: "Disposal_QTY", 5: "Soling_QTY", 6: "plaincement_QTY",
+  7: "BurntBrick_QTY", 8: "steelreinforcement_QTY", 9: "Shuttering_QTY",
+  10: "shotcreting_QTY", 11: "WaterProofing_QTY", 12: "plastering_QTY",
+  13: "Coping_QTY", 14: "Tiling_QTY"
 };
 
 const MEP_QTY_FIELDS = {
-  1: "Filter_QTY",
-  2: "Glass_QTY",
-  3: "Pressure_QTY",
-  4: "Filter_Drain_QTY",
-  5: "Mpv_QTY",
-  6: "Mpv_connset_QTY",
-  7: "Cpump_QTY",
-  8: "Return_Inlets_QTY",
-  9: "MainDrain_QTY",
-  10: "Vaccume_Inlets_QTY",
-  11: "Skimmer_QTY",
-  12: "FloatValve_QTY",
-  13: "GutterDrain_QTY",
-  14: "Underwaterlight_QTY",
-  15: "Transformer_QTY",
-  16: "ControlPanel_QTY",
-  17: "Cables_QTY",
-  18: "Earthing_QTY",
-  19: "ChlorinePump_QTY",
-  20: "DosingTank_QTY",
-  21: "Stirrer_QTY",
-  22: "FloatingHose_QTY",
-  23: "Brush_QTY",
-  24: "Algae_QTY",
-  25: "Net_QTY",
-  26: "Handle_QTY",
-  27: "VacuumHead_QTY",
-  28: "TestKit_QTY",
-  29: "CurvedBrush_QTY",
-  30: "HeatPump_QTY",
-  31: "PoolHeater_QTY",
-  32: "Chiller_QTY",
-  33: "Ozonator_QTY",
-  34: "SaltChlorinator_QTY"
+  1: "Filter_QTY", 2: "Glass_QTY", 3: "Pressure_QTY", 4: "Filter_Drain_QTY",
+  5: "Mpv_QTY", 6: "Mpv_connset_QTY", 7: "Cpump_QTY", 8: "Return_Inlets_QTY",
+  9: "MainDrain_QTY", 10: "Vaccume_Inlets_QTY", 11: "Skimmer_QTY",
+  12: "FloatValve_QTY", 13: "GutterDrain_QTY", 14: "Underwaterlight_QTY",
+  15: "Transformer_QTY", 16: "ControlPanel_QTY", 17: "Cables_QTY",
+  18: "Earthing_QTY", 19: "ChlorinePump_QTY", 20: "DosingTank_QTY",
+  21: "Stirrer_QTY", 22: "FloatingHose_QTY", 23: "Brush_QTY",
+  24: "Algae_QTY", 25: "Net_QTY", 26: "Handle_QTY", 27: "VacuumHead_QTY",
+  28: "TestKit_QTY", 29: "CurvedBrush_QTY", 30: "HeatPump_QTY"
 };
 
 const BALANCE_TANK_QTY_FIELDS = {
-  1: "EarthExcavation_QTY_1",
-  2: "BackFilling_QTY_1",
-  3: "Soling_QTY_1",
-  4: "plaincement_QTY_1",
-  5: "BurntBrick_QTY_1",
-  6: "steelreinforcement_QTY_1",
-  7: "Shuttering_QTY_1",
-  8: "shotcreting_QTY_1",
-  9: "WaterProofing_QTY_1",
-  10: "plastering_QTY_1",
+  1: "EarthExcavation_QTY_1", 2: "BackFilling_QTY_1", 3: "Consolidation_QTY_1",
+  4: "Disposal_QTY_1", 5: "Soling_QTY_1", 6: "plaincement_QTY_1",
+  7: "BurntBrick_QTY_1", 8: "steelreinforcement_QTY_1", 9: "Shuttering_QTY_1",
+  10: "shotcreting_QTY_1", 11: "WaterProofing_QTY_1", 12: "plastering_QTY_1"
 };
 
 const PUMP_ROOM_QTY_FIELDS = {
-  1: "EarthExcavation_QTY_2",
-  2: "BackFilling_QTY_2",
-  3: "Soling_QTY_2",
-  4: "plaincement_QTY_2",
-  5: "BurntBrick_QTY_2",
-  6: "steelreinforcement_QTY_2",
-  7: "Shuttering_QTY_2",
-  8: "shotcreting_QTY_2",
-  9: "WaterProofing_QTY_2",
-  10: "plastering_QTY_2",
+  1: "EarthExcavation_QTY_2", 2: "BackFilling_QTY_2", 3: "Consolidation_QTY_2",
+  4: "Disposal_QTY_2", 5: "Soling_QTY_2", 6: "plaincement_QTY_2",
+  7: "BurntBrick_QTY_2", 8: "steelreinforcement_QTY_2", 9: "Shuttering_QTY_2",
+  10: "shotcreting_QTY_2", 11: "WaterProofing_QTY_2", 12: "plastering_QTY_2"
 };
 
-// ================================
-// FILTERING FUNCTIONS - FIXED to allow items without SlNo
-// ================================
-
-// Check if MEP item should be shown for this pool type
-const shouldShowMepItem = (slNo, poolType, hasGutter) => {
-  // For skimmer pools, hide Gutter Drain (SlNo 13)
-  if (poolType === 'skimmer' && slNo === 13) {
-    return false;
-  }
-  
-  // For Infinity pools, hide Skimmer (SlNo 11)
-  if (poolType === 'infinity' && slNo === 11) {
-    return false;
-  }
-  
-  // For Curved pools without gutter, hide Skimmer and Gutter Drain
-  if (poolType === 'curved' && !hasGutter) {
-    if (slNo === 11 || slNo === 13) {
-      return false;
-    }
-  }
-  
-  return true;
-};
-
-// Filter main pool items - FIXED to allow items without SlNo
-const filterMainPoolItems = (items) => {
-  if (!items || !Array.isArray(items)) return [];
-
-  return items.filter(item => {
-    // Allow if SlNo exists and is mapped
-    if (item?.SlNo && MAIN_POOL_QTY_FIELDS[item.SlNo]) return true;
-    // Allow fallback items without SlNo
-    if (!item?.SlNo) return true;
-    return false;
-  });
-};
-
-// Filter balancing tank items - FIXED to allow items without SlNo
-const filterBalancingTankItems = (items) => {
-  if (!items || !Array.isArray(items)) return [];
-
-  return items.filter(item => {
-    if (item?.SlNo && BALANCE_TANK_QTY_FIELDS[item.SlNo]) return true;
-    if (!item?.SlNo) return true;
-    return false;
-  });
-};
-
-// Filter pump room items - FIXED to allow items without SlNo
-const filterPumpRoomItems = (items) => {
-  if (!items || !Array.isArray(items)) return [];
-
-  return items.filter(item => {
-    if (item?.SlNo && PUMP_ROOM_QTY_FIELDS[item.SlNo]) return true;
-    if (!item?.SlNo) return true;
-    return false;
-  });
-};
-
-// Filter MEP items based on pool type - FIXED to allow items without SlNo
-const filterMepItems = (items, poolType, hasGutter) => {
-  if (!items || !Array.isArray(items)) return [];
-
-  return items.filter(item => {
-    if (!item) return false;
-
-    // Allow normal logic if SlNo exists
-    if (item?.SlNo && shouldShowMepItem(item.SlNo, poolType, hasGutter)) {
-      return true;
-    }
-
-    // Allow fallback items without SlNo
-    if (!item?.SlNo) return true;
-
-    return false;
-  });
-};
-
-// Map piping item for display
-const mapPipingItem = (item) => ({
-  ...item,
-  uiSlNo: item.sl_no || item.id || Math.random(),
-  deliveryQuantity: item.quantity || 0,
-  deliveryStatus: (item.quantity || 0) > 0 ? 'pending' : 'not-required',
-  deliveryRemarks: '',
-  description: item.description || 'Piping Item',
-  unit: item.unit || 'NOS',
-  code: item.code || '',
-  category: item.category || '',
-  type: item.type || '',
-  dia: item.dia || null,
-  supplyRate: item.supply_rate || item.rate || 0,
-  installationRate: item.installation_rate || (item.supply_rate || item.rate || 0) * INSTALLATION_PERCENT,
-  totalAmount: item.amount || (item.quantity * ((item.supply_rate || item.rate || 0) + (item.installation_rate || (item.supply_rate || item.rate || 0) * INSTALLATION_PERCENT))) || 0,
-  hasQuantity: (item.quantity || 0) > 0
-});
-
-// ================================
-// DEFAULT FALLBACK COMPANY PROFILE
-// ================================
 const DEFAULT_COMPANY_PROFILE = {
   company_name: "INTELITHON TECHNOLOGIES",
-  logo_url: "",
-  phone: "+91 1234567890",
-  email: "info@intelithon.com",
+  logo_url: "", phone: "+91 1234567890", email: "info@intelithon.com",
   website: "www.intelithon.com",
   address: "No. 1, 1st Floor, Deepa Towers, Esther Enclave, Horamavu, Bangalore, Karnataka - 560043",
   gst_number: "GSTIN: 33AABCA1234B1Z5"
@@ -267,1650 +129,814 @@ function DeliveryChallan() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // DEBUG LOG - Helps identify what data is coming from navigation
-  console.log("🔍 DELIVERY INPUT STATE:", location.state);
-
-  // ================================
-  // FIX 1: MERGE ALL QUANTITY SOURCES INTO resultData
-  // ================================
+  const stateData = location.state || {};
+  
   const resultData = {
-    ...(location.state?.result || {}),
-    ...(location.state?.civilQuantities || {}),
-    ...(location.state?.mepQuantities || {}),
-    ...(location.state?.pumpRoomQuantities || {})
+    ...(stateData.result || {}),
+    ...(stateData.civilQuantities || {}),
+    ...(stateData.mepQuantities || {}),
+    ...(stateData.pumpRoomQuantities || {})
   };
-  const dimensions = location.state?.dimensions || {};
   
-  // FIX 5: ADD SAFE FALLBACK FOR ITEMS (allow both filtered and raw)
-  const mainPoolItems =
-    location.state?.filteredMainPoolItems ||
-    location.state?.mainPoolItems ||
-    [];
+  const dimensions = stateData.dimensions || {};
+  const mainPoolItems = stateData.filteredMainPoolItems || stateData.mainPoolItems || [];
+  const mepItems = stateData.filteredMepItems || stateData.mepItems || [];
+  const balanceTankItems = stateData.balanceTankItems || [];
+  const pumpRoomItems = stateData.pumpRoomItems || [];
+  const pipingItemsFromState = stateData.pipingItems || [];
+  const pumpRoomQuantities = stateData.pumpRoomQuantities || {};
+  const pumpRoomDimensions = stateData.pumpRoomDimensions || {};
+  const templateDescriptions = stateData.templateDescriptions || {};
+  const mainPoolRemarks = stateData.mainPoolRemarks || {};
+  const balancingTankRemarks = stateData.balancingTankRemarks || {};
+  const mepRemarks = stateData.mepRemarks || {};
+  const pumpRoomRemarks = stateData.pumpRoomRemarks || {};
+  const selectedAdvancedEquipment = stateData.selectedAdvancedEquipment || [];
+  const pipingTotal = stateData.pipingTotal || 0;
+  
+  const poolType = stateData.poolType || 'skimmer';
+  const hasGutter = stateData.hasGutter || false;
+  const hasBalancingTank = stateData.hasBalancingTank || 
+    ['overflow', 'infinity', 'curved'].includes(poolType);
+  const includePumpRoom = stateData.includePumpRoom !== false;
+  const constructionType = stateData.constructionType || 'in_ground';
+  
+  const constructionDisplay = constructionType === 'terrace' ? 'Terrace' : 'In-Ground';
 
-  const mepItems =
-    location.state?.filteredMepItems ||
-    location.state?.mepItems ||
-    [];
-
-  const balanceTankItems = location.state?.balanceTankItems || [];
-  const pumpRoomItems = location.state?.pumpRoomItems || [];
+  const calculatedVolume = dimensions.length && dimensions.width && dimensions.depth 
+    ? dimensions.length * dimensions.width * dimensions.depth 
+    : (resultData?.volume_m3 || resultData?.volume || 0);
   
-  // Additional data
-  const pipingItemsFromState = location.state?.pipingItems || [];
-  const pumpRoomQuantities = location.state?.pumpRoomQuantities || {};
-  const pumpRoomDimensions = location.state?.pumpRoomDimensions || {};
-  const templateDescriptions = location.state?.templateDescriptions || {};
-  const mainPoolRemarks = location.state?.mainPoolRemarks || {};
-  const balancingTankRemarks = location.state?.balancingTankRemarks || {};
-  const mepRemarks = location.state?.mepRemarks || {};
-  const pumpRoomRemarks = location.state?.pumpRoomRemarks || {};
-  const selectedAdvancedEquipment = location.state?.selectedAdvancedEquipment || [];
-  const overflowGratingData = location.state?.overflowGratingData || null;
-  
-  // Piping data from location state
-  const pipingTotal = location.state?.pipingTotal || 0;
-  
-  // Pool type specific settings
-  const poolType = location.state?.poolType || 'skimmer';
-  const hasGutter = location.state?.hasGutter || false;
-  const hasBalancingTank = location.state?.hasBalancingTank || 
-    (poolType === 'overflow' || poolType === 'infinity' || poolType === 'curved');
-  const includePumpRoom = location.state?.includePumpRoom || 
-    (poolType === 'overflow' || poolType === 'infinity' || poolType === 'curved' || poolType === 'skimmer');
-  const constructionType = location.state?.constructionType || 'in-ground';
-
-  // DEBUG LOG - Show received data
-  console.log("DELIVERY FINAL DATA:", {
-    mainPoolItems,
-    mepItems,
-    pumpRoomItems,
-    balanceTankItems,
-    resultData,
-    dimensions,
-    poolType,
-    hasGutter,
-    hasBalancingTank,
-    includePumpRoom,
-    constructionType
-  });
+  const calculatedLiters = calculatedVolume * 1000;
+  const flowRate = resultData?.flowrate_m3_per_hr || resultData?.flow_rate || (calculatedVolume / 4.5);
 
   // ================================
-  // COMPANY PROFILE STATE
+  // STATE
   // ================================
   const [companyProfile, setCompanyProfile] = useState(DEFAULT_COMPANY_PROFILE);
   const [profileLoading, setProfileLoading] = useState(true);
-
-  // ================================
-  // COMPONENT STATE
-  // ================================
   const [loading, setLoading] = useState(false);
+  const [logoBase64, setLogoBase64] = useState("");
   
   const [deliveryData, setDeliveryData] = useState({
-    challanNo: "",
+    challanNo: `DC-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(Math.random() * 1000)}`,
     date: new Date().toISOString().split('T')[0],
-    fromCompanyName: "",
-    fromAddress: "",
-    fromContact: "",
-    fromGST: "",
-    customerName: "",
-    customerAddress: "",
-    contactPerson: "",
-    contactNumber: "",
-    projectName: "Swimming Pool Construction",
-    deliveryAddress: "",
-    preparedBy: "",
-    authorizedBy: "",
-    receivedBy: "",
-    deliveryStatus: "pending",
-    vehicleNumber: "",
-    driverName: "",
-    driverContact: "",
+    fromCompanyName: "", fromAddress: "", fromContact: "", fromGST: "",
+    customerName: "", customerAddress: "", contactPerson: "", contactNumber: "",
+    projectName: "Swimming Pool Construction", deliveryAddress: "",
+    preparedBy: "", authorizedBy: "", receivedBy: "",
+    deliveryStatus: "pending", vehicleNumber: "", driverName: "", driverContact: "",
     notes: "Handle with care. Store in dry place. Verify all items upon delivery."
   });
 
-  // Filtered and processed items
+  const [selectedMainPool, setSelectedMainPool] = useState([]);
+  const [selectedBalancingTank, setSelectedBalancingTank] = useState([]);
+  const [selectedPumpRoom, setSelectedPumpRoom] = useState([]);
+  const [selectedMep, setSelectedMep] = useState([]);
+  const [selectedPiping, setSelectedPiping] = useState([]);
+
   const [filteredMainPoolItems, setFilteredMainPoolItems] = useState([]);
   const [filteredBalancingTankItems, setFilteredBalancingTankItems] = useState([]);
   const [filteredPumpRoomItems, setFilteredPumpRoomItems] = useState([]);
   const [filteredMepItems, setFilteredMepItems] = useState([]);
-  
-  // Piping items state
   const [pipingItems, setPipingItems] = useState([]);
-  
-  // Selection state
-  const [selectedMainPoolItems, setSelectedMainPoolItems] = useState(new Set());
-  const [selectedBalancingTankItems, setSelectedBalancingTankItems] = useState(new Set());
-  const [selectedPumpRoomItems, setSelectedPumpRoomItems] = useState(new Set());
-  const [selectedMepItems, setSelectedMepItems] = useState(new Set());
-  const [selectedPipingItems, setSelectedPipingItems] = useState(new Set());
-  
-  // Editable quantities state
   const [editedQuantities, setEditedQuantities] = useState({});
 
   // ================================
-  // FETCH TENANT BRANDING
+  // FETCH TENANT PROFILE & LOGO - FIXED
   // ================================
   useEffect(() => {
-    const fetchTenantProfile = async () => {
+    const fetchProfileAndLogo = async () => {
       setProfileLoading(true);
+      let profile = null;
       
       try {
         const companyCode = localStorage.getItem("tenant_company_code");
-
-        if (!companyCode) {
-          console.warn("No company_code found in localStorage, using default profile");
-
-          const cached = localStorage.getItem("tenant_company_profile");
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            setCompanyProfile(parsed);
-            console.log("Loaded tenant profile from cache:", parsed);
-            
-            setDeliveryData(prev => ({
-              ...prev,
-              fromCompanyName: parsed.company_name || "",
-              fromAddress: parsed.address || "",
-              fromContact: `${parsed.phone || ""} | ${parsed.email || ""}`,
-              fromGST: parsed.gst_number || ""
-            }));
-          }
-          
-          setProfileLoading(false);
-          return;
-        }
-
-        console.log("🔄 Fetching tenant profile for company code:", companyCode);
-
-        const response = await fetch(
-          `${API_BASE_URL}/admin/tenant/public-profile?company_code=${companyCode}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json"
-            }
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.success && result.data) {
-          const profile = result.data;
-          console.log("✅ Loaded tenant profile:", profile);
-
-          setCompanyProfile(profile);
-
-          localStorage.setItem(
-            "tenant_company_profile",
-            JSON.stringify(profile)
-          );
-
-          setDeliveryData(prev => ({
-            ...prev,
-            fromCompanyName: profile.company_name || "",
-            fromAddress: profile.address || "",
-            fromGST: profile.gst_number || "",
-            fromContact: `${profile.phone || ""} | ${profile.email || ""}`
-          }));
-
-        } else {
-          throw new Error("Invalid profile response");
-        }
-
-      } catch (error) {
-        console.error("❌ Error fetching tenant profile:", error);
-
+        
+        // Try cached profile first
         const cached = localStorage.getItem("tenant_company_profile");
         if (cached) {
           try {
-            const parsed = JSON.parse(cached);
-            setCompanyProfile(parsed);
-            console.log("Loaded tenant profile from cache after error:", parsed);
-            
-            setDeliveryData(prev => ({
-              ...prev,
-              fromCompanyName: parsed.company_name || "",
-              fromAddress: parsed.address || "",
-              fromContact: `${parsed.phone || ""} | ${parsed.email || ""}`,
-              fromGST: parsed.gst_number || ""
-            }));
+            profile = JSON.parse(cached);
+            setCompanyProfile(profile);
+            updateDeliveryFromProfile(profile);
           } catch (e) {
             console.error("Error parsing cached profile:", e);
           }
         }
+        
+        // Fetch fresh profile from API
+        if (companyCode) {
+          try {
+            const response = await fetch(
+              `${API_BASE_URL}/admin/tenant/public-profile?company_code=${companyCode}`,
+              { headers: { "Content-Type": "application/json" } }
+            );
+            if (response.ok) {
+              const result = await response.json();
+              if (result.success && result.data) {
+                profile = result.data;
+                setCompanyProfile(profile);
+                localStorage.setItem("tenant_company_profile", JSON.stringify(profile));
+                updateDeliveryFromProfile(profile);
+              }
+            }
+          } catch (error) {
+            console.error("Profile fetch error:", error);
+          }
+        }
+        
+        // Load logo AFTER profile is set
+        await loadLogoWithProfile(profile);
+        
+      } catch (error) {
+        console.error("Error in fetchProfileAndLogo:", error);
+        await loadLogoWithProfile(profile);
       } finally {
         setProfileLoading(false);
       }
     };
-
-    fetchTenantProfile();
+    
+    fetchProfileAndLogo();
   }, []);
 
-  // ================================
-  // GENERATE CHALLAN NUMBER
-  // ================================
-  useEffect(() => {
-    const generateChallanNo = () => {
-      const timestamp = new Date().getTime();
-      const random = Math.floor(Math.random() * 1000);
-      return `DC-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${random}`;
-    };
+  // FIXED: loadLogo function that accepts profile parameter
+  const loadLogoWithProfile = async (profile) => {
+    const logoPaths = [];
+    
+    // 1. Try company profile logo from API
+    if (profile?.logo_url) {
+      const logoUrl = profile.logo_url.startsWith('http') 
+        ? profile.logo_url 
+        : `${API_BASE_URL}/${profile.logo_url.replace(/^\/+/, '')}`;
+      logoPaths.push(logoUrl);
+    }
+    
+    // 2. Try the profile currently in state
+    if (companyProfile?.logo_url && companyProfile.logo_url !== profile?.logo_url) {
+      const logoUrl = companyProfile.logo_url.startsWith('http') 
+        ? companyProfile.logo_url 
+        : `${API_BASE_URL}/${companyProfile.logo_url.replace(/^\/+/, '')}`;
+      logoPaths.push(logoUrl);
+    }
+    
+    // 3. Try default logo paths
+    logoPaths.push(`${API_BASE_URL}/static/INT.png`);
+    logoPaths.push(`${API_BASE_URL}/INT.png`);
+    logoPaths.push('/INT.png');
+    logoPaths.push(`${API_BASE_URL}/static/logo.png`);
+    logoPaths.push('/logo.png');
+    
+    console.log("🔍 Trying logo paths:", logoPaths);
+    
+    for (const path of logoPaths) {
+      try {
+        const base64 = await loadImageAsBase64(path);
+        if (base64 && base64.length > 100) {
+          setLogoBase64(base64);
+          console.log(`✅ Logo loaded from: ${path}`);
+          return;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    console.log("⚠️ No logo found from any path");
+  };
 
+  const updateDeliveryFromProfile = (profile) => {
     setDeliveryData(prev => ({
       ...prev,
-      challanNo: generateChallanNo()
+      fromCompanyName: profile.company_name || prev.fromCompanyName,
+      fromAddress: profile.address || prev.fromAddress,
+      fromContact: `${profile.phone || ""} | ${profile.email || ""}`,
+      fromGST: profile.gst_number || prev.fromGST
     }));
+  };
+
+  // ================================
+  // QUANTITY HELPERS
+  // ================================
+  const getQty = useCallback((slNo, fields, source = resultData) => {
+    if (!slNo) return 0;
+    const fieldName = fields[slNo];
+    if (!fieldName) return 0;
+    return Number(source?.[fieldName] || 0);
+  }, [resultData]);
+
+  const getFinalQty = useCallback((section, slNo, originalQty) => {
+    const key = `${section}_${slNo || 'noSlNo'}`;
+    return editedQuantities[key] !== undefined ? Number(editedQuantities[key]) : Number(originalQty || 0);
+  }, [editedQuantities]);
+
+  const handleQtyChange = useCallback((section, slNo, value) => {
+    const key = `${section}_${slNo || 'noSlNo'}`;
+    setEditedQuantities(prev => ({ ...prev, [key]: Number(value) || 0 }));
   }, []);
 
   // ================================
-  // QUANTITY EXTRACTION FUNCTIONS - SAFE with fallback
+  // SELECTION HANDLERS
   // ================================
-  
-  const getMainPoolQuantity = (slNo) => {
-    if (!slNo) return 0;
-    const fieldName = MAIN_POOL_QTY_FIELDS[slNo];
-    if (!fieldName) return 0;
-    
-    if (resultData && resultData[fieldName] !== undefined) {
-      return resultData[fieldName] || 0;
-    }
-    
-    return 0;
-  };
+  const toggleItemSelection = useCallback((setter, index) => {
+    setter(prev => {
+      const updated = [...prev];
+      updated[index] = !updated[index];
+      return updated;
+    });
+  }, []);
 
-  const getBalancingTankQuantity = (slNo) => {
-    if (!slNo) return 0;
-    const fieldName = BALANCE_TANK_QTY_FIELDS[slNo];
-    if (!fieldName) return 0;
-    
-    if (resultData && resultData[fieldName] !== undefined) {
-      return resultData[fieldName] || 0;
-    }
-    
-    return 0;
-  };
+  const toggleAllSelection = useCallback((setter, items) => {
+    setter(prev => {
+      const allSelected = prev.length === items.length && prev.every(Boolean);
+      return allSelected ? items.map(() => false) : items.map(() => true);
+    });
+  }, []);
 
-  const getPumpRoomQuantity = (slNo) => {
-    if (!slNo) return 0;
-    const fieldName = PUMP_ROOM_QTY_FIELDS[slNo];
-    if (!fieldName) return 0;
-    
-    if (pumpRoomQuantities && pumpRoomQuantities[fieldName] !== undefined) {
-      return pumpRoomQuantities[fieldName] || 0;
-    }
-    
-    if (resultData && resultData[fieldName] !== undefined) {
-      return resultData[fieldName] || 0;
-    }
-    
-    return 0;
-  };
+  const getSelectedItems = useCallback((items, selection) => {
+    if (!items || !selection) return [];
+    return items.filter((_, index) => selection[index]);
+  }, []);
 
-  const getMepQuantity = (slNo) => {
-    if (!slNo) return 0;
-    const fieldName = MEP_QTY_FIELDS[slNo];
-    if (!fieldName) return 0;
-    
-    // For advanced equipment (SlNo 30-34)
-    if (slNo >= 30 && slNo <= 34) {
-      return selectedAdvancedEquipment.includes(slNo) ? 1 : 0;
-    }
-    
-    if (resultData && resultData[fieldName] !== undefined) {
-      return resultData[fieldName] || 0;
-    }
-    
-    return 0;
-  };
-
-  // Get final quantity with edited override
-  const getFinalQty = (section, slNo, originalQty) => {
-    const key = `${section}_${slNo || 'noSlNo'}`;
-    return editedQuantities[key] !== undefined ? editedQuantities[key] : originalQty;
-  };
-
-  // Handle quantity change
-  const handleQtyChange = (section, slNo, value) => {
-    const key = `${section}_${slNo || 'noSlNo'}`;
-    setEditedQuantities(prev => ({
-      ...prev,
-      [key]: Number(value) || 0
-    }));
-  };
+  const getSelectedCount = useCallback((selection) => {
+    if (!selection || !selection.length) return 0;
+    return selection.filter(Boolean).length;
+  }, []);
 
   // ================================
-  // DESCRIPTION PROCESSING
-  // ================================
-  
-  const getProcessedDescription = (slNo, originalDescription, itemType = 'mainPool') => {
-    // Use template descriptions if available
-    if (slNo && templateDescriptions && templateDescriptions[slNo]) {
-      return templateDescriptions[slNo];
-    }
-    
-    // Handle overflow grating for overflow pools
-    if (poolType === 'overflow' && slNo === 11 && overflowGratingData) {
-      return overflowGratingData.Description;
-    }
-    
-    // Handle filter description with MPV and diameter
-    if (slNo === 1 && resultData?.filter_dia_mm) {
-      return `Filter with Clamp Lid and ${resultData.mpv_size || ""} Side Connection, designed for efficient pool water filtration. This model features a filter diameter of ${resultData.filter_dia_mm} mm, optimized for a filtration velocity of 40 m³/h/m² and a maximum operating pressure of 2.5 bar.`;
-    }
-    
-    // Handle pump description with HP
-    if (slNo === 7 && resultData?.hp) {
-      return `${originalDescription || "Circulation Pump"} (${resultData.hp} HP)`;
-    }
-    
-    // Add context for pump room items
-    if (itemType === 'pumpRoom') {
-      if (originalDescription) {
-        return `${originalDescription} - Pump Room`;
-      }
-    }
-    
-    // Add context for balancing tank items
-    if (itemType === 'balancingTank') {
-      if (originalDescription) {
-        return `${originalDescription} - Balancing Tank`;
-      }
-    }
-    
-    return originalDescription || "Description not available";
-  };
-
-  // ================================
-  // PROCESS PIPING ITEMS
-  // ================================
-  const processPipingItems = (items) => {
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return [];
-    }
-    
-    return items.map(mapPipingItem);
-  };
-
-  // ================================
-  // GROUP PIPING ITEMS - Using useMemo
-  // ================================
-  const groupedPipingItems = useMemo(() => {
-    if (!pipingItems.length) return { headers: [], pipes: [], valves: [], flanges: [] };
-    
-    const pipes = pipingItems.filter(i => 
-      i.category === "pipe" || 
-      i.category === "pipes" ||
-      normalizeType(i.type).includes("pipe")
-    );
-    
-    const valves = pipingItems.filter(i => 
-      i.category === "valve" || 
-      i.category === "ball_valve" ||
-      i.category === "check_valve" ||
-      normalizeType(i.type).includes("valve")
-    );
-    
-    const flanges = pipingItems.filter(i => 
-      i.category === "flange" || 
-      i.category === "puddle_flange" ||
-      normalizeType(i.type).includes("flange")
-    );
-    
-    const headers = pipingItems.filter(i => 
-      i.category === "header" || 
-      normalizeType(i.type).includes("header")
-    );
-    
-    return { pipes, valves, flanges, headers };
-  }, [pipingItems]);
-
-  // ================================
-  // PROCESS DELIVERY ITEMS - WITH SAFE FILTERING
+  // PROCESS ITEMS
   // ================================
   useEffect(() => {
-    const processAllItems = () => {
+    const processItems = () => {
       setLoading(true);
       
-      try {
-        console.log("🔄 Processing delivery items for pool type:", poolType);
-        console.log("🔄 Main Pool Items count:", mainPoolItems?.length || 0);
-        console.log("🔄 MEP Items count:", mepItems?.length || 0);
-        console.log("🔄 Balance Tank Items count:", balanceTankItems?.length || 0);
-        console.log("🔄 Pump Room Items count:", pumpRoomItems?.length || 0);
-        console.log("🔄 Piping Items from state count:", pipingItemsFromState?.length || 0);
-        
-        // Debug log to see actual items
-        console.log("🔄 Main Pool Items sample:", mainPoolItems?.slice(0, 2));
-        console.log("🔄 MEP Items sample:", mepItems?.slice(0, 2));
-        
-        // Warnings for empty data
-        if (!mainPoolItems || mainPoolItems.length === 0) {
-          console.warn("⚠️ No Main Pool Items received");
-        }
-        if (!mepItems || mepItems.length === 0) {
-          console.warn("⚠️ No MEP Items received");
-        }
-        
-        // ========================================
-        // 1. PROCESS MAIN POOL ITEMS - SAFE FILTERING
-        // ========================================
-        const mainPoolItemsWithQuantities = filterMainPoolItems(mainPoolItems || [])
-          .map(item => {
-            const slNo = item.SlNo;
-            const originalQty = getMainPoolQuantity(slNo);
-            const finalQty = getFinalQty('mainPool', slNo, originalQty);
-            
-            return {
-              ...item,
-              uiSlNo: slNo || item.id || Math.random(),
-              deliveryQuantity: finalQty,
-              originalQuantity: originalQty,
-              deliveryStatus: finalQty > 0 ? 'pending' : 'not-required',
-              deliveryRemarks: mainPoolRemarks[slNo] || '',
-              description: getProcessedDescription(slNo, item.Description || item.description, 'mainPool'),
-              hasQuantity: finalQty > 0 || originalQty > 0
-            };
+      // Main Pool Items
+      const mp = (mainPoolItems || [])
+        .filter(item => {
+          const slNo = Number(item.SlNo || 0);
+          return slNo >= 1 && slNo <= 14 && MAIN_POOL_QTY_FIELDS[slNo];
+        })
+        .map((item, idx) => ({
+          ...item,
+          uiSlNo: item.SlNo || idx + 1,
+          deliveryQuantity: getFinalQty('mainPool', item.SlNo, getQty(item.SlNo, MAIN_POOL_QTY_FIELDS)),
+          deliveryStatus: 'pending',
+          deliveryRemarks: mainPoolRemarks[item.SlNo] || '',
+          description: templateDescriptions[item.SlNo] || item.Description || item.description || 'N/A',
+          unit: item.Unit || item.unit || 'Nos',
+          code: item.Code || item.code || ''
+        }));
+      setFilteredMainPoolItems(mp);
+      setSelectedMainPool(mp.map(() => true));
+
+      // Balance Tank Items
+      if (hasBalancingTank) {
+        const bt = (balanceTankItems || [])
+          .filter(item => {
+            const slNo = Number(item.SlNo || 0);
+            return slNo >= 1 && slNo <= 12 && BALANCE_TANK_QTY_FIELDS[slNo];
           })
-          // FIX 2: CHANGE FILTER TO item !== null
-          .filter(item => item !== null)
-          .sort((a, b) => (a.uiSlNo || 0) - (b.uiSlNo || 0));
-        
-        setFilteredMainPoolItems(mainPoolItemsWithQuantities);
-        
-        const mainPoolIndices = new Set();
-        mainPoolItemsWithQuantities.forEach((_, index) => mainPoolIndices.add(index));
-        setSelectedMainPoolItems(mainPoolIndices);
-        
-        console.log("✅ Main Pool items after processing:", mainPoolItemsWithQuantities.length);
-        
-        // ========================================
-        // 2. PROCESS BALANCING TANK ITEMS - SAFE FILTERING
-        // ========================================
-        if (hasBalancingTank) {
-          const balancingItemsWithQuantities = filterBalancingTankItems(balanceTankItems || [])
-            .map(item => {
-              const slNo = item.SlNo;
-              const originalQty = getBalancingTankQuantity(slNo);
-              const finalQty = getFinalQty('balancingTank', slNo, originalQty);
-              
-              return {
-                ...item,
-                uiSlNo: slNo || item.id || Math.random(),
-                deliveryQuantity: finalQty,
-                originalQuantity: originalQty,
-                deliveryStatus: finalQty > 0 ? 'pending' : 'not-required',
-                deliveryRemarks: balancingTankRemarks[slNo] || '',
-                description: getProcessedDescription(slNo, item.Description || item.description, 'balancingTank'),
-                hasQuantity: finalQty > 0 || originalQty > 0
-              };
-            })
-            .filter(item => item !== null)
-            .sort((a, b) => (a.uiSlNo || 0) - (b.uiSlNo || 0));
-          
-          setFilteredBalancingTankItems(balancingItemsWithQuantities);
-          
-          const balancingIndices = new Set();
-          balancingItemsWithQuantities.forEach((_, index) => balancingIndices.add(index));
-          setSelectedBalancingTankItems(balancingIndices);
-        }
-        
-        // ========================================
-        // 3. PROCESS PUMP ROOM ITEMS - SAFE FILTERING
-        // ========================================
-        if (includePumpRoom) {
-          const pumpRoomItemsWithQuantities = filterPumpRoomItems(pumpRoomItems || [])
-            .map(item => {
-              const slNo = item.SlNo;
-              const originalQty = getPumpRoomQuantity(slNo);
-              const finalQty = getFinalQty('pumpRoom', slNo, originalQty);
-              
-              let description = getProcessedDescription(slNo, item.Description || item.description, 'pumpRoom');
-              
-              return {
-                ...item,
-                uiSlNo: slNo || item.id || Math.random(),
-                deliveryQuantity: finalQty,
-                originalQuantity: originalQty,
-                deliveryStatus: finalQty > 0 ? 'pending' : 'not-required',
-                deliveryRemarks: pumpRoomRemarks[slNo] || '',
-                description,
-                hasQuantity: finalQty > 0 || originalQty > 0
-              };
-            })
-            .filter(item => item !== null)
-            .sort((a, b) => (a.uiSlNo || 0) - (b.uiSlNo || 0));
-          
-          setFilteredPumpRoomItems(pumpRoomItemsWithQuantities);
-          
-          const pumpRoomIndices = new Set();
-          pumpRoomItemsWithQuantities.forEach((_, index) => pumpRoomIndices.add(index));
-          setSelectedPumpRoomItems(pumpRoomIndices);
-        }
-        
-        // ========================================
-        // 4. PROCESS MEP ITEMS - SAFE FILTERING
-        // ========================================
-        const mepItemsWithQuantities = filterMepItems(mepItems || [], poolType, hasGutter)
-          .map(item => {
-            const slNo = item.SlNo;
-            const originalQty = getMepQuantity(slNo);
-            const finalQty = getFinalQty('mep', slNo, originalQty);
-            
-            // For overflow pools, replace SlNo 11 with Overflow Grating
-            if (poolType === 'overflow' && slNo === 11 && overflowGratingData) {
-              return {
-                ...overflowGratingData,
-                SlNo: 11,
-                uiSlNo: 11,
-                deliveryQuantity: finalQty,
-                originalQuantity: originalQty,
-                deliveryStatus: finalQty > 0 ? 'pending' : 'not-required',
-                deliveryRemarks: mepRemarks[slNo] || '',
-                description: overflowGratingData.Description,
-                Unit: overflowGratingData.Unit,
-                Code: 'OG-001',
-                hasQuantity: finalQty > 0 || originalQty > 0
-              };
-            }
-            
-            let description = getProcessedDescription(slNo, item.Description || item.description, 'mep');
-            
-            return {
-              ...item,
-              uiSlNo: slNo || item.id || Math.random(),
-              deliveryQuantity: finalQty,
-              originalQuantity: originalQty,
-              deliveryStatus: finalQty > 0 ? 'pending' : 'not-required',
-              deliveryRemarks: mepRemarks[slNo] || '',
-              description,
-              hasQuantity: finalQty > 0 || originalQty > 0
-            };
+          .map((item, idx) => ({
+            ...item,
+            uiSlNo: item.SlNo || idx + 1,
+            deliveryQuantity: getFinalQty('balancingTank', item.SlNo, getQty(item.SlNo, BALANCE_TANK_QTY_FIELDS)),
+            deliveryStatus: 'pending',
+            deliveryRemarks: balancingTankRemarks[item.SlNo] || '',
+            description: templateDescriptions[item.SlNo] || item.Description || item.description || 'N/A',
+            unit: item.Unit || item.unit || 'Nos',
+            code: item.Code || item.code || ''
+          }));
+        setFilteredBalancingTankItems(bt);
+        setSelectedBalancingTank(bt.map(() => true));
+      } else {
+        setFilteredBalancingTankItems([]);
+        setSelectedBalancingTank([]);
+      }
+
+      // Pump Room Items
+      if (includePumpRoom) {
+        const pr = (pumpRoomItems || [])
+          .filter(item => {
+            const slNo = Number(item.SlNo || 0);
+            return slNo >= 1 && slNo <= 12 && PUMP_ROOM_QTY_FIELDS[slNo];
           })
-          .filter(item => item !== null)
-          .sort((a, b) => (a.uiSlNo || 0) - (b.uiSlNo || 0));
-        
-        setFilteredMepItems(mepItemsWithQuantities);
-        
-        const mepIndices = new Set();
-        mepItemsWithQuantities.forEach((_, index) => mepIndices.add(index));
-        setSelectedMepItems(mepIndices);
-        
-        // ========================================
-        // 5. PROCESS PIPING ITEMS - SAFE PROCESSING
-        // ========================================
-        const mappedPipingItems = processPipingItems(pipingItemsFromState);
-        setPipingItems(mappedPipingItems);
-        
-        // DEBUG LOG for piping data
-        console.log("PIPING FROM STATE:", pipingItemsFromState);
-        console.log("MAPPED PIPING:", mappedPipingItems);
-        
-        const pipingIndices = new Set();
-        mappedPipingItems.forEach((_, index) => pipingIndices.add(index));
-        setSelectedPipingItems(pipingIndices);
-        
-        console.log("✅ Delivery items processed successfully");
-        console.log("   Main Pool items:", mainPoolItemsWithQuantities.length);
-        console.log("   MEP items:", mepItemsWithQuantities.length);
-        console.log("   Balancing Tank items:", filteredBalancingTankItems.length);
-        console.log("   Pump Room items:", filteredPumpRoomItems.length);
-        console.log("   Piping items:", mappedPipingItems.length);
-        
-      } catch (error) {
-        console.error("❌ Error processing delivery items:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    processAllItems();
-  }, [
-    mainPoolItems, mepItems, balanceTankItems, pumpRoomItems,
-    poolType, hasGutter, hasBalancingTank, includePumpRoom,
-    resultData, pumpRoomQuantities, templateDescriptions,
-    mainPoolRemarks, balancingTankRemarks, mepRemarks, pumpRoomRemarks,
-    selectedAdvancedEquipment, overflowGratingData, pipingItemsFromState
-  ]);
-
-  // ================================
-  // HANDLER FUNCTIONS
-  // ================================
-  
-  const handleInputChange = (field, value) => {
-    setDeliveryData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleItemStatusChange = (category, index, value) => {
-    const setters = {
-      'mainPool': setFilteredMainPoolItems,
-      'balancingTank': setFilteredBalancingTankItems,
-      'pumpRoom': setFilteredPumpRoomItems,
-      'mep': setFilteredMepItems,
-      'piping': setPipingItems
-    };
-    
-    const setter = setters[category];
-    if (setter) {
-      setter(prev => {
-        const newItems = [...prev];
-        if (newItems[index]) {
-          newItems[index] = {
-            ...newItems[index],
-            deliveryStatus: value
-          };
-        }
-        return newItems;
-      });
-    }
-  };
-
-  const handleItemRemarksChange = (category, index, value) => {
-    const setters = {
-      'mainPool': setFilteredMainPoolItems,
-      'balancingTank': setFilteredBalancingTankItems,
-      'pumpRoom': setFilteredPumpRoomItems,
-      'mep': setFilteredMepItems,
-      'piping': setPipingItems
-    };
-    
-    const setter = setters[category];
-    if (setter) {
-      setter(prev => {
-        const newItems = [...prev];
-        if (newItems[index]) {
-          newItems[index] = {
-            ...newItems[index],
-            deliveryRemarks: value
-          };
-        }
-        return newItems;
-      });
-    }
-  };
-
-  const handleSelectItem = (category, index) => {
-    const selectionSetters = {
-      'mainPool': setSelectedMainPoolItems,
-      'balancingTank': setSelectedBalancingTankItems,
-      'pumpRoom': setSelectedPumpRoomItems,
-      'mep': setSelectedMepItems,
-      'piping': setSelectedPipingItems
-    };
-    
-    const selectionStates = {
-      'mainPool': selectedMainPoolItems,
-      'balancingTank': selectedBalancingTankItems,
-      'pumpRoom': selectedPumpRoomItems,
-      'mep': selectedMepItems,
-      'piping': selectedPipingItems
-    };
-    
-    const setSelection = selectionSetters[category];
-    const selection = selectionStates[category];
-    
-    if (setSelection && selection) {
-      if (selection.has(index)) {
-        const newSelection = new Set(selection);
-        newSelection.delete(index);
-        setSelection(newSelection);
+          .map((item, idx) => ({
+            ...item,
+            uiSlNo: item.SlNo || idx + 1,
+            deliveryQuantity: getFinalQty('pumpRoom', item.SlNo, getQty(item.SlNo, PUMP_ROOM_QTY_FIELDS, pumpRoomQuantities)),
+            deliveryStatus: 'pending',
+            deliveryRemarks: pumpRoomRemarks[item.SlNo] || '',
+            description: templateDescriptions[item.SlNo] || item.Description || item.description || 'N/A',
+            unit: item.Unit || item.unit || 'Nos',
+            code: item.Code || item.code || ''
+          }));
+        setFilteredPumpRoomItems(pr);
+        setSelectedPumpRoom(pr.map(() => true));
       } else {
-        const newSelection = new Set(selection);
-        newSelection.add(index);
-        setSelection(newSelection);
+        setFilteredPumpRoomItems([]);
+        setSelectedPumpRoom([]);
       }
-    }
-  };
 
-  const handleSelectAll = (category, items) => {
-    const selectionSetters = {
-      'mainPool': setSelectedMainPoolItems,
-      'balancingTank': setSelectedBalancingTankItems,
-      'pumpRoom': setSelectedPumpRoomItems,
-      'mep': setSelectedMepItems,
-      'piping': setSelectedPipingItems
-    };
-    
-    const selectionStates = {
-      'mainPool': selectedMainPoolItems,
-      'balancingTank': selectedBalancingTankItems,
-      'pumpRoom': selectedPumpRoomItems,
-      'mep': selectedMepItems,
-      'piping': selectedPipingItems
-    };
-    
-    const setSelection = selectionSetters[category];
-    const selection = selectionStates[category];
-    
-    if (setSelection && selection) {
-      if (selection.size === items.length) {
-        setSelection(new Set());
-      } else {
-        const newSelection = new Set();
-        items.forEach((_, index) => newSelection.add(index));
-        setSelection(newSelection);
-      }
-    }
-  };
-
-  const getSelectedCount = (category) => {
-    const selectionStates = {
-      'mainPool': selectedMainPoolItems,
-      'balancingTank': selectedBalancingTankItems,
-      'pumpRoom': selectedPumpRoomItems,
-      'mep': selectedMepItems,
-      'piping': selectedPipingItems
-    };
-    return selectionStates[category]?.size || 0;
-  };
-
-  const getSelectedItems = (category, items) => {
-    const selectionStates = {
-      'mainPool': selectedMainPoolItems,
-      'balancingTank': selectedBalancingTankItems,
-      'pumpRoom': selectedPumpRoomItems,
-      'mep': selectedMepItems,
-      'piping': selectedPipingItems
-    };
-    
-    return items.filter((_, index) => selectionStates[category]?.has(index));
-  };
-
-  // ================================
-  // PDF GENERATION FUNCTIONS (unchanged, but kept for completeness)
-  // ================================
-
-  const addProfessionalTable = (pdf, title, items, startY, margin, pageWidth, pageHeight) => {
-    // ... (same as before, not modified)
-    // For brevity, we include the same function from the original code.
-    // In a real implementation, this function would be exactly as provided earlier.
-    // Since the prompt does not ask to change PDF generation, we keep it as is.
-    // To save space in this answer, we'll just show a placeholder.
-    // In the final output, the full function must be included.
-    let yPos = startY;
-    const usableWidth = pageWidth - 2 * margin;
-    
-    const primaryColor = [30, 60, 114];
-    const headerBg = [240, 240, 240];
-    const altRowBg = [252, 252, 254];
-    
-    pdf.setFillColor(...primaryColor);
-    pdf.rect(margin, yPos, usableWidth, 8, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(9);
-    pdf.text(title, margin + 3, yPos + 5.5);
-    
-    yPos += 8;
-    
-    const colWidths = {
-      no: 12,
-      code: 18,
-      description: 85,
-      unit: 15,
-      qty: 22,
-      status: 28
-    };
-    
-    pdf.setFillColor(...headerBg);
-    pdf.rect(margin, yPos, usableWidth, 8, 'F');
-    pdf.setDrawColor(200, 200, 200);
-    pdf.setLineWidth(0.3);
-    pdf.rect(margin, yPos, usableWidth, 8);
-    
-    let xPos = margin;
-    const colOrder = ['no', 'code', 'description', 'unit', 'qty', 'status'];
-    colOrder.forEach((col, idx) => {
-      if (idx > 0) {
-        pdf.line(xPos, yPos, xPos, yPos + 8);
-      }
-      xPos += colWidths[col];
-    });
-    
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(7);
-    
-    pdf.text('Sl.No', margin + colWidths.no/2, yPos + 5.5, { align: 'center' });
-    pdf.text('Code', margin + colWidths.no + colWidths.code/2, yPos + 5.5, { align: 'center' });
-    pdf.text('Description', margin + colWidths.no + colWidths.code + 2, yPos + 5.5);
-    pdf.text('Unit', margin + colWidths.no + colWidths.code + colWidths.description + colWidths.unit/2, yPos + 5.5, { align: 'center' });
-    pdf.text('Qty', margin + colWidths.no + colWidths.code + colWidths.description + colWidths.unit + colWidths.qty/2, yPos + 5.5, { align: 'center' });
-    pdf.text('Status', margin + colWidths.no + colWidths.code + colWidths.description + colWidths.unit + colWidths.qty + colWidths.status/2, yPos + 5.5, { align: 'center' });
-    
-    yPos += 8;
-    
-    const rowHeight = 8;
-    
-    items.forEach((item, index) => {
-      if (yPos > pageHeight - 40) {
-        pdf.addPage();
-        yPos = margin + 10;
-        
-        pdf.setFillColor(...primaryColor);
-        pdf.rect(margin, yPos, usableWidth, 8, 'F');
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(9);
-        pdf.text(title + ' (Continued)', margin + 3, yPos + 5.5);
-        yPos += 8;
-        
-        pdf.setFillColor(...headerBg);
-        pdf.rect(margin, yPos, usableWidth, 8, 'F');
-        pdf.setDrawColor(200, 200, 200);
-        pdf.rect(margin, yPos, usableWidth, 8);
-        
-        xPos = margin;
-        colOrder.forEach((col, idx) => {
-          if (idx > 0) {
-            pdf.line(xPos, yPos, xPos, yPos + 8);
+      // MEP Items
+      const mep = (mepItems || [])
+        .filter(item => {
+          const slNo = Number(item.SlNo || 0);
+          if (slNo >= 1 && slNo <= 34 && MEP_QTY_FIELDS[slNo]) return true;
+          if (!slNo) {
+            const desc = (item.Description || item.description || '').toLowerCase();
+            const code = (item.Code || item.code || '').toLowerCase();
+            const isPiping = desc.includes('pipe') || desc.includes('valve') || 
+                           desc.includes('flange') || desc.includes('header') ||
+                           code.includes('pipe') || code.includes('valve') ||
+                           code.includes('flange') || code.includes('header');
+            return !isPiping;
           }
-          xPos += colWidths[col];
-        });
-        
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(7);
-        pdf.text('Sl.No', margin + colWidths.no/2, yPos + 5.5, { align: 'center' });
-        pdf.text('Code', margin + colWidths.no + colWidths.code/2, yPos + 5.5, { align: 'center' });
-        pdf.text('Description', margin + colWidths.no + colWidths.code + 2, yPos + 5.5);
-        pdf.text('Unit', margin + colWidths.no + colWidths.code + colWidths.description + colWidths.unit/2, yPos + 5.5, { align: 'center' });
-        pdf.text('Qty', margin + colWidths.no + colWidths.code + colWidths.description + colWidths.unit + colWidths.qty/2, yPos + 5.5, { align: 'center' });
-        pdf.text('Status', margin + colWidths.no + colWidths.code + colWidths.description + colWidths.unit + colWidths.qty + colWidths.status/2, yPos + 5.5, { align: 'center' });
-        
-        yPos += 8;
-      }
-      
-      if (index % 2 === 0) {
-        pdf.setFillColor(...altRowBg);
-        pdf.rect(margin, yPos, usableWidth, rowHeight, 'F');
-      }
-      
-      pdf.setDrawColor(220, 220, 220);
-      pdf.setLineWidth(0.2);
-      pdf.rect(margin, yPos, usableWidth, rowHeight);
-      
-      xPos = margin;
-      colOrder.forEach((col, idx) => {
-        if (idx > 0) {
-          pdf.line(xPos, yPos, xPos, yPos + rowHeight);
-        }
-        xPos += colWidths[col];
-      });
-      
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(6.5);
-      
-      const cellY = yPos + 5;
-      
-      const displayNumber = item.uiSlNo || index + 1;
-      pdf.text(String(displayNumber), margin + colWidths.no/2, cellY, { align: 'center' });
-      
-      pdf.text(cleanTextForPDF(item.Code || 'N/A'), margin + colWidths.no + colWidths.code/2, cellY, { align: 'center' });
-      
-      const desc = cleanTextForPDF(item.description || 'N/A');
-      const maxDescWidth = colWidths.description - 8;
-      const descLines = pdf.splitTextToSize(desc, maxDescWidth);
-      const firstLine = descLines[0];
-      const displayText = descLines.length > 1 ? firstLine.substring(0, 65) + '...' : firstLine;
-      pdf.text(displayText, margin + colWidths.no + colWidths.code + 4, cellY);
-      
-      pdf.text(cleanTextForPDF(item.Unit || ''), margin + colWidths.no + colWidths.code + colWidths.description + colWidths.unit/2, cellY, { align: 'center' });
-      
-      const qtyText = safeToFixed(item.deliveryQuantity, 2);
-      const qtyX = margin + colWidths.no + colWidths.code + colWidths.description + colWidths.unit;
-      pdf.text(qtyText, qtyX + colWidths.qty - 3, cellY, { align: 'right' });
-      
-      const status = item.deliveryStatus || 'pending';
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(6);
-      
-      if (status === 'delivered') {
-        pdf.setTextColor(0, 128, 0);
-      } else if (status === 'dispatched') {
-        pdf.setTextColor(0, 0, 200);
-      } else if (status === 'not-required') {
-        pdf.setTextColor(150, 150, 150);
-      } else {
-        pdf.setTextColor(200, 100, 0);
-      }
-      
-      const statusX = margin + colWidths.no + colWidths.code + colWidths.description + colWidths.unit + colWidths.qty;
-      pdf.text(status.toUpperCase(), statusX + colWidths.status/2, cellY, { align: 'center' });
-      
-      pdf.setTextColor(0, 0, 0);
-      
-      yPos += rowHeight;
-    });
-    
-    pdf.setDrawColor(200, 200, 200);
-    pdf.setLineWidth(0.4);
-    pdf.line(margin, yPos, margin + usableWidth, yPos);
-    
-    return yPos + 10;
-  };
+          return false;
+        })
+        .map((item, idx) => ({
+          ...item,
+          uiSlNo: item.SlNo || idx + 1,
+          deliveryQuantity: getFinalQty('mep', item.SlNo, getQty(item.SlNo, MEP_QTY_FIELDS)),
+          deliveryStatus: 'pending',
+          deliveryRemarks: mepRemarks[item.SlNo] || '',
+          description: templateDescriptions[item.SlNo] || item.Description || item.description || 'N/A',
+          unit: item.Unit || item.unit || 'Nos',
+          code: item.Code || item.code || ''
+        }));
+      setFilteredMepItems(mep);
+      setSelectedMep(mep.map(() => true));
 
-  const addPipingTable = (pdf, title, pipes, valves, flanges, headers, allItems, startY, margin, pageWidth, pageHeight) => {
-    // ... (same as before, not modified)
-    // For brevity, we include a placeholder; in the final code it must be the full function.
-    let yPos = startY;
-    const usableWidth = pageWidth - 2 * margin;
-    
-    const primaryColor = [30, 60, 114];
-    const headerBg = [240, 240, 240];
-    const altRowBg = [252, 252, 254];
-    const sectionBg = [230, 240, 250];
-    
-    pdf.setFillColor(...primaryColor);
-    pdf.rect(margin, yPos, usableWidth, 8, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(9);
-    pdf.text(title + ` (Total: ${allItems.length} items)`, margin + 3, yPos + 5.5);
-    
-    yPos += 8;
-    
-    const colWidths = {
-      no: 12,
-      code: 18,
-      type: 18,
-      dia: 15,
-      description: 70,
-      unit: 15,
-      qty: 22,
-      status: 28
-    };
-    
-    const renderSection = (sectionTitle, items) => {
-      if (items.length === 0) return yPos;
+      // Piping Items
+      const pipingKeywords = ['pipe', 'valve', 'flange', 'header', 'puddle', 'ball', 'check', 'elbow', 'tee', 'coupling', 'nipple', 'union', 'connector'];
       
-      if (yPos > pageHeight - 60) {
-        pdf.addPage();
-        yPos = margin + 10;
-        
-        pdf.setFillColor(...primaryColor);
-        pdf.rect(margin, yPos, usableWidth, 8, 'F');
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(9);
-        pdf.text(title + ' (Continued)', margin + 3, yPos + 5.5);
-        yPos += 8;
-      }
-      
-      pdf.setFillColor(...sectionBg);
-      pdf.rect(margin, yPos, usableWidth, 6, 'F');
-      pdf.setDrawColor(200, 200, 200);
-      pdf.rect(margin, yPos, usableWidth, 6);
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
-      pdf.text(sectionTitle + ` (${items.length} items)`, margin + 3, yPos + 4);
-      yPos += 6;
-      
-      pdf.setFillColor(...headerBg);
-      pdf.rect(margin, yPos, usableWidth, 8, 'F');
-      pdf.setDrawColor(200, 200, 200);
-      pdf.rect(margin, yPos, usableWidth, 8);
-      
-      let xPos = margin;
-      const colOrder = ['no', 'code', 'type', 'dia', 'description', 'unit', 'qty', 'status'];
-      colOrder.forEach((col, idx) => {
-        if (idx > 0) {
-          pdf.line(xPos, yPos, xPos, yPos + 8);
-        }
-        xPos += colWidths[col];
-      });
-      
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(6.5);
-      
-      pdf.text('Sl.No', margin + colWidths.no/2, yPos + 5, { align: 'center' });
-      pdf.text('Code', margin + colWidths.no + colWidths.code/2, yPos + 5, { align: 'center' });
-      pdf.text('Type', margin + colWidths.no + colWidths.code + colWidths.type/2, yPos + 5, { align: 'center' });
-      pdf.text('Dia', margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia/2, yPos + 5, { align: 'center' });
-      pdf.text('Description', margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + 2, yPos + 5);
-      pdf.text('Unit', margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + colWidths.description + colWidths.unit/2, yPos + 5, { align: 'center' });
-      pdf.text('Qty', margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + colWidths.description + colWidths.unit + colWidths.qty/2, yPos + 5, { align: 'center' });
-      pdf.text('Status', margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + colWidths.description + colWidths.unit + colWidths.qty + colWidths.status/2, yPos + 5, { align: 'center' });
-      
-      yPos += 8;
-      
-      const rowHeight = 8;
-      
-      items.forEach((item, idx) => {
-        if (yPos > pageHeight - 40) {
-          pdf.addPage();
-          yPos = margin + 10;
+      const pip = (pipingItemsFromState || [])
+        .filter(item => {
+          const slNo = Number(item.SlNo || item.sl_no || 0);
+          const category = (item.category || item.Category || '').toLowerCase();
+          const type = (item.type || item.Type || '').toLowerCase();
+          const desc = (item.description || item.Description || '').toLowerCase();
+          const code = (item.code || item.Code || '').toLowerCase();
           
-          pdf.setFillColor(...primaryColor);
-          pdf.rect(margin, yPos, usableWidth, 8, 'F');
-          pdf.setTextColor(255, 255, 255);
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(9);
-          pdf.text(title + ' (Continued)', margin + 3, yPos + 5.5);
-          yPos += 8;
+          if (slNo >= 1 && slNo <= 34) return false;
           
-          pdf.setFillColor(...sectionBg);
-          pdf.rect(margin, yPos, usableWidth, 6, 'F');
-          pdf.rect(margin, yPos, usableWidth, 6);
-          pdf.setTextColor(0, 0, 0);
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(8);
-          pdf.text(sectionTitle + ` (Continued)`, margin + 3, yPos + 4);
-          yPos += 6;
+          const isPiping = pipingKeywords.some(keyword => 
+            category.includes(keyword) || type.includes(keyword) || 
+            desc.includes(keyword) || code.includes(keyword)
+          );
           
-          pdf.setFillColor(...headerBg);
-          pdf.rect(margin, yPos, usableWidth, 8, 'F');
-          pdf.rect(margin, yPos, usableWidth, 8);
-          
-          xPos = margin;
-          colOrder.forEach((col, idx) => {
-            if (idx > 0) {
-              pdf.line(xPos, yPos, xPos, yPos + 8);
-            }
-            xPos += colWidths[col];
-          });
-          
-          pdf.text('Sl.No', margin + colWidths.no/2, yPos + 5, { align: 'center' });
-          pdf.text('Code', margin + colWidths.no + colWidths.code/2, yPos + 5, { align: 'center' });
-          pdf.text('Type', margin + colWidths.no + colWidths.code + colWidths.type/2, yPos + 5, { align: 'center' });
-          pdf.text('Dia', margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia/2, yPos + 5, { align: 'center' });
-          pdf.text('Description', margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + 2, yPos + 5);
-          pdf.text('Unit', margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + colWidths.description + colWidths.unit/2, yPos + 5, { align: 'center' });
-          pdf.text('Qty', margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + colWidths.description + colWidths.unit + colWidths.qty/2, yPos + 5, { align: 'center' });
-          pdf.text('Status', margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + colWidths.description + colWidths.unit + colWidths.qty + colWidths.status/2, yPos + 5, { align: 'center' });
-          
-          yPos += 8;
-        }
-        
-        if (idx % 2 === 0) {
-          pdf.setFillColor(...altRowBg);
-          pdf.rect(margin, yPos, usableWidth, rowHeight, 'F');
-        }
-        
-        pdf.setDrawColor(220, 220, 220);
-        pdf.setLineWidth(0.2);
-        pdf.rect(margin, yPos, usableWidth, rowHeight);
-        
-        xPos = margin;
-        colOrder.forEach((col, idx) => {
-          if (idx > 0) {
-            pdf.line(xPos, yPos, xPos, yPos + rowHeight);
-          }
-          xPos += colWidths[col];
-        });
-        
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(6.5);
-        
-        const cellY = yPos + 5;
-        
-        pdf.text(String(item.uiSlNo || idx + 1), margin + colWidths.no/2, cellY, { align: 'center' });
-        
-        pdf.text(cleanTextForPDF(item.code || '-'), margin + colWidths.no + colWidths.code/2, cellY, { align: 'center' });
-        
-        const itemType = item.type || item.category || '-';
-        pdf.text(cleanTextForPDF(itemType).substring(0, 10), margin + colWidths.no + colWidths.code + colWidths.type/2, cellY, { align: 'center' });
-        
-        const diaText = item.dia ? `${item.dia}mm` : '-';
-        pdf.text(diaText, margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia/2, cellY, { align: 'center' });
-        
-        const desc = cleanTextForPDF(item.description || 'N/A');
-        const maxDescWidth = colWidths.description - 8;
-        const descLines = pdf.splitTextToSize(desc, maxDescWidth);
-        const firstLine = descLines[0];
-        const displayText = descLines.length > 1 ? firstLine.substring(0, 50) + '...' : firstLine;
-        pdf.text(displayText, margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + 4, cellY);
-        
-        pdf.text(cleanTextForPDF(item.unit || 'NOS'), margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + colWidths.description + colWidths.unit/2, cellY, { align: 'center' });
-        
-        const qtyText = safeToFixed(item.deliveryQuantity || 0, 2);
-        const qtyX = margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + colWidths.description + colWidths.unit;
-        pdf.text(qtyText, qtyX + colWidths.qty - 3, cellY, { align: 'right' });
-        
-        const status = item.deliveryStatus || 'pending';
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(6);
-        
-        if (status === 'delivered') {
-          pdf.setTextColor(0, 128, 0);
-        } else if (status === 'dispatched') {
-          pdf.setTextColor(0, 0, 200);
-        } else if (status === 'not-required') {
-          pdf.setTextColor(150, 150, 150);
-        } else {
-          pdf.setTextColor(200, 100, 0);
-        }
-        
-        const statusX = margin + colWidths.no + colWidths.code + colWidths.type + colWidths.dia + colWidths.description + colWidths.unit + colWidths.qty;
-        pdf.text(status.toUpperCase(), statusX + colWidths.status/2, cellY, { align: 'center' });
-        
-        pdf.setTextColor(0, 0, 0);
-        
-        yPos += rowHeight;
-      });
-      
-      return yPos;
-    };
-    
-    if (headers.length > 0) {
-      yPos = renderSection('Headers', headers);
-    }
-    
-    if (pipes.length > 0) {
-      yPos = renderSection('Pipes', pipes);
-    }
-    
-    if (valves.length > 0) {
-      yPos = renderSection('Valves', valves);
-    }
-    
-    if (flanges.length > 0) {
-      yPos = renderSection('Flanges', flanges);
-    }
-    
-    pdf.setDrawColor(200, 200, 200);
-    pdf.setLineWidth(0.4);
-    pdf.line(margin, yPos, margin + usableWidth, yPos);
-    
-    return yPos + 10;
-  };
+          return isPiping;
+        })
+        .map((item, idx) => ({
+          ...item,
+          uiSlNo: item.sl_no || item.SlNo || idx + 1,
+          deliveryQuantity: item.quantity || item.Quantity || 0,
+          deliveryStatus: 'pending',
+          deliveryRemarks: '',
+          description: item.description || item.Description || 'Piping Item',
+          unit: item.unit || item.Unit || 'NOS',
+          code: item.code || item.Code || '',
+          type: item.type || item.Type || item.category || '',
+          dia: item.dia || item.Dia || null
+        }));
+      setPipingItems(pip);
+      setSelectedPiping(pip.map(() => true));
 
-  const generateDeliveryPDF = async () => {
-    // ... (same as before, not modified)
-    // For brevity, we include a placeholder; in the final code it must be the full function.
+      setLoading(false);
+    };
+    processItems();
+  }, [location.state]);
+
+  // ================================
+  // PDF GENERATION - FIXED with logo
+  // ================================
+  const generatePDF = async () => {
     try {
       const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF('p', 'mm', 'a4');
       
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const margin = 15;
-      const usableWidth = pageWidth - 2 * margin;
-      let yPos = margin;
+      const pageW = 210, pageH = 297, margin = 12;
+      const usableW = pageW - 2 * margin;
+      let y = margin;
       
-      const primaryColor = [30, 60, 114];
-      const lightGray = [245, 245, 245];
-      const darkText = [0, 0, 0];
-      const mediumGray = [100, 100, 100];
-
-      // === HEADER SECTION ===
+      const primaryColor = [25, 55, 109];
+      const headerBg = [240, 245, 250];
+      const altRowBg = [250, 250, 255];
+      
+      // Header with logo - FIXED
       pdf.setFillColor(...primaryColor);
-      pdf.rect(0, 0, pageWidth, 30, 'F');
+      pdf.rect(0, 0, pageW, 30, 'F');
       
-      try {
-        if (companyProfile.logo_url) {
-          const logoUrl = `${API_BASE_URL}/${companyProfile.logo_url}`;
-          const img = await loadImageAsBase64(logoUrl);
-          if (img) {
-            pdf.addImage(img, 'PNG', margin, 7, 18, 18);
-          } else {
-            const defaultLogoUrl = '/INT.png';
-            const defaultImg = await loadImageAsBase64(defaultLogoUrl);
-            if (defaultImg) {
-              pdf.addImage(defaultImg, 'JPEG', margin, 7, 18, 18);
-            }
-          }
-        } else {
-          const defaultLogoUrl = '/INT.png';
-          const defaultImg = await loadImageAsBase64(defaultLogoUrl);
-          if (defaultImg) {
-            pdf.addImage(defaultImg, 'JPEG', margin, 7, 18, 18);
-          }
+      let logoAdded = false;
+      if (logoBase64 && logoBase64.length > 100) {
+        try {
+          const logoWidth = 22;
+          const logoHeight = 22;
+          pdf.addImage(logoBase64, 'PNG', margin, 4, logoWidth, logoHeight);
+          logoAdded = true;
+          console.log("✅ Logo added to PDF successfully");
+        } catch (e) {
+          console.error("❌ Failed to add logo to PDF:", e);
         }
-      } catch (error) {
-        console.log('Logo not found, continuing without logo');
       }
       
       pdf.setTextColor(255, 255, 255);
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(18);
       
-      const pdfCompanyName = deliveryData.fromCompanyName || companyProfile.company_name || DEFAULT_COMPANY_PROFILE.company_name;
-      pdf.text(pdfCompanyName, margin + 23, 13);
+      const companyName = deliveryData.fromCompanyName || companyProfile.company_name || 'Company Name';
       
-      pdf.setFontSize(12);
-      pdf.text('DELIVERY CHALLAN', margin + 23, 21);
+      if (logoAdded) {
+        pdf.setFontSize(14);
+        pdf.text(companyName, margin + 26, 12);
+        pdf.setFontSize(10);
+        pdf.text('DELIVERY CHALLAN', margin + 26, 20);
+      } else {
+        pdf.setFontSize(16);
+        pdf.text(companyName, margin, 13);
+        pdf.setFontSize(10);
+        pdf.text('DELIVERY CHALLAN', margin, 22);
+      }
       
-      yPos = 40;
+      y = 37;
       
-      // === CHALLAN INFORMATION BAR ===
-      pdf.setFillColor(...lightGray);
-      pdf.rect(margin, yPos, usableWidth, 10, 'F');
-      pdf.setDrawColor(200, 200, 200);
+      // Info bar
+      pdf.setDrawColor(200);
       pdf.setLineWidth(0.3);
-      pdf.rect(margin, yPos, usableWidth, 10);
-      
-      pdf.setTextColor(...darkText);
+      pdf.setFillColor(248, 249, 250);
+      pdf.rect(margin, y, usableW, 10, 'F');
+      pdf.rect(margin, y, usableW, 10);
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(9);
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(0);
       
-      const infoItems = [
-        { label: 'Challan No:', value: deliveryData.challanNo, x: margin + 3 },
-        { label: 'Date:', value: new Date(deliveryData.date).toLocaleDateString('en-IN'), x: margin + 60 },
-        { label: 'Status:', value: deliveryData.deliveryStatus.toUpperCase(), x: margin + 110 },
-        { label: 'Pool Type:', value: `${poolType.toUpperCase()}${constructionType === 'terrace' ? ' (Terrace)' : ' (In-Ground)'}`, x: margin + 160 }
-      ];
+      const poolTypeDisplay = `${poolType.toUpperCase()}${constructionType === 'terrace' ? ' (Terrace)' : ' (In-Ground)'}`;
       
-      infoItems.forEach(item => {
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(item.label, item.x, yPos + 6.5);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(item.value, item.x + 20, yPos + 6.5);
-      });
+      pdf.text(`Challan No: ${deliveryData.challanNo}`, margin + 3, y + 6.5);
+      pdf.text(`Date: ${new Date(deliveryData.date).toLocaleDateString('en-IN')}`, margin + 55, y + 6.5);
+      pdf.text(`Status: ${deliveryData.deliveryStatus.toUpperCase()}`, margin + 115, y + 6.5);
+      pdf.text(`Pool: ${poolTypeDisplay}`, margin + 160, y + 6.5);
       
-      yPos += 15;
+      y += 14;
       
-      // === FROM & TO SECTION ===
-      const boxHeight = 32;
-      const boxWidth = (usableWidth - 5) / 2;
+      // FROM/TO boxes
+      const boxW = (usableW - 6) / 2;
+      const boxH = 28;
       
       // FROM Box
-      pdf.setDrawColor(200, 200, 200);
+      pdf.setDrawColor(180);
       pdf.setLineWidth(0.5);
-      pdf.rect(margin, yPos, boxWidth, boxHeight);
-      
+      pdf.rect(margin, y, boxW, boxH);
       pdf.setFillColor(...primaryColor);
-      pdf.rect(margin, yPos, boxWidth, 8, 'F');
-      pdf.setTextColor(255, 255, 255);
+      pdf.rect(margin, y, boxW, 7, 'F');
+      pdf.setTextColor(255);
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(10);
-      pdf.text('FROM', margin + 3, yPos + 5.5);
+      pdf.setFontSize(8);
+      pdf.text('FROM', margin + 3, y + 5);
       
-      pdf.setTextColor(...darkText);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8.5);
-      
-      const fromCompany = deliveryData.fromCompanyName || companyProfile.company_name || DEFAULT_COMPANY_PROFILE.company_name;
-      const fromAddr = deliveryData.fromAddress || companyProfile.address || DEFAULT_COMPANY_PROFILE.address;
-      const fromContact = deliveryData.fromContact || `${companyProfile.phone || DEFAULT_COMPANY_PROFILE.phone} | ${companyProfile.email || DEFAULT_COMPANY_PROFILE.email}`;
-      const fromGST = deliveryData.fromGST || companyProfile.gst_number || DEFAULT_COMPANY_PROFILE.gst_number;
-      
-      pdf.text(cleanTextForPDF(fromCompany), margin + 3, yPos + 13);
-      
-      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(0);
       pdf.setFontSize(7.5);
-      const fromLines = pdf.splitTextToSize(cleanTextForPDF(fromAddr), boxWidth - 6);
-      pdf.text(fromLines, margin + 3, yPos + 18);
-      pdf.text(cleanTextForPDF(fromContact), margin + 3, yPos + 26);
-      pdf.setFontSize(7);
-      pdf.text(cleanTextForPDF(fromGST), margin + 3, yPos + 30);
+      const fromName = deliveryData.fromCompanyName || companyProfile.company_name || 'Company Name';
+      pdf.text(cleanTextForPDF(fromName), margin + 3, y + 12);
+      pdf.setFontSize(6.5);
+      const fromAddr = deliveryData.fromAddress || companyProfile.address || '';
+      const fromAddrLines = pdf.splitTextToSize(cleanTextForPDF(fromAddr), boxW - 6);
+      pdf.text(fromAddrLines, margin + 3, y + 17);
+      pdf.text(`GST: ${cleanTextForPDF(deliveryData.fromGST || companyProfile.gst_number || '')}`, margin + 3, y + 25);
       
       // TO Box
-      const toBoxX = margin + boxWidth + 5;
-      pdf.rect(toBoxX, yPos, boxWidth, boxHeight);
-      
+      const toX = margin + boxW + 6;
+      pdf.setDrawColor(180);
+      pdf.rect(toX, y, boxW, boxH);
       pdf.setFillColor(...primaryColor);
-      pdf.rect(toBoxX, yPos, boxWidth, 8, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(10);
-      pdf.text('DELIVERY TO', toBoxX + 3, yPos + 5.5);
-      
-      pdf.setTextColor(...darkText);
+      pdf.rect(toX, y, boxW, 7, 'F');
+      pdf.setTextColor(255);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(8);
-      pdf.text(cleanTextForPDF(deliveryData.customerName || 'Customer Name Not Provided'), toBoxX + 3, yPos + 13);
+      pdf.text('DELIVERY TO', toX + 3, y + 5);
       
-      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(0);
       pdf.setFontSize(7.5);
-      const toAddress = deliveryData.deliveryAddress || deliveryData.customerAddress || 'Address Not Provided';
-      const toLines = pdf.splitTextToSize(cleanTextForPDF(toAddress), boxWidth - 6);
-      pdf.text(toLines, toBoxX + 3, yPos + 18);
-      pdf.text(`Contact: ${cleanTextForPDF(deliveryData.contactPerson || 'N/A')}`, toBoxX + 3, yPos + 26);
-      pdf.text(`Phone: ${cleanTextForPDF(deliveryData.contactNumber || 'N/A')}`, toBoxX + 3, yPos + 30);
+      pdf.text(cleanTextForPDF(deliveryData.customerName || 'Customer'), toX + 3, y + 12);
+      pdf.setFontSize(6.5);
+      const toAddr = deliveryData.deliveryAddress || deliveryData.customerAddress || '';
+      const toAddrLines = pdf.splitTextToSize(cleanTextForPDF(toAddr), boxW - 6);
+      pdf.text(toAddrLines, toX + 3, y + 17);
+      pdf.text(`Contact: ${cleanTextForPDF(deliveryData.contactPerson || '')} | ${cleanTextForPDF(deliveryData.contactNumber || '')}`, toX + 3, y + 25);
       
-      yPos += boxHeight + 8;
+      y += boxH + 10;
       
-      // === POOL SPECIFICATIONS ===
+      // Pool Specifications
       pdf.setFillColor(...primaryColor);
-      pdf.rect(margin, yPos, usableWidth, 8, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(10);
-      pdf.text('PROJECT SPECIFICATIONS', margin + 3, yPos + 5.5);
-      
-      yPos += 8;
-      
-      const specHeight = 28;
-      pdf.setDrawColor(200, 200, 200);
-      pdf.rect(margin, yPos, usableWidth, specHeight);
-      
-      pdf.line(margin, yPos + 8, margin + usableWidth, yPos + 8);
-      pdf.line(margin, yPos + 16, margin + usableWidth, yPos + 16);
-      
-      const col1Width = 60;
-      const col2Width = 50;
-      
-      pdf.line(margin + col1Width, yPos, margin + col1Width, yPos + specHeight);
-      pdf.line(margin + col1Width + col2Width, yPos, margin + col1Width + col2Width, yPos + specHeight);
-      
-      pdf.setTextColor(...darkText);
+      pdf.rect(margin, y, usableW, 7, 'F');
+      pdf.setTextColor(255);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(8);
+      pdf.text('POOL SPECIFICATIONS', margin + 3, y + 5);
+      y += 10;
       
-      pdf.text('Pool Dimensions', margin + 3, yPos + 5.5);
-      pdf.text('Volume', margin + col1Width + 3, yPos + 5.5);
-      pdf.text('Pool Type', margin + col1Width + col2Width + 3, yPos + 5.5);
+      pdf.setDrawColor(200);
+      pdf.setLineWidth(0.3);
+      pdf.rect(margin, y, usableW, 18);
       
-      pdf.setFont('helvetica', 'normal');
-      const dimStr = formatDimensions(dimensions);
-      pdf.text(dimStr, margin + 3, yPos + 12);
-      
-      const volStr = `${safeToFixed(resultData?.volume_m3 || 0)} m³ (${safeToFixed(resultData?.liters || 0, 0)} L)`;
-      pdf.text(volStr, margin + col1Width + 3, yPos + 12);
-      
-      const poolTypeText = `${poolType.toUpperCase()}${constructionType === 'terrace' ? ' - Terrace' : ' - In-Ground'}`;
-      pdf.text(poolTypeText, margin + col1Width + col2Width + 3, yPos + 12);
+      const specColW = usableW / 3;
       
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Flow Rate', margin + 3, yPos + 13.5);
-      pdf.text('Gutter System', margin + col1Width + 3, yPos + 13.5);
-      pdf.text('Pump Room', margin + col1Width + col2Width + 3, yPos + 13.5);
+      pdf.setFontSize(7);
+      pdf.setTextColor(0);
+      
+      pdf.text('Dimensions:', margin + 3, y + 6);
+      pdf.text('Volume:', margin + specColW + 3, y + 6);
+      pdf.text('Pool Type:', margin + 2 * specColW + 3, y + 6);
       
       pdf.setFont('helvetica', 'normal');
-      const flowStr = `${safeToFixed(resultData?.flowrate_m3_per_hr || 0)} m³/hr`;
-      pdf.text(flowStr, margin + 3, yPos + 20);
+      pdf.text(formatDimensions(dimensions), margin + 3, y + 12);
+      pdf.text(`${safeToFixed(calculatedVolume)} m³`, margin + specColW + 3, y + 12);
+      pdf.text(poolTypeDisplay, margin + 2 * specColW + 3, y + 12);
       
-      const gutterStr = hasBalancingTank ? "Yes (Balance Tank)" : "No";
-      pdf.text(gutterStr, margin + col1Width + 3, yPos + 20);
+      y += 22;
       
-      const pumpRoomStr = includePumpRoom ? "Included" : "Not Included";
-      pdf.text(pumpRoomStr, margin + col1Width + col2Width + 3, yPos + 20);
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Construction', margin + 3, yPos + 21.5);
-      
-      pdf.setFont('helvetica', 'normal');
-      const constructionStr = constructionType === 'terrace' ? 'Terrace Pool (Structural only)' : 'In-Ground Pool (Complete)';
-      pdf.text(constructionStr, margin + 3, yPos + 28);
-      
-      yPos += specHeight + 8;
-      
-      // === DELIVERY DETAILS ===
-      pdf.setFillColor(...primaryColor);
-      pdf.rect(margin, yPos, usableWidth, 8, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(10);
-      pdf.text('DELIVERY INFORMATION', margin + 3, yPos + 5.5);
-      
-      yPos += 8;
-      
-      const deliveryHeight = 15;
-      pdf.setDrawColor(200, 200, 200);
-      pdf.rect(margin, yPos, usableWidth, deliveryHeight);
-      
-      pdf.line(margin, yPos + 7.5, margin + usableWidth, yPos + 7.5);
-      
-      const delCol1 = usableWidth / 3;
-      const delCol2 = usableWidth / 3;
-      
-      pdf.line(margin + delCol1, yPos, margin + delCol1, yPos + deliveryHeight);
-      pdf.line(margin + delCol1 + delCol2, yPos, margin + delCol1 + delCol2, yPos + deliveryHeight);
-      
-      pdf.setTextColor(...darkText);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(7.5);
-      
-      pdf.text('Vehicle Number', margin + 3, yPos + 5);
-      pdf.text('Driver Name', margin + delCol1 + 3, yPos + 5);
-      pdf.text('Driver Contact', margin + delCol1 + delCol2 + 3, yPos + 5);
-      
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(cleanTextForPDF(deliveryData.vehicleNumber || 'Not Assigned'), margin + 3, yPos + 12);
-      pdf.text(cleanTextForPDF(deliveryData.driverName || 'Not Assigned'), margin + delCol1 + 3, yPos + 12);
-      pdf.text(cleanTextForPDF(deliveryData.driverContact || 'Not Assigned'), margin + delCol1 + delCol2 + 3, yPos + 12);
-      
-      yPos += deliveryHeight + 10;
-      
-      // === ITEMS TABLES ===
-      const displayMainPoolItems = getSelectedItems('mainPool', filteredMainPoolItems);
-      const displayBalancingTankItems = getSelectedItems('balancingTank', filteredBalancingTankItems);
-      const displayPumpRoomItems = getSelectedItems('pumpRoom', filteredPumpRoomItems);
-      const displayMepItems = getSelectedItems('mep', filteredMepItems);
-      const displayPipingItems = getSelectedItems('piping', pipingItems);
-      
-      const displayPipes = displayPipingItems.filter(i => 
-        i.category === "pipe" || i.category === "pipes" || normalizeType(i.type).includes("pipe")
-      );
-      const displayValves = displayPipingItems.filter(i => 
-        i.category === "valve" || i.category === "ball_valve" || i.category === "check_valve" || normalizeType(i.type).includes("valve")
-      );
-      const displayFlanges = displayPipingItems.filter(i => 
-        i.category === "flange" || i.category === "puddle_flange" || normalizeType(i.type).includes("flange")
-      );
-      const displayHeaders = displayPipingItems.filter(i => 
-        i.category === "header" || normalizeType(i.type).includes("header")
-      );
-      
-      if (displayMainPoolItems.length > 0) {
-        yPos = addProfessionalTable(pdf, `CIVIL WORKS - MAIN POOL (${constructionType === 'terrace' ? 'Terrace' : 'In-Ground'})`, displayMainPoolItems, yPos, margin, pageWidth, pageHeight);
-      }
-      
-      if (hasBalancingTank && displayBalancingTankItems.length > 0) {
-        if (yPos > 200) {
+      // Table rendering function
+      const renderTable = (title, items, selection) => {
+        const selectedItems = getSelectedItems(items, selection);
+        if (selectedItems.length === 0) return y;
+        
+        if (y > pageH - 40) {
           pdf.addPage();
-          yPos = margin + 10;
-        }
-        yPos = addProfessionalTable(pdf, 'CIVIL WORKS - BALANCING TANK', displayBalancingTankItems, yPos, margin, pageWidth, pageHeight);
-      }
-      
-      if (includePumpRoom && displayPumpRoomItems.length > 0) {
-        if (yPos > 200) {
-          pdf.addPage();
-          yPos = margin + 10;
-        }
-        yPos = addProfessionalTable(pdf, 'CIVIL WORKS - PUMP ROOM', displayPumpRoomItems, yPos, margin, pageWidth, pageHeight);
-      }
-      
-      if (displayMepItems.length > 0) {
-        if (yPos > 200) {
-          pdf.addPage();
-          yPos = margin + 10;
+          y = margin;
         }
         
-        let mepTitle = 'MEP EQUIPMENT AND MATERIALS';
-        if (poolType === 'overflow') {
-          mepTitle += ' (Overflow Grating Included)';
-        } else if (poolType === 'infinity') {
-          mepTitle += ' (Skimmer Hidden)';
-        } else if (poolType === 'curved') {
-          mepTitle += hasGutter ? ' (With Gutter System)' : ' (Without Gutter System)';
-        } else if (poolType === 'skimmer') {
-          mepTitle += ' (Skimmer System)';
-        }
+        pdf.setFillColor(...primaryColor);
+        pdf.rect(margin, y, usableW, 7, 'F');
+        pdf.setTextColor(255);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(8);
+        pdf.text(`${title} (${selectedItems.length} items)`, margin + 3, y + 5);
+        y += 8;
         
-        yPos = addProfessionalTable(pdf, mepTitle, displayMepItems, yPos, margin, pageWidth, pageHeight);
-      }
-      
-      // === PIPING SYSTEM SECTION ===
-      if (displayPipingItems.length > 0) {
-        if (yPos > 200) {
-          pdf.addPage();
-          yPos = margin + 10;
-        }
+        const cols = [
+          { x: margin, w: 10, label: '#' },
+          { x: margin + 10, w: 20, label: 'Code' },
+          { x: margin + 30, w: 80, label: 'Description' },
+          { x: margin + 110, w: 18, label: 'Unit' },
+          { x: margin + 128, w: 22, label: 'Quantity' },
+          { x: margin + 150, w: 24, label: 'Status' }
+        ];
         
-        yPos = addPipingTable(pdf, 'PIPING SYSTEM', displayPipes, displayValves, displayFlanges, displayHeaders, displayPipingItems, yPos, margin, pageWidth, pageHeight);
+        pdf.setFillColor(...headerBg);
+        pdf.rect(margin, y, usableW, 7, 'F');
+        pdf.setDrawColor(200);
+        pdf.setLineWidth(0.2);
+        pdf.rect(margin, y, usableW, 7);
+        pdf.setTextColor(0);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(6.5);
+        cols.forEach(col => {
+          pdf.text(col.label, col.x + 1, y + 5);
+        });
+        y += 7;
+        
+        selectedItems.forEach((item, idx) => {
+          if (y > pageH - 15) {
+            pdf.addPage();
+            y = margin;
+            pdf.setFillColor(...headerBg);
+            pdf.rect(margin, y, usableW, 7, 'F');
+            pdf.setDrawColor(200);
+            pdf.rect(margin, y, usableW, 7);
+            cols.forEach(col => pdf.text(col.label, col.x + 1, y + 5));
+            y += 7;
+          }
+          
+          if (idx % 2 === 0) {
+            pdf.setFillColor(...altRowBg);
+            pdf.rect(margin, y, usableW, 6, 'F');
+          }
+          
+          pdf.setDrawColor(220);
+          pdf.setLineWidth(0.1);
+          pdf.rect(margin, y, usableW, 6);
+          
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(6);
+          pdf.setTextColor(0);
+          
+          const rowY = y + 4.5;
+          pdf.text(String(item.uiSlNo || idx + 1), cols[0].x + 1, rowY);
+          pdf.text(cleanTextForPDF(item.code || '-'), cols[1].x + 1, rowY);
+          
+          const desc = cleanTextForPDF(item.description || 'N/A').substring(0, 50);
+          pdf.text(desc, cols[2].x + 1, rowY);
+          
+          pdf.text(cleanTextForPDF(item.unit || 'Nos'), cols[3].x + 1, rowY);
+          
+          const qty = safeToFixed(item.deliveryQuantity, 2);
+          pdf.text(qty, cols[4].x + cols[4].w - 2, rowY, { align: 'right' });
+          
+          pdf.text((item.deliveryStatus || 'pending').toUpperCase(), cols[5].x + 1, rowY);
+          
+          y += 6;
+        });
+        
+        y += 8;
+        return y;
+      };
+      
+      // Render all tables
+      y = renderTable('MAIN POOL ITEMS', filteredMainPoolItems, selectedMainPool);
+      if (hasBalancingTank && filteredBalancingTankItems.length > 0) {
+        y = renderTable('BALANCE TANK ITEMS', filteredBalancingTankItems, selectedBalancingTank);
+      }
+      if (includePumpRoom && filteredPumpRoomItems.length > 0) {
+        y = renderTable('PUMP ROOM ITEMS', filteredPumpRoomItems, selectedPumpRoom);
+      }
+      y = renderTable('MEP EQUIPMENT', filteredMepItems, selectedMep);
+      if (pipingItems.length > 0) {
+        y = renderTable('PIPING SYSTEM', pipingItems, selectedPiping);
       }
       
-      // === SUMMARY SECTION ===
-      if (yPos > 230) {
-        pdf.addPage();
-        yPos = margin + 10;
-      }
+      // Summary
+      if (y > pageH - 35) { pdf.addPage(); y = margin; }
       
-      yPos += 5;
+      y += 5;
+      pdf.setDrawColor(200);
+      pdf.setLineWidth(0.5);
+      pdf.setFillColor(248, 249, 250);
+      pdf.rect(margin, y, usableW, 22, 'F');
+      pdf.rect(margin, y, usableW, 22);
       
-      pdf.setFillColor(...lightGray);
-      pdf.rect(margin, yPos, usableWidth, 40, 'F');
-      pdf.setDrawColor(200, 200, 200);
-      pdf.rect(margin, yPos, usableWidth, 40);
-      
-      pdf.setTextColor(...primaryColor);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(10);
-      pdf.text('DELIVERY SUMMARY', margin + 3, yPos + 6);
-      
-      pdf.setTextColor(...darkText);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(8);
-      
-      const summaryY = yPos + 13;
-      pdf.text(`Main Pool Items: ${displayMainPoolItems.length}`, margin + 5, summaryY);
-      pdf.text(`MEP Items: ${displayMepItems.length}`, margin + 70, summaryY);
-      
-      if (hasBalancingTank) {
-        pdf.text(`Balancing Tank Items: ${displayBalancingTankItems.length}`, margin + 5, summaryY + 6);
-      }
-      
-      if (includePumpRoom) {
-        pdf.text(`Pump Room Items: ${displayPumpRoomItems.length}`, margin + 70, summaryY + 6);
-      }
-      
-      pdf.text(`Piping Items: ${displayPipingItems.length}`, margin + 5, summaryY + 12);
-      
-      const totalItems = displayMainPoolItems.length + displayMepItems.length + 
-        (hasBalancingTank ? displayBalancingTankItems.length : 0) + 
-        (includePumpRoom ? displayPumpRoomItems.length : 0) +
-        displayPipingItems.length;
-      
-      pdf.text(`Total Items: ${totalItems}`, margin + 70, summaryY + 12);
-      pdf.text(`Pool Type: ${poolType.toUpperCase()}`, margin + 5, summaryY + 18);
-      pdf.text(`Gutter System: ${hasBalancingTank ? 'Yes' : 'No'}`, margin + 70, summaryY + 18);
-      pdf.text(`Pump Room: ${includePumpRoom ? 'Included' : 'Not Included'}`, margin + 5, summaryY + 24);
-      pdf.text(`Piping Total: ${safeToFixed(pipingTotal)}`, margin + 70, summaryY + 24);
-      
-      yPos += 45;
-      
-      // === SIGNATURES ===
-      const sigBoxWidth = 55;
-      const sigBoxHeight = 22;
-      const sigSpacing = 7;
+      const totalSelected = getSelectedCount(selectedMainPool) + getSelectedCount(selectedMep) + 
+        getSelectedCount(selectedBalancingTank) + getSelectedCount(selectedPumpRoom) + 
+        getSelectedCount(selectedPiping);
       
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(8);
-      pdf.setTextColor(...darkText);
-      
-      pdf.rect(margin, yPos, sigBoxWidth, sigBoxHeight);
-      pdf.text('Prepared By', margin + 3, yPos + 5);
+      pdf.setTextColor(0);
+      pdf.text('DELIVERY SUMMARY', margin + 3, y + 6);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(7);
-      pdf.text(cleanTextForPDF(deliveryData.preparedBy || '________________'), margin + 3, yPos + 17);
+      pdf.text(`Total Items Selected: ${totalSelected}`, margin + 3, y + 13);
+      pdf.text(`Pool Type: ${poolTypeDisplay} | Dimensions: ${formatDimensions(dimensions)} | Volume: ${safeToFixed(calculatedVolume)} m³`, margin + 3, y + 19);
       
-      const authX = margin + sigBoxWidth + sigSpacing;
-      pdf.rect(authX, yPos, sigBoxWidth, sigBoxHeight);
-      pdf.text('Authorized By', authX + 3, yPos + 5);
+      y += 28;
+      
+      // Signatures
+      const sigW = 52;
+      const sigH = 18;
+      pdf.setDrawColor(180);
+      pdf.setLineWidth(0.3);
+      
+      pdf.rect(margin, y, sigW, sigH);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(7);
+      pdf.text('Prepared By', margin + 2, y + 6);
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7);
-      pdf.text(cleanTextForPDF(deliveryData.authorizedBy || '________________'), authX + 3, yPos + 17);
+      pdf.setFontSize(6);
+      pdf.text(cleanTextForPDF(deliveryData.preparedBy || '_____________'), margin + 2, y + 15);
       
-      const recX = authX + sigBoxWidth + sigSpacing;
-      pdf.rect(recX, yPos, sigBoxWidth, sigBoxHeight);
-      pdf.text('Received By (Customer)', recX + 3, yPos + 5);
+      pdf.rect(margin + sigW + 5, y, sigW, sigH);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(7);
+      pdf.text('Authorized By', margin + sigW + 7, y + 6);
       pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(6);
+      pdf.text(cleanTextForPDF(deliveryData.authorizedBy || '_____________'), margin + sigW + 7, y + 15);
+      
+      pdf.rect(margin + 2 * (sigW + 5), y, sigW, sigH);
+      pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(7);
-      pdf.text(cleanTextForPDF(deliveryData.receivedBy || '________________'), recX + 3, yPos + 17);
+      pdf.text('Received By', margin + 2 * (sigW + 5) + 2, y + 6);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(6);
+      pdf.text(cleanTextForPDF(deliveryData.receivedBy || '_____________'), margin + 2 * (sigW + 5) + 2, y + 15);
       
-      // === FOOTER ===
-      pdf.setFontSize(7);
-      pdf.setTextColor(...mediumGray);
-      pdf.text('This is a computer-generated delivery challan. No signature required.', pageWidth / 2, pageHeight - 12, { align: 'center' });
-      pdf.text(`Generated on: ${new Date().toLocaleString('en-IN')}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
-      
-      if (deliveryData.notes) {
-        pdf.setFontSize(7);
-        pdf.setTextColor(...darkText);
-        pdf.text(`Notes: ${cleanTextForPDF(deliveryData.notes)}`, margin, pageHeight - 18);
-      }
-      
-      if (poolType === 'overflow' && overflowGratingData) {
-        pdf.setFontSize(6.5);
-        pdf.setTextColor(...primaryColor);
-        pdf.text('Note: Overflow Grating replaces Gutter Drain for overflow pool systems.', margin, pageHeight - 23);
-      } else if (poolType === 'infinity') {
-        pdf.setFontSize(6.5);
-        pdf.setTextColor(...primaryColor);
-        pdf.text('Note: Skimmer is hidden for Infinity pool systems.', margin, pageHeight - 23);
-      } else if (poolType === 'curved' && !hasGutter) {
-        pdf.setFontSize(6.5);
-        pdf.setTextColor(...primaryColor);
-        pdf.text('Note: Gutter Drain and Skimmer are hidden for Curved pool without gutter system.', margin, pageHeight - 23);
-      } else if (poolType === 'skimmer') {
-        pdf.setFontSize(6.5);
-        pdf.setTextColor(...primaryColor);
-        pdf.text('Note: Gutter Drain is hidden for Skimmer pool systems.', margin, pageHeight - 23);
-      }
+      // Footer
+      pdf.setFontSize(6);
+      pdf.setTextColor(150);
+      pdf.text('This is a computer-generated delivery challan', pageW / 2, pageH - 8, { align: 'center' });
       
       pdf.save(`Delivery-Challan-${deliveryData.challanNo}.pdf`);
-      alert("✅ Professional Delivery Challan PDF generated successfully!");
-      
+      alert("✅ Delivery Challan PDF generated successfully!");
     } catch (error) {
-      console.error("❌ Error generating PDF:", error);
-      alert("❌ Error generating PDF. Please try again.");
+      console.error("PDF Error:", error);
+      alert("❌ Failed to generate PDF. Please try again.");
     }
   };
 
   // ================================
-  // SAVE CHALLAN
+  // HANDLERS
   // ================================
+  const handleInputChange = (field, value) => {
+    setDeliveryData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleStatusChange = (setter, index, value) => {
+    setter(prev => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = { ...updated[index], deliveryStatus: value };
+      }
+      return updated;
+    });
+  };
+
+  const handleRemarksChange = (setter, index, value) => {
+    setter(prev => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = { ...updated[index], deliveryRemarks: value };
+      }
+      return updated;
+    });
+  };
+
   const saveChallan = () => {
-    const challanData = {
-      ...deliveryData,
-      resultData,
-      dimensions,
-      poolType,
-      hasGutter,
-      hasBalancingTank,
-      includePumpRoom,
-      constructionType,
-      companyProfile,
-      editedQuantities,
-      deliveryItems: {
-        mainPool: filteredMainPoolItems,
-        balancingTank: filteredBalancingTankItems,
-        pumpRoom: filteredPumpRoomItems,
-        mep: filteredMepItems,
-        piping: pipingItems
-      },
-      selectedItems: {
-        mainPool: Array.from(selectedMainPoolItems),
-        balancingTank: Array.from(selectedBalancingTankItems),
-        pumpRoom: Array.from(selectedPumpRoomItems),
-        mep: Array.from(selectedMepItems),
-        piping: Array.from(selectedPipingItems)
-      },
-      pumpRoomDimensions,
-      templateDescriptions,
-      pipingTotal,
-      timestamp: new Date().toISOString()
-    };
-    
-    const savedChallans = JSON.parse(localStorage.getItem('delivery_challans') || '[]');
-    savedChallans.push(challanData);
-    localStorage.setItem('delivery_challans', JSON.stringify(savedChallans));
-    
-    alert("✅ Delivery challan saved successfully!");
+    try {
+      const saved = JSON.parse(localStorage.getItem('delivery_challans') || '[]');
+      saved.unshift({ ...deliveryData, poolType, constructionType, savedAt: new Date().toISOString() });
+      localStorage.setItem('delivery_challans', JSON.stringify(saved.slice(0, 20)));
+      alert("✅ Delivery challan saved successfully!");
+    } catch (error) {
+      alert("❌ Failed to save challan.");
+    }
   };
 
   // ================================
-  // PRINT CHALLAN
+  // TABLE RENDERER COMPONENT
   // ================================
-  const printChallan = () => {
-    window.print();
+  const renderItemTable = (title, items, selection, setSelection, setItems, section) => {
+    if (!items || items.length === 0) return null;
+    
+    return (
+      <section className="items-section-1">
+        <div className="section-header-1">
+          <h2>{title} ({items.length} items)</h2>
+          <div className="section-actions-1">
+            <span className="selection-count-1">Selected: {getSelectedCount(selection)} / {items.length}</span>
+            <button className="select-all-section-1" onClick={() => toggleAllSelection(setSelection, items)}>
+              {getSelectedCount(selection) === items.length ? 'Deselect All' : 'Select All'}
+            </button>
+          </div>
+        </div>
+        <div className="table-container-1">
+          <table className="delivery-table-1">
+            <thead>
+              <tr>
+                <th className="select-column-1">
+                  <input type="checkbox" 
+                    checked={getSelectedCount(selection) === items.length && items.length > 0}
+                    onChange={() => toggleAllSelection(setSelection, items)}
+                    className="select-all-checkbox-1" />
+                </th>
+                <th>Sl.No</th>
+                <th>Code</th>
+                <th>Description</th>
+                <th>Unit</th>
+                <th>Quantity</th>
+                <th>Status</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, index) => (
+                <tr key={`${section}-${index}`} className={selection[index] ? 'selected-row-1' : ''}>
+                  <td className="select-column-1">
+                    <input type="checkbox" 
+                      checked={selection[index] || false}
+                      onChange={() => toggleItemSelection(setSelection, index)}
+                      className="item-checkbox-1" />
+                  </td>
+                  <td className="text-center-1">{item.uiSlNo}</td>
+                  <td className="text-center-1">{item.code || "N/A"}</td>
+                  <td className="description-cell-1">{item.description}</td>
+                  <td className="text-center-1">{item.unit || "Nos"}</td>
+                  <td className="text-center-1 quantity-cell-1">
+                    <input type="number" 
+                      value={getFinalQty(section, item.SlNo || item.sl_no, item.deliveryQuantity)}
+                      onChange={(e) => handleQtyChange(section, item.SlNo || item.sl_no, e.target.value)} />
+                  </td>
+                  <td className="text-center-1">
+                    <select value={item.deliveryStatus || 'pending'} 
+                      onChange={(e) => handleStatusChange(setItems, index, e.target.value)}
+                      className="status-select-1">
+                      <option value="pending">Pending</option>
+                      <option value="dispatched">Dispatched</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="not-required">Not Required</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input type="text" value={item.deliveryRemarks || ''}
+                      onChange={(e) => handleRemarksChange(setItems, index, e.target.value)}
+                      placeholder="Remarks" className="remarks-input-1" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    );
   };
 
-  // ================================
-  // LOADING STATE
-  // ================================
   if (loading || profileLoading) {
     return (
       <div className="delivery-page-1">
@@ -1922,31 +948,22 @@ function DeliveryChallan() {
     );
   }
 
-  // ================================
-  // RENDER - MAIN POOL TABLE WITH EDITABLE QTY
-  // ================================
   return (
     <div className="delivery-page-1">
       {/* Header */}
       <header className="delivery-header-1">
         <div className="header-content-1">
           <div className="company-logo-section-1">
-            <img
-              src={
-                companyProfile?.logo_url
-                  ? `${API_BASE_URL}/${companyProfile.logo_url}`
-                  : "/INT.png"
-              }
-              alt="Company Logo"
-              className="company-logo-1"
-              width={200}
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = "/INT.png";
-              }}
-            />
+            {(logoBase64 || companyProfile?.logo_url) && (
+              <img 
+                src={logoBase64 || (companyProfile?.logo_url?.startsWith('http') ? companyProfile.logo_url : `${API_BASE_URL}/${companyProfile.logo_url}`)} 
+                alt="Company Logo" 
+                className="company-logo-1"
+                onError={(e) => { e.target.style.display = 'none'; }} 
+              />
+            )}
             <div className="company-text-1">
-              <h1>{deliveryData.fromCompanyName || companyProfile.company_name || DEFAULT_COMPANY_PROFILE.company_name}</h1>
+              <h1>{deliveryData.fromCompanyName || companyProfile.company_name}</h1>
               <p className="subtitle-1">Professional Swimming Pool Construction</p>
             </div>
           </div>
@@ -1955,76 +972,47 @@ function DeliveryChallan() {
             <span><strong>Challan No:</strong> {deliveryData.challanNo}</span>
             <span><strong>Date:</strong> {new Date(deliveryData.date).toLocaleDateString('en-IN')}</span>
             <span><strong>Status:</strong> {deliveryData.deliveryStatus.toUpperCase()}</span>
-            <span><strong>Pool Type:</strong> {poolType.toUpperCase()} {constructionType === 'terrace' ? '(Terrace)' : '(In-Ground)'}</span>
-            <span><strong>Gutter System:</strong> {hasBalancingTank ? "Yes" : "No"}</span>
-            <span><strong>Pump Room:</strong> {includePumpRoom ? "Yes" : "No"}</span>
+            <span><strong>Pool Type:</strong> {poolType.toUpperCase()} ({constructionDisplay})</span>
           </div>
         </div>
         <div className="header-actions-1">
-          <button className="pdf-button-1" onClick={generateDeliveryPDF}>
-            📄 PDF
-          </button>
-          <button className="save-button-1" onClick={saveChallan}>
-            💾 Save
-          </button>
-          <button className="back-button-1" onClick={() => navigate(-1)}>
-            ← Back
-          </button>
+          <button className="pdf-button-1" onClick={generatePDF}>📄 Download PDF</button>
+          <button className="save-button-1" onClick={saveChallan}>💾 Save</button>
+          <button className="back-button-1" onClick={() => navigate(-1)}>← Back</button>
         </div>
       </header>
 
-      {/* Address Section */}
+      {/* FROM / TO Section */}
       <section className="address-section-1">
         <div className="address-grid-1">
           <div className="address-card-1 from-address-1">
             <h3>FROM</h3>
             <div className="company-info-1">
-              <h4>{deliveryData.fromCompanyName || companyProfile.company_name || DEFAULT_COMPANY_PROFILE.company_name}</h4>
-              <p>{deliveryData.fromAddress || companyProfile.address || DEFAULT_COMPANY_PROFILE.address}</p>
-              <p>{deliveryData.fromContact || `${companyProfile.phone || DEFAULT_COMPANY_PROFILE.phone} | ${companyProfile.email || DEFAULT_COMPANY_PROFILE.email}`}</p>
-              <p className="gst-number-1">{deliveryData.fromGST || companyProfile.gst_number || DEFAULT_COMPANY_PROFILE.gst_number}</p>
+              <h4>{deliveryData.fromCompanyName || companyProfile.company_name}</h4>
+              <p>{deliveryData.fromAddress || companyProfile.address}</p>
+              <p>{deliveryData.fromContact || `${companyProfile.phone} | ${companyProfile.email}`}</p>
+              <p className="gst-number-1">{deliveryData.fromGST || companyProfile.gst_number}</p>
             </div>
           </div>
-          
           <div className="address-card-1 to-address-1">
             <h3>DELIVERY TO</h3>
             <div className="customer-info-1">
               <div className="form-group-1">
                 <label>Customer Name:</label>
-                <input 
-                  type="text" 
-                  value={deliveryData.customerName}
-                  onChange={(e) => handleInputChange('customerName', e.target.value)}
-                  placeholder="Enter customer name"
-                />
+                <input type="text" value={deliveryData.customerName} onChange={(e) => handleInputChange('customerName', e.target.value)} placeholder="Enter customer name" />
               </div>
               <div className="form-group-1">
                 <label>Delivery Address:</label>
-                <textarea 
-                  value={deliveryData.deliveryAddress}
-                  onChange={(e) => handleInputChange('deliveryAddress', e.target.value)}
-                  placeholder="Enter complete delivery address"
-                  rows="3"
-                />
+                <textarea value={deliveryData.deliveryAddress} onChange={(e) => handleInputChange('deliveryAddress', e.target.value)} rows="3" placeholder="Enter delivery address" />
               </div>
               <div className="contact-grid-1">
                 <div className="form-group-1">
                   <label>Contact Person:</label>
-                  <input 
-                    type="text" 
-                    value={deliveryData.contactPerson}
-                    onChange={(e) => handleInputChange('contactPerson', e.target.value)}
-                    placeholder="Contact person"
-                  />
+                  <input type="text" value={deliveryData.contactPerson} onChange={(e) => handleInputChange('contactPerson', e.target.value)} placeholder="Contact person" />
                 </div>
                 <div className="form-group-1">
                   <label>Contact Number:</label>
-                  <input 
-                    type="tel" 
-                    value={deliveryData.contactNumber}
-                    onChange={(e) => handleInputChange('contactNumber', e.target.value)}
-                    placeholder="Contact number"
-                  />
+                  <input type="tel" value={deliveryData.contactNumber} onChange={(e) => handleInputChange('contactNumber', e.target.value)} placeholder="Contact number" />
                 </div>
               </div>
             </div>
@@ -2038,36 +1026,19 @@ function DeliveryChallan() {
         <div className="info-grid-1">
           <div className="form-group-1">
             <label>Challan No:</label>
-            <input 
-              type="text" 
-              value={deliveryData.challanNo}
-              readOnly
-              className="readonly-input-1"
-            />
+            <input type="text" value={deliveryData.challanNo} readOnly className="readonly-input-1" />
           </div>
           <div className="form-group-1">
             <label>Date:</label>
-            <input 
-              type="date" 
-              value={deliveryData.date}
-              onChange={(e) => handleInputChange('date', e.target.value)}
-            />
+            <input type="date" value={deliveryData.date} onChange={(e) => handleInputChange('date', e.target.value)} />
           </div>
           <div className="form-group-1">
             <label>Project Name:</label>
-            <input 
-              type="text" 
-              value={deliveryData.projectName}
-              onChange={(e) => handleInputChange('projectName', e.target.value)}
-              placeholder="Project name"
-            />
+            <input type="text" value={deliveryData.projectName} onChange={(e) => handleInputChange('projectName', e.target.value)} placeholder="Project name" />
           </div>
           <div className="form-group-1">
             <label>Delivery Status:</label>
-            <select 
-              value={deliveryData.deliveryStatus}
-              onChange={(e) => handleInputChange('deliveryStatus', e.target.value)}
-            >
+            <select value={deliveryData.deliveryStatus} onChange={(e) => handleInputChange('deliveryStatus', e.target.value)}>
               <option value="pending">Pending</option>
               <option value="in-transit">In Transit</option>
               <option value="delivered">Delivered</option>
@@ -2076,41 +1047,20 @@ function DeliveryChallan() {
           </div>
           <div className="form-group-1">
             <label>Vehicle Number:</label>
-            <input 
-              type="text" 
-              value={deliveryData.vehicleNumber}
-              onChange={(e) => handleInputChange('vehicleNumber', e.target.value)}
-              placeholder="Vehicle number"
-            />
+            <input type="text" value={deliveryData.vehicleNumber} onChange={(e) => handleInputChange('vehicleNumber', e.target.value)} placeholder="Vehicle number" />
           </div>
           <div className="form-group-1">
             <label>Driver Name:</label>
-            <input 
-              type="text" 
-              value={deliveryData.driverName}
-              onChange={(e) => handleInputChange('driverName', e.target.value)}
-              placeholder="Driver name"
-            />
+            <input type="text" value={deliveryData.driverName} onChange={(e) => handleInputChange('driverName', e.target.value)} placeholder="Driver name" />
           </div>
           <div className="form-group-1">
             <label>Driver Contact:</label>
-            <input 
-              type="tel" 
-              value={deliveryData.driverContact}
-              onChange={(e) => handleInputChange('driverContact', e.target.value)}
-              placeholder="Driver contact"
-            />
+            <input type="tel" value={deliveryData.driverContact} onChange={(e) => handleInputChange('driverContact', e.target.value)} placeholder="Driver contact" />
           </div>
         </div>
-
         <div className="form-group-1 full-width-1">
-          <label>Notes/Special Instructions:</label>
-          <textarea 
-            value={deliveryData.notes}
-            onChange={(e) => handleInputChange('notes', e.target.value)}
-            placeholder="Any special instructions or notes for delivery"
-            rows="3"
-          />
+          <label>Notes / Special Instructions:</label>
+          <textarea value={deliveryData.notes} onChange={(e) => handleInputChange('notes', e.target.value)} rows="3" placeholder="Any special instructions or notes for delivery" />
         </div>
       </section>
 
@@ -2124,15 +1074,15 @@ function DeliveryChallan() {
           </div>
           <div className="spec-item-1">
             <span className="spec-label-1">Volume:</span>
-            <span className="spec-value-1">{safeToFixed(resultData?.volume_m3 || 0)} m³ ({safeToFixed(resultData?.liters || 0, 0)} L)</span>
+            <span className="spec-value-1">{safeToFixed(calculatedVolume)} m³ ({safeToFixed(calculatedLiters, 0)} L)</span>
           </div>
           <div className="spec-item-1">
             <span className="spec-label-1">Flow Rate:</span>
-            <span className="spec-value-1">{safeToFixed(resultData?.flowrate_m3_per_hr || 0)} m³/hr</span>
+            <span className="spec-value-1">{safeToFixed(flowRate)} m³/hr</span>
           </div>
           <div className="spec-item-1">
             <span className="spec-label-1">Pool Type:</span>
-            <span className="spec-value-1">{poolType.toUpperCase()} {constructionType === 'terrace' ? '(Terrace)' : '(In-Ground)'}</span>
+            <span className="spec-value-1">{poolType.toUpperCase()} ({constructionDisplay})</span>
           </div>
           <div className="spec-item-1">
             <span className="spec-label-1">Gutter System:</span>
@@ -2142,12 +1092,10 @@ function DeliveryChallan() {
             <span className="spec-label-1">Pump Room:</span>
             <span className="spec-value-1">{includePumpRoom ? 'Included' : 'Not Included'}</span>
           </div>
-          {includePumpRoom && pumpRoomDimensions && (
+          {pumpRoomDimensions?.length && (
             <div className="spec-item-1">
               <span className="spec-label-1">Pump Room Size:</span>
-              <span className="spec-value-1">
-                {pumpRoomDimensions.length || "N/A"}m × {pumpRoomDimensions.width || "N/A"}m × {pumpRoomDimensions.height || "N/A"}m
-              </span>
+              <span className="spec-value-1">{pumpRoomDimensions.length}m × {pumpRoomDimensions.width}m × {pumpRoomDimensions.height}m</span>
             </div>
           )}
           {resultData?.filter_dia_mm && (
@@ -2162,1103 +1110,116 @@ function DeliveryChallan() {
               <span className="spec-value-1">{resultData.hp} HP</span>
             </div>
           )}
+          <div className="spec-item-1">
+            <span className="spec-label-1">Construction:</span>
+            <span className="spec-value-1">{constructionDisplay}</span>
+          </div>
         </div>
       </section>
 
       {/* Selection Summary */}
       <section className="selection-summary-1">
-        <h2>PDF Selection Summary</h2>
+        <h2>Selection Summary</h2>
         <div className="selection-stats-1">
           <div className="selection-stat-1">
-            <span className="stat-label-1">Main Pool Items Selected:</span>
-            <span className="stat-value-1">
-              {getSelectedCount('mainPool')} / {filteredMainPoolItems.length}
-            </span>
+            <span className="stat-label-1">Main Pool:</span>
+            <span className="stat-value-1">{getSelectedCount(selectedMainPool)} / {filteredMainPoolItems.length}</span>
           </div>
           {hasBalancingTank && (
             <div className="selection-stat-1">
-              <span className="stat-label-1">Balancing Tank Items Selected:</span>
-              <span className="stat-value-1">
-                {getSelectedCount('balancingTank')} / {filteredBalancingTankItems.length}
-              </span>
+              <span className="stat-label-1">Balance Tank:</span>
+              <span className="stat-value-1">{getSelectedCount(selectedBalancingTank)} / {filteredBalancingTankItems.length}</span>
             </div>
           )}
           {includePumpRoom && (
             <div className="selection-stat-1">
-              <span className="stat-label-1">Pump Room Items Selected:</span>
-              <span className="stat-value-1">
-                {getSelectedCount('pumpRoom')} / {filteredPumpRoomItems.length}
-              </span>
+              <span className="stat-label-1">Pump Room:</span>
+              <span className="stat-value-1">{getSelectedCount(selectedPumpRoom)} / {filteredPumpRoomItems.length}</span>
             </div>
           )}
           <div className="selection-stat-1">
-            <span className="stat-label-1">MEP Items Selected:</span>
-            <span className="stat-value-1">
-              {getSelectedCount('mep')} / {filteredMepItems.length}
-            </span>
+            <span className="stat-label-1">MEP Equipment:</span>
+            <span className="stat-value-1">{getSelectedCount(selectedMep)} / {filteredMepItems.length}</span>
           </div>
           <div className="selection-stat-1">
-            <span className="stat-label-1">Piping Items Selected:</span>
-            <span className="stat-value-1">
-              {getSelectedCount('piping')} / {pipingItems.length}
-            </span>
-          </div>
-          <div className="selection-stat-1">
-            <span className="stat-label-1">Total Items Selected:</span>
-            <span className="stat-value-1">
-              {getSelectedCount('mainPool') + 
-               (hasBalancingTank ? getSelectedCount('balancingTank') : 0) + 
-               (includePumpRoom ? getSelectedCount('pumpRoom') : 0) + 
-               getSelectedCount('mep') +
-               getSelectedCount('piping')} / 
-              {filteredMainPoolItems.length + 
-               (hasBalancingTank ? filteredBalancingTankItems.length : 0) + 
-               (includePumpRoom ? filteredPumpRoomItems.length : 0) + 
-               filteredMepItems.length +
-               pipingItems.length}
-            </span>
+            <span className="stat-label-1">Piping System:</span>
+            <span className="stat-value-1">{getSelectedCount(selectedPiping)} / {pipingItems.length}</span>
           </div>
         </div>
         <div className="selection-actions-1">
-          <button 
-            className="select-all-button-1"
-            onClick={() => {
-              handleSelectAll('mainPool', filteredMainPoolItems);
-              if (hasBalancingTank) handleSelectAll('balancingTank', filteredBalancingTankItems);
-              if (includePumpRoom) handleSelectAll('pumpRoom', filteredPumpRoomItems);
-              handleSelectAll('mep', filteredMepItems);
-              handleSelectAll('piping', pipingItems);
-            }}
-          >
-            Select All Items
-          </button>
-          <button 
-            className="deselect-all-button-1"
-            onClick={() => {
-              setSelectedMainPoolItems(new Set());
-              setSelectedBalancingTankItems(new Set());
-              setSelectedPumpRoomItems(new Set());
-              setSelectedMepItems(new Set());
-              setSelectedPipingItems(new Set());
-            }}
-          >
-            Deselect All Items
-          </button>
+          <button className="select-all-button-1" onClick={() => {
+            toggleAllSelection(setSelectedMainPool, filteredMainPoolItems);
+            if (hasBalancingTank) toggleAllSelection(setSelectedBalancingTank, filteredBalancingTankItems);
+            if (includePumpRoom) toggleAllSelection(setSelectedPumpRoom, filteredPumpRoomItems);
+            toggleAllSelection(setSelectedMep, filteredMepItems);
+            toggleAllSelection(setSelectedPiping, pipingItems);
+          }}>Select All</button>
+          <button className="deselect-all-button-1" onClick={() => {
+            setSelectedMainPool(filteredMainPoolItems.map(() => false));
+            setSelectedBalancingTank(filteredBalancingTankItems.map(() => false));
+            setSelectedPumpRoom(filteredPumpRoomItems.map(() => false));
+            setSelectedMep(filteredMepItems.map(() => false));
+            setSelectedPiping(pipingItems.map(() => false));
+          }}>Deselect All</button>
         </div>
       </section>
 
-      {/* Main Pool Materials - WITH EDITABLE QUANTITY */}
-      {filteredMainPoolItems.length > 0 && (
-        <section className="items-section-1">
-          <div className="section-header-1">
-            <h2>Civil Works - Main Pool {constructionType === 'terrace' ? '(Terrace)' : '(In-Ground)'} ({filteredMainPoolItems.length} items)</h2>
-            <div className="section-actions-1">
-              <span className="selection-count-1">
-                Selected: {getSelectedCount('mainPool')} / {filteredMainPoolItems.length}
-              </span>
-              <button 
-                className="select-all-section-1"
-                onClick={() => handleSelectAll('mainPool', filteredMainPoolItems)}
-              >
-                {getSelectedCount('mainPool') === filteredMainPoolItems.length ? 'Deselect All' : 'Select All'}
-              </button>
-            </div>
-          </div>
-          <div className="table-container-1">
-            <table className="delivery-table-1">
-              <thead>
-                <tr>
-                  <th className="select-column-1">
-                    <input 
-                      type="checkbox"
-                      checked={getSelectedCount('mainPool') === filteredMainPoolItems.length && filteredMainPoolItems.length > 0}
-                      onChange={() => handleSelectAll('mainPool', filteredMainPoolItems)}
-                      className="select-all-checkbox-1"
-                    />
-                  </th>
-                  <th>Sl.No</th>
-                  <th>Code</th>
-                  <th>Description</th>
-                  <th>Unit</th>
-                  <th>Quantity</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMainPoolItems.map((item, index) => (
-                  <tr key={`mainpool-${item.SlNo || index}-${index}`} 
-                      className={selectedMainPoolItems.has(index) ? 'selected-row-1' : ''}>
-                    <td className="select-column-1">
-                      <input 
-                        type="checkbox"
-                        checked={selectedMainPoolItems.has(index)}
-                        onChange={() => handleSelectItem('mainPool', index)}
-                        className="item-checkbox-1"
-                      />
-                    </td>
-                    <td className="text-center-1">{item.uiSlNo}</td>
-                    <td className="text-center-1">{item.Code || "N/A"}</td>
-                    <td className="description-cell-1">{item.description}</td>
-                    <td className="text-center-1">{item.Unit || ""}</td>
-                    <td className="text-center-1 quantity-cell-1">
-                      <input
-                        type="number"
-                        value={getFinalQty("mainPool", item.SlNo, item.deliveryQuantity)}
-                        onChange={(e) => handleQtyChange("mainPool", item.SlNo, e.target.value)}
-                        style={{
-                          width: "70px",
-                          padding: "4px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px"
-                        }}
-                      />
-                    </td>
-                    <td className="text-center-1">
-                      <select 
-                        value={item.deliveryStatus}
-                        onChange={(e) => handleItemStatusChange('mainPool', index, e.target.value)}
-                        className="status-select-1"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="dispatched">Dispatched</option>
-                        <option value="delivered">Delivered</option>
-                        <option value="partially-delivered">Partially Delivered</option>
-                        <option value="not-required">Not Required</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input 
-                        type="text" 
-                        value={item.deliveryRemarks}
-                        onChange={(e) => handleItemRemarksChange('mainPool', index, e.target.value)}
-                        placeholder="Delivery remarks"
-                        className="remarks-input-1"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {constructionType === 'terrace' && (
-            <div className="construction-note-1">
-              <p><strong>Terrace Pool Note:</strong> This configuration includes structural works only and excludes excavation, soling, and backfilling items.</p>
-            </div>
-          )}
-        </section>
-      )}
+      {/* Tables */}
+      {renderItemTable('Civil Works - Main Pool', filteredMainPoolItems, selectedMainPool, setSelectedMainPool, setFilteredMainPoolItems, 'mainPool')}
+      {hasBalancingTank && renderItemTable('Civil Works - Balance Tank', filteredBalancingTankItems, selectedBalancingTank, setSelectedBalancingTank, setFilteredBalancingTankItems, 'balancingTank')}
+      {includePumpRoom && renderItemTable('Civil Works - Pump Room', filteredPumpRoomItems, selectedPumpRoom, setSelectedPumpRoom, setFilteredPumpRoomItems, 'pumpRoom')}
+      {renderItemTable('MEP Equipment & Materials', filteredMepItems, selectedMep, setSelectedMep, setFilteredMepItems, 'mep')}
+      {renderItemTable('Piping System', pipingItems, selectedPiping, setSelectedPiping, setPipingItems, 'piping')}
 
-      {/* Balancing Tank Materials */}
-      {hasBalancingTank && filteredBalancingTankItems.length > 0 && (
-        <section className="items-section-1">
-          <div className="section-header-1">
-            <h2>Civil Works - Balancing Tank ({filteredBalancingTankItems.length} items)</h2>
-            <div className="section-actions-1">
-              <span className="selection-count-1">
-                Selected: {getSelectedCount('balancingTank')} / {filteredBalancingTankItems.length}
-              </span>
-              <button 
-                className="select-all-section-1"
-                onClick={() => handleSelectAll('balancingTank', filteredBalancingTankItems)}
-              >
-                {getSelectedCount('balancingTank') === filteredBalancingTankItems.length ? 'Deselect All' : 'Select All'}
-              </button>
-            </div>
-          </div>
-          <div className="table-container-1">
-            <table className="delivery-table-1">
-              <thead>
-                <tr>
-                  <th className="select-column-1">
-                    <input 
-                      type="checkbox"
-                      checked={getSelectedCount('balancingTank') === filteredBalancingTankItems.length && filteredBalancingTankItems.length > 0}
-                      onChange={() => handleSelectAll('balancingTank', filteredBalancingTankItems)}
-                      className="select-all-checkbox-1"
-                    />
-                  </th>
-                  <th>Sl.No</th>
-                  <th>Code</th>
-                  <th>Description</th>
-                  <th>Unit</th>
-                  <th>Quantity</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredBalancingTankItems.map((item, index) => (
-                  <tr key={`balancing-${item.SlNo || index}-${index}`}
-                      className={selectedBalancingTankItems.has(index) ? 'selected-row-1' : ''}>
-                    <td className="select-column-1">
-                      <input 
-                        type="checkbox"
-                        checked={selectedBalancingTankItems.has(index)}
-                        onChange={() => handleSelectItem('balancingTank', index)}
-                        className="item-checkbox-1"
-                      />
-                    </td>
-                    <td className="text-center-1">{item.uiSlNo}</td>
-                    <td className="text-center-1">{item.Code || "N/A"}</td>
-                    <td className="description-cell-1">{item.description}</td>
-                    <td className="text-center-1">{item.Unit || ""}</td>
-                    <td className="text-center-1 quantity-cell-1">
-                      <input
-                        type="number"
-                        value={getFinalQty("balancingTank", item.SlNo, item.deliveryQuantity)}
-                        onChange={(e) => handleQtyChange("balancingTank", item.SlNo, e.target.value)}
-                        style={{
-                          width: "70px",
-                          padding: "4px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px"
-                        }}
-                      />
-                    </td>
-                    <td className="text-center-1">
-                      <select 
-                        value={item.deliveryStatus}
-                        onChange={(e) => handleItemStatusChange('balancingTank', index, e.target.value)}
-                        className="status-select-1"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="dispatched">Dispatched</option>
-                        <option value="delivered">Delivered</option>
-                        <option value="partially-delivered">Partially Delivered</option>
-                        <option value="not-required">Not Required</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input 
-                        type="text" 
-                        value={item.deliveryRemarks}
-                        onChange={(e) => handleItemRemarksChange('balancingTank', index, e.target.value)}
-                        placeholder="Delivery remarks"
-                        className="remarks-input-1"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="balancing-tank-note-1">
-            <p><strong>Note:</strong> Balancing tank quantities are calculated as 10% of main pool volume for overflow/infinity systems.</p>
-          </div>
-        </section>
-      )}
-
-      {/* Pump Room Materials */}
-      {includePumpRoom && filteredPumpRoomItems.length > 0 && (
-        <section className="items-section-1">
-          <div className="section-header-1">
-            <h2>Civil Works - Pump Room {constructionType === 'terrace' ? '(Terrace)' : '(In-Ground)'} ({filteredPumpRoomItems.length} items)</h2>
-            <div className="section-actions-1">
-              <span className="selection-count-1">
-                Selected: {getSelectedCount('pumpRoom')} / {filteredPumpRoomItems.length}
-              </span>
-              <button 
-                className="select-all-section-1"
-                onClick={() => handleSelectAll('pumpRoom', filteredPumpRoomItems)}
-              >
-                {getSelectedCount('pumpRoom') === filteredPumpRoomItems.length ? 'Deselect All' : 'Select All'}
-              </button>
-            </div>
-          </div>
-          {pumpRoomDimensions && (
-            <div className="pump-room-info-1">
-              <div className="info-card-1">
-                <span className="info-icon-1">🏠</span>
-                <div className="info-content-1">
-                  <h4>Pump Room Specifications</h4>
-                  <div className="dimensions-1">
-                    <span>Size: {pumpRoomDimensions.length || "N/A"}m × {pumpRoomDimensions.width || "N/A"}m × {pumpRoomDimensions.height || "N/A"}m</span>
-                    {pumpRoomDimensions.length && pumpRoomDimensions.width && (
-                      <span>Area: {safeToFixed(pumpRoomDimensions.length * pumpRoomDimensions.width)} m²</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="table-container-1">
-            <table className="delivery-table-1">
-              <thead>
-                <tr>
-                  <th className="select-column-1">
-                    <input 
-                      type="checkbox"
-                      checked={getSelectedCount('pumpRoom') === filteredPumpRoomItems.length && filteredPumpRoomItems.length > 0}
-                      onChange={() => handleSelectAll('pumpRoom', filteredPumpRoomItems)}
-                      className="select-all-checkbox-1"
-                    />
-                  </th>
-                  <th>Sl.No</th>
-                  <th>Code</th>
-                  <th>Description</th>
-                  <th>Unit</th>
-                  <th>Quantity</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPumpRoomItems.map((item, index) => (
-                  <tr key={`pumproom-${item.SlNo || index}-${index}`}
-                      className={selectedPumpRoomItems.has(index) ? 'selected-row-1' : ''}>
-                    <td className="select-column-1">
-                      <input 
-                        type="checkbox"
-                        checked={selectedPumpRoomItems.has(index)}
-                        onChange={() => handleSelectItem('pumpRoom', index)}
-                        className="item-checkbox-1"
-                      />
-                    </td>
-                    <td className="text-center-1">{item.uiSlNo}</td>
-                    <td className="text-center-1">{item.Code || "N/A"}</td>
-                    <td className="description-cell-1">{item.description}</td>
-                    <td className="text-center-1">{item.Unit || ""}</td>
-                    <td className="text-center-1 quantity-cell-1">
-                      <input
-                        type="number"
-                        value={getFinalQty("pumpRoom", item.SlNo, item.deliveryQuantity)}
-                        onChange={(e) => handleQtyChange("pumpRoom", item.SlNo, e.target.value)}
-                        style={{
-                          width: "70px",
-                          padding: "4px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px"
-                        }}
-                      />
-                    </td>
-                    <td className="text-center-1">
-                      <select 
-                        value={item.deliveryStatus}
-                        onChange={(e) => handleItemStatusChange('pumpRoom', index, e.target.value)}
-                        className="status-select-1"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="dispatched">Dispatched</option>
-                        <option value="delivered">Delivered</option>
-                        <option value="partially-delivered">Partially Delivered</option>
-                        <option value="not-required">Not Required</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input 
-                        type="text" 
-                        value={item.deliveryRemarks}
-                        onChange={(e) => handleItemRemarksChange('pumpRoom', index, e.target.value)}
-                        placeholder="Delivery remarks"
-                        className="remarks-input-1"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="pump-room-notes-1">
-            <p><strong>Note:</strong> Pump room construction includes excavation, RCC structure, waterproofing, and finishing works. Quantities are calculated based on pump room dimensions (20% of main pool volume).</p>
-            {constructionType === 'terrace' && (
-              <p className="terrace-note-1"><strong>Terrace Pump Room Note:</strong> This configuration includes structural works only and excludes excavation, soling, and backfilling items.</p>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* MEP Equipment */}
-      {filteredMepItems.length > 0 && (
-        <section className="items-section-1">
-          <div className="section-header-1">
-            <h2>
-              MEP Equipment and Materials ({filteredMepItems.length} items)
-              {poolType === 'overflow' && ' - Overflow Grating Included'}
-              {poolType === 'infinity' && ' - Skimmer Hidden'}
-              {poolType === 'curved' && (hasGutter ? ' - With Gutter System' : ' - Without Gutter System')}
-              {poolType === 'skimmer' && ' - Skimmer System'}
-            </h2>
-            <div className="section-actions-1">
-              <span className="selection-count-1">
-                Selected: {getSelectedCount('mep')} / {filteredMepItems.length}
-              </span>
-              <button 
-                className="select-all-section-1"
-                onClick={() => handleSelectAll('mep', filteredMepItems)}
-              >
-                {getSelectedCount('mep') === filteredMepItems.length ? 'Deselect All' : 'Select All'}
-              </button>
-            </div>
-          </div>
-          <div className="table-container-1">
-            <table className="delivery-table-1">
-              <thead>
-                <tr>
-                  <th className="select-column-1">
-                    <input 
-                      type="checkbox"
-                      checked={getSelectedCount('mep') === filteredMepItems.length && filteredMepItems.length > 0}
-                      onChange={() => handleSelectAll('mep', filteredMepItems)}
-                      className="select-all-checkbox-1"
-                    />
-                  </th>
-                  <th>Sl.No</th>
-                  <th>Code</th>
-                  <th>Description</th>
-                  <th>Unit</th>
-                  <th>Quantity</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMepItems.map((item, index) => (
-                  <tr key={`mep-${item.SlNo || index}-${index}`}
-                      className={selectedMepItems.has(index) ? 'selected-row-1' : ''}>
-                    <td className="select-column-1">
-                      <input 
-                        type="checkbox"
-                        checked={selectedMepItems.has(index)}
-                        onChange={() => handleSelectItem('mep', index)}
-                        className="item-checkbox-1"
-                      />
-                    </td>
-                    <td className="text-center-1">{item.uiSlNo}</td>
-                    <td className="text-center-1">{item.Code || "N/A"}</td>
-                    <td className="description-cell-1">{item.description}</td>
-                    <td className="text-center-1">{item.Unit || ""}</td>
-                    <td className="text-center-1 quantity-cell-1">
-                      <input
-                        type="number"
-                        value={getFinalQty("mep", item.SlNo, item.deliveryQuantity)}
-                        onChange={(e) => handleQtyChange("mep", item.SlNo, e.target.value)}
-                        style={{
-                          width: "70px",
-                          padding: "4px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px"
-                        }}
-                      />
-                    </td>
-                    <td className="text-center-1">
-                      <select 
-                        value={item.deliveryStatus}
-                        onChange={(e) => handleItemStatusChange('mep', index, e.target.value)}
-                        className="status-select-1"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="dispatched">Dispatched</option>
-                        <option value="delivered">Delivered</option>
-                        <option value="partially-delivered">Partially Delivered</option>
-                        <option value="not-required">Not Required</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input 
-                        type="text" 
-                        value={item.deliveryRemarks}
-                        onChange={(e) => handleItemRemarksChange('mep', index, e.target.value)}
-                        placeholder="Delivery remarks"
-                        className="remarks-input-1"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="mep-notes-1">
-            <p><strong>Note:</strong> MEP items include filtration systems, electrical components, plumbing fixtures, and specialized equipment.</p>
-            {poolType === 'overflow' && overflowGratingData && (
-              <p className="overflow-note-1"><strong>Overflow Grating:</strong> Durable, anti-slip cover installed along the overflow channel that allows excess water to drain efficiently back to the balance tank.</p>
-            )}
-            {poolType === 'infinity' && (
-              <p className="infinity-note-1"><strong>Infinity Pool Note:</strong> Skimmer (Item 11) is hidden for infinity pool systems.</p>
-            )}
-            {poolType === 'curved' && !hasGutter && (
-              <p className="curved-note-1"><strong>Curved Pool Note:</strong> Skimmer and Gutter Drain are hidden for curved pools without gutter system.</p>
-            )}
-            {poolType === 'skimmer' && (
-              <p className="skimmer-note-1"><strong>Skimmer Pool Note:</strong> Gutter Drain (Item 13) is hidden for skimmer pool systems.</p>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Piping System */}
-      {pipingItems.length > 0 && (
-        <section className="items-section-1">
-          <div className="section-header-1">
-            <h2>Piping System ({pipingItems.length} items)</h2>
-            <div className="section-actions-1">
-              <span className="selection-count-1">
-                Selected: {getSelectedCount('piping')} / {pipingItems.length}
-              </span>
-              <button 
-                className="select-all-section-1"
-                onClick={() => handleSelectAll('piping', pipingItems)}
-              >
-                {getSelectedCount('piping') === pipingItems.length ? 'Deselect All' : 'Select All'}
-              </button>
-            </div>
-          </div>
-          
-          {/* Pipes Section */}
-          {groupedPipingItems.pipes.length > 0 && (
-            <>
-              <h3 className="subsection-title-1">Pipes ({groupedPipingItems.pipes.length} items)</h3>
-              <div className="table-container-1">
-                <table className="delivery-table-1">
-                  <thead>
-                    <tr>
-                      <th className="select-column-1">
-                        <input 
-                          type="checkbox"
-                          checked={pipingItems.filter(item => 
-                            groupedPipingItems.pipes.some(p => p.sl_no === item.sl_no)
-                          ).every(item => selectedPipingItems.has(pipingItems.findIndex(i => i.sl_no === item.sl_no)))}
-                          onChange={() => {
-                            const pipeIndices = pipingItems
-                              .map((item, idx) => ({ item, idx }))
-                              .filter(({ item }) => 
-                                groupedPipingItems.pipes.some(p => p.sl_no === item.sl_no)
-                              )
-                              .map(({ idx }) => idx);
-                            
-                            const allSelected = pipeIndices.every(idx => selectedPipingItems.has(idx));
-                            if (allSelected) {
-                              const newSelection = new Set(selectedPipingItems);
-                              pipeIndices.forEach(idx => newSelection.delete(idx));
-                              setSelectedPipingItems(newSelection);
-                            } else {
-                              const newSelection = new Set(selectedPipingItems);
-                              pipeIndices.forEach(idx => newSelection.add(idx));
-                              setSelectedPipingItems(newSelection);
-                            }
-                          }}
-                          className="select-all-checkbox-1"
-                        />
-                      </th>
-                      <th>Sl.No</th>
-                      <th>Code</th>
-                      <th>Type</th>
-                      <th>Dia (mm)</th>
-                      <th>Description</th>
-                      <th>Unit</th>
-                      <th>Quantity</th>
-                      <th>Status</th>
-                      <th>Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groupedPipingItems.pipes.map((item) => {
-                      const globalIndex = pipingItems.findIndex(i => i.sl_no === item.sl_no);
-                      return (
-                        <tr key={`pipe-${item.sl_no}`}
-                            className={selectedPipingItems.has(globalIndex) ? 'selected-row-1' : ''}>
-                          <td className="select-column-1">
-                            <input 
-                              type="checkbox"
-                              checked={selectedPipingItems.has(globalIndex)}
-                              onChange={() => handleSelectItem('piping', globalIndex)}
-                              className="item-checkbox-1"
-                            />
-                          </td>
-                          <td className="text-center-1">{item.sl_no}</td>
-                          <td className="text-center-1">{item.code || "N/A"}</td>
-                          <td className="text-center-1">{item.type || "Pipe"}</td>
-                          <td className="text-center-1">{item.dia ? `${item.dia} mm` : "-"}</td>
-                          <td className="description-cell-1">{item.description}</td>
-                          <td className="text-center-1">{item.unit || "NOS"}</td>
-                          <td className="text-center-1 quantity-cell-1">
-                            <input
-                              type="number"
-                              value={getFinalQty("piping", item.sl_no, item.deliveryQuantity)}
-                              onChange={(e) => handleQtyChange("piping", item.sl_no, e.target.value)}
-                              style={{
-                                width: "70px",
-                                padding: "4px",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px"
-                              }}
-                            />
-                          </td>
-                          <td className="text-center-1">
-                            <select 
-                              value={item.deliveryStatus}
-                              onChange={(e) => handleItemStatusChange('piping', globalIndex, e.target.value)}
-                              className="status-select-1"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="dispatched">Dispatched</option>
-                              <option value="delivered">Delivered</option>
-                              <option value="partially-delivered">Partially Delivered</option>
-                              <option value="not-required">Not Required</option>
-                            </select>
-                          </td>
-                          <td>
-                            <input 
-                              type="text" 
-                              value={item.deliveryRemarks}
-                              onChange={(e) => handleItemRemarksChange('piping', globalIndex, e.target.value)}
-                              placeholder="Remarks"
-                              className="remarks-input-1"
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
-          {/* Valves Section */}
-          {groupedPipingItems.valves.length > 0 && (
-            <>
-              <h3 className="subsection-title-1">Valves ({groupedPipingItems.valves.length} items)</h3>
-              <div className="table-container-1">
-                <table className="delivery-table-1">
-                  <thead>
-                    <tr>
-                      <th className="select-column-1">
-                        <input 
-                          type="checkbox"
-                          checked={pipingItems.filter(item => 
-                            groupedPipingItems.valves.some(v => v.sl_no === item.sl_no)
-                          ).every(item => selectedPipingItems.has(pipingItems.findIndex(i => i.sl_no === item.sl_no)))}
-                          onChange={() => {
-                            const valveIndices = pipingItems
-                              .map((item, idx) => ({ item, idx }))
-                              .filter(({ item }) => 
-                                groupedPipingItems.valves.some(v => v.sl_no === item.sl_no)
-                              )
-                              .map(({ idx }) => idx);
-                            
-                            const allSelected = valveIndices.every(idx => selectedPipingItems.has(idx));
-                            if (allSelected) {
-                              const newSelection = new Set(selectedPipingItems);
-                              valveIndices.forEach(idx => newSelection.delete(idx));
-                              setSelectedPipingItems(newSelection);
-                            } else {
-                              const newSelection = new Set(selectedPipingItems);
-                              valveIndices.forEach(idx => newSelection.add(idx));
-                              setSelectedPipingItems(newSelection);
-                            }
-                          }}
-                          className="select-all-checkbox-1"
-                        />
-                      </th>
-                      <th>Sl.No</th>
-                      <th>Code</th>
-                      <th>Type</th>
-                      <th>Dia (mm)</th>
-                      <th>Description</th>
-                      <th>Unit</th>
-                      <th>Quantity</th>
-                      <th>Status</th>
-                      <th>Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groupedPipingItems.valves.map((item) => {
-                      const globalIndex = pipingItems.findIndex(i => i.sl_no === item.sl_no);
-                      return (
-                        <tr key={`valve-${item.sl_no}`}
-                            className={selectedPipingItems.has(globalIndex) ? 'selected-row-1' : ''}>
-                          <td className="select-column-1">
-                            <input 
-                              type="checkbox"
-                              checked={selectedPipingItems.has(globalIndex)}
-                              onChange={() => handleSelectItem('piping', globalIndex)}
-                              className="item-checkbox-1"
-                            />
-                          </td>
-                          <td className="text-center-1">{item.sl_no}</td>
-                          <td className="text-center-1">{item.code || "N/A"}</td>
-                          <td className="text-center-1">{item.type || "Valve"}</td>
-                          <td className="text-center-1">{item.dia ? `${item.dia} mm` : "-"}</td>
-                          <td className="description-cell-1">{item.description}</td>
-                          <td className="text-center-1">{item.unit || "NOS"}</td>
-                          <td className="text-center-1 quantity-cell-1">
-                            <input
-                              type="number"
-                              value={getFinalQty("piping", item.sl_no, item.deliveryQuantity)}
-                              onChange={(e) => handleQtyChange("piping", item.sl_no, e.target.value)}
-                              style={{
-                                width: "70px",
-                                padding: "4px",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px"
-                              }}
-                            />
-                          </td>
-                          <td className="text-center-1">
-                            <select 
-                              value={item.deliveryStatus}
-                              onChange={(e) => handleItemStatusChange('piping', globalIndex, e.target.value)}
-                              className="status-select-1"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="dispatched">Dispatched</option>
-                              <option value="delivered">Delivered</option>
-                              <option value="partially-delivered">Partially Delivered</option>
-                              <option value="not-required">Not Required</option>
-                            </select>
-                          </td>
-                          <td>
-                            <input 
-                              type="text" 
-                              value={item.deliveryRemarks}
-                              onChange={(e) => handleItemRemarksChange('piping', globalIndex, e.target.value)}
-                              placeholder="Remarks"
-                              className="remarks-input-1"
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
-          {/* Flanges Section */}
-          {groupedPipingItems.flanges.length > 0 && (
-            <>
-              <h3 className="subsection-title-1">Flanges ({groupedPipingItems.flanges.length} items)</h3>
-              <div className="table-container-1">
-                <table className="delivery-table-1">
-                  <thead>
-                    <tr>
-                      <th className="select-column-1">
-                        <input 
-                          type="checkbox"
-                          checked={pipingItems.filter(item => 
-                            groupedPipingItems.flanges.some(f => f.sl_no === item.sl_no)
-                          ).every(item => selectedPipingItems.has(pipingItems.findIndex(i => i.sl_no === item.sl_no)))}
-                          onChange={() => {
-                            const flangeIndices = pipingItems
-                              .map((item, idx) => ({ item, idx }))
-                              .filter(({ item }) => 
-                                groupedPipingItems.flanges.some(f => f.sl_no === item.sl_no)
-                              )
-                              .map(({ idx }) => idx);
-                            
-                            const allSelected = flangeIndices.every(idx => selectedPipingItems.has(idx));
-                            if (allSelected) {
-                              const newSelection = new Set(selectedPipingItems);
-                              flangeIndices.forEach(idx => newSelection.delete(idx));
-                              setSelectedPipingItems(newSelection);
-                            } else {
-                              const newSelection = new Set(selectedPipingItems);
-                              flangeIndices.forEach(idx => newSelection.add(idx));
-                              setSelectedPipingItems(newSelection);
-                            }
-                          }}
-                          className="select-all-checkbox-1"
-                        />
-                      </th>
-                      <th>Sl.No</th>
-                      <th>Code</th>
-                      <th>Type</th>
-                      <th>Dia (mm)</th>
-                      <th>Description</th>
-                      <th>Unit</th>
-                      <th>Quantity</th>
-                      <th>Status</th>
-                      <th>Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groupedPipingItems.flanges.map((item) => {
-                      const globalIndex = pipingItems.findIndex(i => i.sl_no === item.sl_no);
-                      return (
-                        <tr key={`flange-${item.sl_no}`}
-                            className={selectedPipingItems.has(globalIndex) ? 'selected-row-1' : ''}>
-                          <td className="select-column-1">
-                            <input 
-                              type="checkbox"
-                              checked={selectedPipingItems.has(globalIndex)}
-                              onChange={() => handleSelectItem('piping', globalIndex)}
-                              className="item-checkbox-1"
-                            />
-                          </td>
-                          <td className="text-center-1">{item.sl_no}</td>
-                          <td className="text-center-1">{item.code || "N/A"}</td>
-                          <td className="text-center-1">{item.type || "Flange"}</td>
-                          <td className="text-center-1">{item.dia ? `${item.dia} mm` : "-"}</td>
-                          <td className="description-cell-1">{item.description}</td>
-                          <td className="text-center-1">{item.unit || "NOS"}</td>
-                          <td className="text-center-1 quantity-cell-1">
-                            <input
-                              type="number"
-                              value={getFinalQty("piping", item.sl_no, item.deliveryQuantity)}
-                              onChange={(e) => handleQtyChange("piping", item.sl_no, e.target.value)}
-                              style={{
-                                width: "70px",
-                                padding: "4px",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px"
-                              }}
-                            />
-                          </td>
-                          <td className="text-center-1">
-                            <select 
-                              value={item.deliveryStatus}
-                              onChange={(e) => handleItemStatusChange('piping', globalIndex, e.target.value)}
-                              className="status-select-1"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="dispatched">Dispatched</option>
-                              <option value="delivered">Delivered</option>
-                              <option value="partially-delivered">Partially Delivered</option>
-                              <option value="not-required">Not Required</option>
-                            </select>
-                          </td>
-                          <td>
-                            <input 
-                              type="text" 
-                              value={item.deliveryRemarks}
-                              onChange={(e) => handleItemRemarksChange('piping', globalIndex, e.target.value)}
-                              placeholder="Remarks"
-                              className="remarks-input-1"
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
-          {/* Headers Section */}
-          {groupedPipingItems.headers.length > 0 && (
-            <>
-              <h3 className="subsection-title-1">Headers ({groupedPipingItems.headers.length} items)</h3>
-              <div className="table-container-1">
-                <table className="delivery-table-1">
-                  <thead>
-                    <tr>
-                      <th className="select-column-1">
-                        <input 
-                          type="checkbox"
-                          checked={pipingItems.filter(item => 
-                            groupedPipingItems.headers.some(h => h.sl_no === item.sl_no)
-                          ).every(item => selectedPipingItems.has(pipingItems.findIndex(i => i.sl_no === item.sl_no)))}
-                          onChange={() => {
-                            const headerIndices = pipingItems
-                              .map((item, idx) => ({ item, idx }))
-                              .filter(({ item }) => 
-                                groupedPipingItems.headers.some(h => h.sl_no === item.sl_no)
-                              )
-                              .map(({ idx }) => idx);
-                            
-                            const allSelected = headerIndices.every(idx => selectedPipingItems.has(idx));
-                            if (allSelected) {
-                              const newSelection = new Set(selectedPipingItems);
-                              headerIndices.forEach(idx => newSelection.delete(idx));
-                              setSelectedPipingItems(newSelection);
-                            } else {
-                              const newSelection = new Set(selectedPipingItems);
-                              headerIndices.forEach(idx => newSelection.add(idx));
-                              setSelectedPipingItems(newSelection);
-                            }
-                          }}
-                          className="select-all-checkbox-1"
-                        />
-                      </th>
-                      <th>Sl.No</th>
-                      <th>Code</th>
-                      <th>Type</th>
-                      <th>Dia (mm)</th>
-                      <th>Description</th>
-                      <th>Unit</th>
-                      <th>Quantity</th>
-                      <th>Status</th>
-                      <th>Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groupedPipingItems.headers.map((item) => {
-                      const globalIndex = pipingItems.findIndex(i => i.sl_no === item.sl_no);
-                      return (
-                        <tr key={`header-${item.sl_no}`}
-                            className={selectedPipingItems.has(globalIndex) ? 'selected-row-1' : ''}>
-                          <td className="select-column-1">
-                            <input 
-                              type="checkbox"
-                              checked={selectedPipingItems.has(globalIndex)}
-                              onChange={() => handleSelectItem('piping', globalIndex)}
-                              className="item-checkbox-1"
-                            />
-                          </td>
-                          <td className="text-center-1">{item.sl_no}</td>
-                          <td className="text-center-1">{item.code || "N/A"}</td>
-                          <td className="text-center-1">{item.type || "Header"}</td>
-                          <td className="text-center-1">{item.dia ? `${item.dia} mm` : "-"}</td>
-                          <td className="description-cell-1">{item.description}</td>
-                          <td className="text-center-1">{item.unit || "NOS"}</td>
-                          <td className="text-center-1 quantity-cell-1">
-                            <input
-                              type="number"
-                              value={getFinalQty("piping", item.sl_no, item.deliveryQuantity)}
-                              onChange={(e) => handleQtyChange("piping", item.sl_no, e.target.value)}
-                              style={{
-                                width: "70px",
-                                padding: "4px",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px"
-                              }}
-                            />
-                          </td>
-                          <td className="text-center-1">
-                            <select 
-                              value={item.deliveryStatus}
-                              onChange={(e) => handleItemStatusChange('piping', globalIndex, e.target.value)}
-                              className="status-select-1"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="dispatched">Dispatched</option>
-                              <option value="delivered">Delivered</option>
-                              <option value="partially-delivered">Partially Delivered</option>
-                              <option value="not-required">Not Required</option>
-                            </select>
-                          </td>
-                          <td>
-                            <input 
-                              type="text" 
-                              value={item.deliveryRemarks}
-                              onChange={(e) => handleItemRemarksChange('piping', globalIndex, e.target.value)}
-                              placeholder="Remarks"
-                              className="remarks-input-1"
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
-          <div className="piping-notes-1">
-            <p><strong>Piping Total:</strong> {safeToFixed(pipingTotal)}</p>
-            <p><strong>Note:</strong> Piping items are calculated based on pool dimensions and type. Installation cost is 15% of supply cost. All diameters are in millimeters (mm).</p>
-          </div>
-        </section>
-      )}
-
-      {/* Summary Section */}
+      {/* Summary */}
       <section className="summary-section-1">
         <h2>Delivery Summary</h2>
         <div className="summary-grid-1">
           <div className="summary-item-1">
-            <span className="summary-label-1">Total Main Pool Items:</span>
+            <span className="summary-label-1">Main Pool Items:</span>
             <span className="summary-value-1">{filteredMainPoolItems.length}</span>
           </div>
-          {hasBalancingTank && (
-            <div className="summary-item-1">
-              <span className="summary-label-1">Total Balancing Tank Items:</span>
-              <span className="summary-value-1">{filteredBalancingTankItems.length}</span>
-            </div>
-          )}
-          {includePumpRoom && (
-            <div className="summary-item-1">
-              <span className="summary-label-1">Total Pump Room Items:</span>
-              <span className="summary-value-1">{filteredPumpRoomItems.length}</span>
-            </div>
-          )}
           <div className="summary-item-1">
-            <span className="summary-label-1">Total MEP Items:</span>
+            <span className="summary-label-1">MEP Items:</span>
             <span className="summary-value-1">{filteredMepItems.length}</span>
           </div>
           <div className="summary-item-1">
-            <span className="summary-label-1">Total Piping Items:</span>
+            <span className="summary-label-1">Piping Items:</span>
             <span className="summary-value-1">{pipingItems.length}</span>
           </div>
           <div className="summary-item-1">
-            <span className="summary-label-1">Total Items:</span>
-            <span className="summary-value-1">
-              {filteredMainPoolItems.length + 
-               (hasBalancingTank ? filteredBalancingTankItems.length : 0) + 
-               (includePumpRoom ? filteredPumpRoomItems.length : 0) + 
-               filteredMepItems.length +
-               pipingItems.length}
-            </span>
-          </div>
-          <div className="summary-item-1">
             <span className="summary-label-1">Pool Type:</span>
-            <span className="summary-value-1">{poolType.toUpperCase()} {constructionType === 'terrace' ? '(Terrace)' : '(In-Ground)'}</span>
-          </div>
-          <div className="summary-item-1">
-            <span className="summary-label-1">Gutter System:</span>
-            <span className="summary-value-1">{hasBalancingTank ? "Yes" : "No"}</span>
-          </div>
-          <div className="summary-item-1">
-            <span className="summary-label-1">Pump Room:</span>
-            <span className="summary-value-1">{includePumpRoom ? "Included" : "Not Included"}</span>
+            <span className="summary-value-1">{poolType.toUpperCase()} ({constructionDisplay})</span>
           </div>
         </div>
       </section>
 
-      {/* Signatures Section */}
+      {/* Signatures */}
       <section className="signatures-section-1">
         <h2>Authorizations</h2>
         <div className="signatures-grid-1">
           <div className="signature-block-1">
             <div className="signature-line-1"></div>
             <p>Prepared By</p>
-            <input 
-              type="text" 
-              value={deliveryData.preparedBy}
-              onChange={(e) => handleInputChange('preparedBy', e.target.value)}
-              placeholder="Name of preparer"
-              className="signature-input-1"
-            />
+            <input type="text" value={deliveryData.preparedBy} onChange={(e) => handleInputChange('preparedBy', e.target.value)} placeholder="Name of preparer" className="signature-input-1" />
           </div>
           <div className="signature-block-1">
             <div className="signature-line-1"></div>
             <p>Authorized By</p>
-            <input 
-              type="text" 
-              value={deliveryData.authorizedBy}
-              onChange={(e) => handleInputChange('authorizedBy', e.target.value)}
-              placeholder="Name of authorized person"
-              className="signature-input-1"
-            />
+            <input type="text" value={deliveryData.authorizedBy} onChange={(e) => handleInputChange('authorizedBy', e.target.value)} placeholder="Name of authorized person" className="signature-input-1" />
           </div>
           <div className="signature-block-1">
             <div className="signature-line-1"></div>
             <p>Received By</p>
-            <input 
-              type="text" 
-              value={deliveryData.receivedBy}
-              onChange={(e) => handleInputChange('receivedBy', e.target.value)}
-              placeholder="Receiver's signature"
-              className="signature-input-1"
-            />
+            <input type="text" value={deliveryData.receivedBy} onChange={(e) => handleInputChange('receivedBy', e.target.value)} placeholder="Receiver's signature" className="signature-input-1" />
           </div>
         </div>
       </section>
 
-      {/* Footer Actions */}
+      {/* Footer */}
       <footer className="delivery-actions-1">
-        <button className="pdf-button-1" onClick={generateDeliveryPDF}>
-          📄 Download PDF
-        </button>
-        <button className="secondary-button-1" onClick={printChallan}>
-          🖨️ Print Challan
-        </button>
-        <button className="back-button-1" onClick={() => navigate(-1)}>
-          ← Back to Results
-        </button>
+        <button className="pdf-button-1" onClick={generatePDF}>📄 Download PDF</button>
+        <button className="back-button-1" onClick={() => navigate(-1)}>← Back to Results</button>
       </footer>
     </div>
   );

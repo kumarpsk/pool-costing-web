@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./admin.css";
 
-const API_BASE_URL = "https://pool-costing-api.intelithon.in";
+const API_BASE_URL = "https://pool-costing-api.intelithon.in"; // Update with your backend URL
 const AUTH_TOKEN_KEY = "tenant_admin_token";
 const ADMIN_DATA_KEY = "tenant_admin_data";
 

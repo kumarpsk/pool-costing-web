@@ -9,58 +9,77 @@ const INSTALL_PCT  = 0.15;
 const GST_RATE     = 0.18;
 const API_BASE_URL = "https://pool-costing-api.intelithon.in";
 
+// ─────────────────────────────────────────────────────────────
+// MAIN POOL QTY FIELDS — 14 ITEMS, matches ALL result pages
+// SlNo 3 = Consolidation_QTY (NEW), SlNo 4 = Disposal_QTY (NEW)
+// SlNo 13 = Coping_QTY, SlNo 14 = Tiling_QTY
+// ─────────────────────────────────────────────────────────────
 const MAIN_POOL_QTY_FIELDS = {
-  1: "EarthExcavation_QTY",
-  2: "BackFilling_QTY",
-  3: "Soling_QTY",
-  4: "plaincement_QTY",
-  5: "BurntBrick_QTY",
-  6: "steelreinforcement_QTY",
-  7: "Shuttering_QTY",
-  8: "shotcreting_QTY",
-  9: "WaterProofing_QTY",
-  10: "plastering_QTY",
-  11: "Coping_QTY",
-  12: "Tiling_QTY",
+  1:  "EarthExcavation_QTY",
+  2:  "BackFilling_QTY",
+  3:  "Consolidation_QTY",
+  4:  "Disposal_QTY",
+  5:  "Soling_QTY",
+  6:  "plaincement_QTY",
+  7:  "BurntBrick_QTY",
+  8:  "steelreinforcement_QTY",
+  9:  "Shuttering_QTY",
+  10: "shotcreting_QTY",
+  11: "WaterProofing_QTY",
+  12: "plastering_QTY",
+  13: "Coping_QTY",
+  14: "Tiling_QTY",
 };
 
+// ─────────────────────────────────────────────────────────────
+// BALANCE TANK QTY FIELDS — 12 ITEMS, matches result pages
+// ─────────────────────────────────────────────────────────────
 const BALANCE_TANK_QTY_FIELDS = {
-  1: "EarthExcavation_QTY_1",
-  2: "BackFilling_QTY_1",
-  3: "Soling_QTY_1",
-  4: "plaincement_QTY_1",
-  5: "BurntBrick_QTY_1",
-  6: "steelreinforcement_QTY_1",
-  7: "Shuttering_QTY_1",
-  8: "shotcreting_QTY_1",
-  9: "WaterProofing_QTY_1",
-  10: "plastering_QTY_1",
+  1:  "EarthExcavation_QTY_1",
+  2:  "BackFilling_QTY_1",
+  3:  "Consolidation_QTY_1",
+  4:  "Disposal_QTY_1",
+  5:  "Soling_QTY_1",
+  6:  "plaincement_QTY_1",
+  7:  "BurntBrick_QTY_1",
+  8:  "steelreinforcement_QTY_1",
+  9:  "Shuttering_QTY_1",
+  10: "shotcreting_QTY_1",
+  11: "WaterProofing_QTY_1",
+  12: "plastering_QTY_1",
 };
 
+// ─────────────────────────────────────────────────────────────
+// PUMP ROOM QTY FIELDS — 12 ITEMS, matches result pages
+// ─────────────────────────────────────────────────────────────
 const PUMP_ROOM_QTY_FIELDS = {
-  1: "EarthExcavation_QTY_2",
-  2: "BackFilling_QTY_2",
-  3: "Soling_QTY_2",
-  4: "plaincement_QTY_2",
-  5: "BurntBrick_QTY_2",
-  6: "steelreinforcement_QTY_2",
-  7: "Shuttering_QTY_2",
-  8: "shotcreting_QTY_2",
-  9: "WaterProofing_QTY_2",
-  10: "plastering_QTY_2",
+  1:  "EarthExcavation_QTY_2",
+  2:  "BackFilling_QTY_2",
+  3:  "Consolidation_QTY_2",
+  4:  "Disposal_QTY_2",
+  5:  "Soling_QTY_2",
+  6:  "plaincement_QTY_2",
+  7:  "BurntBrick_QTY_2",
+  8:  "steelreinforcement_QTY_2",
+  9:  "Shuttering_QTY_2",
+  10: "shotcreting_QTY_2",
+  11: "WaterProofing_QTY_2",
+  12: "plastering_QTY_2",
 };
 
-// EXACT MAPPING from ResultPage — DO NOT CHANGE
+// ─────────────────────────────────────────────────────────────
+// STANDARD MEP QTY FIELDS (skimmer, overflow, infinity, freeform)
+// ─────────────────────────────────────────────────────────────
 const MEP_QTY_FIELDS = {
-  1: "Filter_QTY",
-  2: "Glass_QTY",
-  3: "Pressure_QTY",
-  4: "Filter_Drain_QTY",
-  5: "Mpv_QTY",
-  6: "Mpv_connset_QTY",
-  7: "Cpump_QTY",
-  8: "Return_Inlets_QTY",
-  9: "MainDrain_QTY",
+  1:  "Filter_QTY",
+  2:  "Glass_QTY",
+  3:  "Pressure_QTY",
+  4:  "Filter_Drain_QTY",
+  5:  "Mpv_QTY",
+  6:  "Mpv_connset_QTY",
+  7:  "Cpump_QTY",
+  8:  "Return_Inlets_QTY",
+  9:  "MainDrain_QTY",
   10: "Vaccume_Inlets_QTY",
   11: "Skimmer_QTY",
   12: "FloatValve_QTY",
@@ -88,6 +107,41 @@ const MEP_QTY_FIELDS = {
   34: "SaltChlorinator_QTY",
 };
 
+// ─────────────────────────────────────────────────────────────
+// JACUZZI MEP QTY FIELDS — 29 ITEMS (different mapping)
+// ─────────────────────────────────────────────────────────────
+const JACUZZI_MEP_QTY_FIELDS = {
+  1:  "Filter_QTY",
+  2:  "Glass_QTY",
+  3:  "Pressure_QTY",
+  4:  "Filter_Drain_QTY",
+  5:  "Mpv_QTY",
+  6:  "Mpv_connset_QTY",
+  7:  "Cpump_QTY",
+  8:  "Return_Inlets_QTY",
+  9:  "MainDrain_QTY",
+  10: "Underwaterlight_QTY",
+  11: "Transformer_QTY",
+  12: "ControlPanel_QTY",
+  13: "Cables_QTY",
+  14: "Earthing_QTY",
+  15: "FloatingHose_QTY",
+  16: "Brush_QTY",
+  17: "Algae_QTY",
+  18: "Net_QTY",
+  19: "Handle_QTY",
+  20: "VacuumHead_QTY",
+  21: "TestKit_QTY",
+  22: "CurvedBrush_QTY",
+  23: "ChlorinePump_QTY",
+  24: "DosingTank_QTY",
+  25: "Stirrer_QTY",
+  26: "water_jet_qty",
+  27: "air_controller_qty",
+  28: "jet_pump_qty",
+  29: "HeatPump_QTY",
+};
+
 const SECTION_META = {
   mainPool:    { label: "Civil — Pool Structure",    color: "#0d3b6e", icon: "🏊", hasInstall: false },
   balanceTank: { label: "Civil — Balance Tank",      color: "#2a5f9e", icon: "⚖️", hasInstall: false },
@@ -108,7 +162,6 @@ const DEFAULT_COMPANY_PROFILE = {
   pan:      "",
 };
 
-// Overflow Grating replacement data (ONLY used for overflow pools)
 const OVERFLOW_GRATING_DATA = {
   SlNo:        11,
   Code:        "OG-001",
@@ -172,147 +225,168 @@ function addDays(d, n) {
 const TODAY = new Date().toISOString().split("T")[0];
 
 // ─────────────────────────────────────────────────────────────
-// QUANTITY GETTER FUNCTIONS — exact match with ResultPage
+// QUANTITY GETTER FUNCTIONS — FIXED TO USE CORRECT FIELD MAPS
 // ─────────────────────────────────────────────────────────────
 
-// ✅ STEP 1: FIXED getCivilQuantity - checks multiple paths
+/**
+ * Gets civil quantity for main pool item.
+ * Uses MAIN_POOL_QTY_FIELDS (14 items) to map SlNo → field name.
+ * Searches civilQuantities first, then resultData.civil_quantities, then resultData directly.
+ */
 const getCivilQuantity = (slNo, civilQuantities, resultData) => {
   const fieldName = MAIN_POOL_QTY_FIELDS[slNo];
   if (!fieldName) return 0;
 
-  // 1. From civilQuantities (highest priority)
-  if (civilQuantities?.[fieldName] !== undefined) {
+  // 1. Check passed civilQuantities state object
+  if (civilQuantities?.[fieldName] !== undefined && civilQuantities[fieldName] !== null) {
     return num(civilQuantities[fieldName]);
   }
-
-  // 2. From resultData direct
-  if (resultData?.[fieldName] !== undefined) {
-    return num(resultData[fieldName]);
-  }
-
-  // 3. 🔥 NEW: from resultData.civil_quantities
+  // 2. Check resultData.civil_quantities (standard location)
   if (resultData?.civil_quantities?.[fieldName] !== undefined) {
     return num(resultData.civil_quantities[fieldName]);
   }
-
-  return 0;
-};
-
-const getBalanceTankQuantity = (slNo, balanceTankQuantities, resultData) => {
-  const fieldName = BALANCE_TANK_QTY_FIELDS[slNo];
-  if (!fieldName) return 0;
-  
-  if (balanceTankQuantities?.[fieldName] !== undefined) {
-    return num(balanceTankQuantities[fieldName]);
-  }
-  
+  // 3. Check resultData directly (some APIs flatten it)
   if (resultData?.[fieldName] !== undefined) {
     return num(resultData[fieldName]);
   }
-  
-  if (resultData?.balance_tank_quantities?.[fieldName] !== undefined) {
-    return num(resultData.balance_tank_quantities[fieldName]);
-  }
-  
   return 0;
 };
 
-// ✅ STEP 2: FIXED getPumpRoomQuantity - checks multiple paths
+/**
+ * Gets civil quantity for balance tank item.
+ * Uses BALANCE_TANK_QTY_FIELDS (12 items).
+ */
+const getBalanceTankQuantity = (slNo, balanceTankQuantities, resultData) => {
+  const fieldName = BALANCE_TANK_QTY_FIELDS[slNo];
+  if (!fieldName) return 0;
+
+  if (balanceTankQuantities?.[fieldName] !== undefined && balanceTankQuantities[fieldName] !== null) {
+    return num(balanceTankQuantities[fieldName]);
+  }
+  if (resultData?.balance_tank_quantities?.[fieldName] !== undefined) {
+    return num(resultData.balance_tank_quantities[fieldName]);
+  }
+  if (resultData?.[fieldName] !== undefined) {
+    return num(resultData[fieldName]);
+  }
+  return 0;
+};
+
+/**
+ * Gets civil quantity for pump room item.
+ * Uses PUMP_ROOM_QTY_FIELDS (12 items).
+ */
 const getPumpRoomQuantity = (slNo, pumpRoomQuantities, resultData) => {
   const fieldName = PUMP_ROOM_QTY_FIELDS[slNo];
   if (!fieldName) return 0;
 
-  // 1. From pumpRoomQuantities
-  if (pumpRoomQuantities?.[fieldName] !== undefined) {
+  if (pumpRoomQuantities?.[fieldName] !== undefined && pumpRoomQuantities[fieldName] !== null) {
     return num(pumpRoomQuantities[fieldName]);
   }
-
-  // 2. From resultData direct
-  if (resultData?.[fieldName] !== undefined) {
-    return num(resultData[fieldName]);
-  }
-
-  // 3. 🔥 NEW: from resultData.pump_room_quantities
   if (resultData?.pump_room_quantities?.[fieldName] !== undefined) {
     return num(resultData.pump_room_quantities[fieldName]);
   }
-
+  if (resultData?.[fieldName] !== undefined) {
+    return num(resultData[fieldName]);
+  }
   return 0;
 };
 
-// Get MEP Quantity — supports all pool types (Jacuzzi, Skimmer, Overflow, Infinity, Freeform)
+/**
+ * Gets MEP quantity for standard pools (skimmer, overflow, infinity, freeform).
+ * Uses MEP_QTY_FIELDS (34 items).
+ * Advanced equipment (SlNo 30-34) comes from selectedAdvancedEquipment.
+ */
 const getMepQuantity = (slNo, mepQuantities, resultData, selectedAdvancedEquipment, includeHeatPump, poolType) => {
-  const fieldName = MEP_QTY_FIELDS[slNo];
-  if (!fieldName) return 0;
-
-  // Jacuzzi specific logic
-  if (poolType === "jacuzzi") {
-    if (mepQuantities?.[fieldName] !== undefined) {
-      return num(mepQuantities[fieldName]);
-    }
-    
-    if (resultData?.mep_quantities?.[fieldName] !== undefined) {
-      return num(resultData.mep_quantities[fieldName]);
-    }
-    
-    if (slNo === 26) return num(resultData?.water_jets || 0);
-    if (slNo === 27) return num(resultData?.air_jets || 0);
-    if (slNo === 28) return num(resultData?.jet_pump_qty || 1);
-    
-    if (slNo === 29) {
-      return selectedAdvancedEquipment?.includes(29) ? 1 : 0;
-    }
-    
-    return 0;
-  }
-
-  // Gutter Drain (SlNo 13) — ONLY hidden for overflow pools
+  // Overflow pool: no gutter drain shown (SlNo 13 is overflow grating instead)
   if (poolType === "overflow" && slNo === 13) return 0;
 
-  // Advanced Equipment (SlNo 30-34) — only if explicitly selected
+  // Advanced equipment: only if selected
   if (slNo >= 30 && slNo <= 34) {
     return selectedAdvancedEquipment?.includes(slNo) ? 1 : 0;
   }
 
-  // Heat Pump (SlNo 30) special guard
+  // Legacy heat pump check
   if (slNo === 30 && !includeHeatPump) return 0;
 
-  // Priority 1: mepQuantities
-  if (mepQuantities?.[fieldName] !== undefined) return num(mepQuantities[fieldName]);
+  const fieldName = MEP_QTY_FIELDS[slNo];
+  if (!fieldName) return 0;
 
-  // Priority 2: resultData
-  if (resultData?.[fieldName] !== undefined) return num(resultData[fieldName]);
-  
-  // Priority 3: resultData.mep_quantities
-  if (resultData?.mep_quantities?.[fieldName] !== undefined) return num(resultData.mep_quantities[fieldName]);
-
+  if (mepQuantities?.[fieldName] !== undefined && mepQuantities[fieldName] !== null) {
+    return num(mepQuantities[fieldName]);
+  }
+  if (resultData?.mep_quantities?.[fieldName] !== undefined) {
+    return num(resultData.mep_quantities[fieldName]);
+  }
+  if (resultData?.quantities?.[fieldName] !== undefined) {
+    return num(resultData.quantities[fieldName]);
+  }
+  if (resultData?.[fieldName] !== undefined) {
+    return num(resultData[fieldName]);
+  }
   return 0;
 };
 
-// Get Supply Rate — exact match with ResultPage
-const getSupplyRate = (item, dynamicRates) => {
+/**
+ * Gets MEP quantity for jacuzzi pools.
+ * Uses JACUZZI_MEP_QTY_FIELDS (29 items).
+ * SlNo 29 = Heat Pump (optional, comes from selectedAdvancedEquipment).
+ */
+const getJacuzziMepQuantity = (slNo, mepQuantities, resultData, selectedAdvancedEquipment) => {
+  // Heat pump is optional
+  if (slNo === 29) {
+    return selectedAdvancedEquipment?.includes(29) ? 1 : 0;
+  }
+
+  const fieldName = JACUZZI_MEP_QTY_FIELDS[slNo];
+  if (!fieldName) return 0;
+
+  if (mepQuantities?.[fieldName] !== undefined && mepQuantities[fieldName] !== null) {
+    return num(mepQuantities[fieldName]);
+  }
+  if (resultData?.mep_quantities?.[fieldName] !== undefined) {
+    return num(resultData.mep_quantities[fieldName]);
+  }
+
+  // Jacuzzi-specific fallbacks for jets
+  if (slNo === 26) return num(resultData?.water_jets || 0);
+  if (slNo === 27) return num(resultData?.air_jets || 0);
+  if (slNo === 28) return num(resultData?.jet_pump_qty || 1);
+
+  if (resultData?.[fieldName] !== undefined) {
+    return num(resultData[fieldName]);
+  }
+  return 0;
+};
+
+/**
+ * Gets supply rate for an MEP item.
+ * SlNo 1 = Filter (dynamic), SlNo 7 = Pump (dynamic), SlNo 28 Jacuzzi Jet Pump = fixed 52500.
+ */
+const getSupplyRate = (item, dynamicRates, poolType) => {
   if (item.SlNo === 1) return dynamicRates?.filter_rate ?? 0;
   if (item.SlNo === 7) return dynamicRates?.pump_rate   ?? 0;
-  if (item.SlNo === 28) return 52500; // Jet Pump fixed rate
+  // Jacuzzi jet pump fixed rate
+  if (poolType === "jacuzzi" && item.SlNo === 28) return 52500;
   return item.Rate ?? 0;
 };
 
-// Overflow Grating Quantity (perimeter based) — only for overflow
+/**
+ * Gets overflow grating quantity = pool perimeter length.
+ */
 const getOverflowGratingQty = (resultData) => {
   return num(resultData?.perimeter || resultData?.overflow_length || 0);
 };
 
 // ─────────────────────────────────────────────────────────────
-// PIPING LINES — build from already-mapped piping objects
+// PIPING LINES BUILDER
 // ─────────────────────────────────────────────────────────────
 function buildPipingLines(rawItems) {
   const src = Array.isArray(rawItems) ? rawItems : [];
   return src.map((item, idx) => {
     const qty  = num(item.Quantity ?? item.quantity ?? item.qty  ?? 1);
     const rate = num(item.SupplyRate ?? item.supply_rate ?? item.Rate ?? item.rate ?? 0);
-    const desc = cleanDesc(
-      item.Description || item.description || item.actualDescription || ""
-    );
+    const desc = cleanDesc(item.Description || item.description || item.actualDescription || "");
     const code = item.Code || item.code || "";
     const unit = item.Unit || item.unit || "Nos";
     const slNo = item.SlNo || item.sl_no || (idx + 1);
@@ -348,67 +422,86 @@ export default function ProformaInvoice() {
   const navigate = useNavigate();
   const state    = location.state || {};
 
-  // Pool type detection
+  // ── Pool type detection ──────────────────────────────────
   const poolType   = state.poolType || "skimmer";
   const isJacuzzi  = poolType === "jacuzzi";
   const isOverflow = poolType === "overflow";
   const isInfinity = poolType === "infinity";
   const isFreeform = poolType === "freeform";
 
-  // Data from ResultPage
-  const resultData               = state.resultData               || {};
-  const dimensions               = state.dimensions               || {};
-  const companyProfile           = state.companyProfile           || DEFAULT_COMPANY_PROFILE;
-  const includePumpRoom          = state.includePumpRoom          !== undefined ? state.includePumpRoom : true;
-  const selectedAdvancedEquipment = state.selectedAdvancedEquipment|| [];
-  const dynamicRates             = state.dynamicRates             || {};
-  const filteredMainPoolItems    = state.filteredMainPoolItems     || [];
-  const filteredMepItemsRaw      = state.filteredMepItems         || [];
-  const pumpRoomItems            = state.pumpRoomItems            || [];
-  const balanceTankItems         = state.balanceTankItems         || [];
-  const includeHeatPump          = state.includeHeatPump          || false;
+  // ── Data from navigation state ──────────────────────────
+  const resultData                = state.resultData               || {};
+  const dimensions                = state.dimensions               || {};
+  const companyProfile            = state.companyProfile           || DEFAULT_COMPANY_PROFILE;
+  const includePumpRoom           = state.includePumpRoom          !== undefined ? state.includePumpRoom : true;
+  const selectedAdvancedEquipment = state.selectedAdvancedEquipment || [];
+  const dynamicRates              = state.dynamicRates             || {};
 
-  // Balance tank logic
+  // ── Quantity state objects ───────────────────────────────
+  // These come from the result page's state objects (civilQuantities, mepQuantities, etc.)
+  const civilQuantities       = state.civilQuantities       || {};
+  const mepQuantities         = state.mepQuantities         || {};
+  const pumpRoomQuantities    = state.pumpRoomQuantities    || {};
+  const balanceTankQuantities = state.balanceTankQuantities || {};
+
+  // ── Item lists ───────────────────────────────────────────
+  // filteredMainPoolItems: items from admin/main_pool (has SlNo, Description, Rate, etc.)
+  // These have SlNo 1-14 matching the 14-item schema
+  const filteredMainPoolItems     = state.filteredMainPoolItems     || [];
+  // filteredMepItems: already filtered/transformed MEP items from result page
+  const filteredMepItemsRaw       = state.filteredMepItems         || [];
+  // pumpRoomItems: civil items for pump room (SlNo 1-12)
+  const pumpRoomItems             = state.pumpRoomItems            || [];
+  // balanceTankItems: civil items for balance tank (SlNo 1-12)
+  const balanceTankItems          = state.balanceTankItems         || [];
+  // includeHeatPump: legacy flag
+  const includeHeatPump           = state.includeHeatPump          || false;
+
+  // ── Balancing tank inclusion ─────────────────────────────
   const includeBalancingTank =
     state.hasBalancingTank !== undefined
       ? state.hasBalancingTank
       : (isOverflow || isInfinity || isFreeform);
 
-  // Piping items
+  // ── Raw piping items ─────────────────────────────────────
   const rawPipingItems =
     resultData?.piping_items ||
     resultData?.piping       ||
     state.pipingItems        ||
     [];
 
-  const civilQuantities       = state.civilQuantities       || {};
-  const mepQuantities         = state.mepQuantities         || {};
-  const pumpRoomQuantities    = state.pumpRoomQuantities    || {};
-  const balanceTankQuantities = state.balanceTankQuantities || {};
-
-  // MEP Items Transformation — ONLY for overflow
+  // ── MEP Items: For overflow, items already transformed by result page ──
+  // The overflow result page already applies the overflow grating transformation
+  // before passing to proforma, so we do NOT re-transform here.
+  // We only apply our own transformation for non-overflow pools.
   const filteredMepItems = useMemo(() => {
-    if (!isOverflow) return filteredMepItemsRaw;
+    if (!Array.isArray(filteredMepItemsRaw)) return [];
 
-    return filteredMepItemsRaw.map(item => {
-      if (item.SlNo === 11) {
-        return {
-          ...item,
-          Description:        OVERFLOW_GRATING_DATA.Description,
-          Unit:               OVERFLOW_GRATING_DATA.Unit,
-          Rate:               OVERFLOW_GRATING_DATA.Rate,
-          isOverflowGrating:  true,
-          originalDescription: item.Description,
-        };
-      }
-      if (item.SlNo === 13) {
-        return { ...item, isGutterDrain: true };
-      }
-      return item;
-    });
+    if (isOverflow) {
+      // filteredMepItemsRaw already has overflow grating at SlNo 11
+      // and isOverflowGrating/isGutterDrain flags set by result page
+      return filteredMepItemsRaw.map(item => {
+        if (item.SlNo === 11 && !item.isOverflowGrating) {
+          // Fallback: apply overflow grating if not already done
+          return {
+            ...item,
+            Description:        OVERFLOW_GRATING_DATA.Description,
+            Unit:               OVERFLOW_GRATING_DATA.Unit,
+            Rate:               OVERFLOW_GRATING_DATA.Rate,
+            isOverflowGrating:  true,
+          };
+        }
+        if (item.SlNo === 13) {
+          return { ...item, isGutterDrain: true };
+        }
+        return item;
+      });
+    }
+
+    return filteredMepItemsRaw;
   }, [filteredMepItemsRaw, isOverflow]);
 
-  // Company profile
+  // ── Company profile ──────────────────────────────────────
   const [profile, setProfile]               = useState(companyProfile);
   const [profileLoading, setProfileLoading] = useState(false);
 
@@ -436,45 +529,50 @@ export default function ProformaInvoice() {
     fetchTenantProfile();
   }, []);
 
+  // ── View state ───────────────────────────────────────────
   const [view, setView] = useState("setup");
 
-  // Client info
+  // ── Client info ──────────────────────────────────────────
   const [cl, setCl] = useState({
     name: "", company: "", address: "", city: "", state: "", pin: "",
     phone: "", email: "", gstin: "", pan: "", tinNo: "",
   });
   const sc = (k, v) => setCl(p => ({ ...p, [k]: v }));
 
-  const [piNo]       = useState(() => genPI(profile.company_code));
-  const validDate    = addDays(TODAY, 30);
-  const [poRef,        setPoRef]      = useState("");
-  const [payTerms,     setPayTerms]   = useState(
+  const [piNo]     = useState(() => genPI(profile.company_code));
+  const validDate  = addDays(TODAY, 30);
+  const [poRef,      setPoRef]      = useState("");
+  const [payTerms,   setPayTerms]   = useState(
     "50% advance with Purchase Order\n40% before dispatch of materials\n10% on successful testing & commissioning"
   );
-  const [delivTerms,   setDelivTerms] = useState(
+  const [delivTerms, setDelivTerms] = useState(
     "In-stock materials: 2–3 weeks from PO\nImported materials: 12–14 weeks from PO"
   );
   const [addNotes, setAddNotes] = useState("");
 
-  // Pool label
+  // ── Pool label ───────────────────────────────────────────
   const poolLabel =
-    poolType === "jacuzzi"
-      ? "Jacuzzi / Spa Pool"
-      : poolType === "freeform"
-      ? "Freeform Swimming Pool"
-      : poolType === "infinity"
-      ? "Infinity Swimming Pool"
-      : poolType === "overflow"
-      ? "Overflow Swimming Pool"
-      : "Skimmer Swimming Pool";
+    poolType === "jacuzzi"  ? "Jacuzzi / Spa Pool"       :
+    poolType === "freeform" ? "Freeform Swimming Pool"    :
+    poolType === "infinity" ? "Infinity Swimming Pool"    :
+    poolType === "overflow" ? "Overflow Swimming Pool"    :
+                              "Skimmer Swimming Pool";
 
-  // Build Main Pool lines
+  // ─────────────────────────────────────────────────────────
+  // BUILD MAIN POOL LINES
+  // Uses 14-item MAIN_POOL_QTY_FIELDS, filters items SlNo 1-14
+  // For sub-row items (1, 9, 10), we use the parent item's SlNo
+  // but show description as-is; quantities come from civilQuantities
+  // ─────────────────────────────────────────────────────────
   const mainPoolLines = useMemo(() => {
     if (!Array.isArray(filteredMainPoolItems)) return [];
     return filteredMainPoolItems
-      .filter(item => item.SlNo >= 1 && item.SlNo <= 12)
+      .filter(item => {
+        const slNo = Number(item.SlNo);
+        return slNo >= 1 && slNo <= 14 && MAIN_POOL_QTY_FIELDS[slNo];
+      })
       .map((item, idx) => {
-        const slNo = item.SlNo;
+        const slNo = Number(item.SlNo);
         const qty  = getCivilQuantity(slNo, civilQuantities, resultData);
         const rate = item.Rate || 0;
         return {
@@ -493,19 +591,27 @@ export default function ProformaInvoice() {
       });
   }, [filteredMainPoolItems, civilQuantities, resultData]);
 
-  // Build Balance Tank lines
+  // ─────────────────────────────────────────────────────────
+  // BUILD BALANCE TANK LINES
+  // Uses 12-item BALANCE_TANK_QTY_FIELDS, filters items SlNo 1-12
+  // Source items: balanceTankItems (if available) else filteredMainPoolItems
+  // ─────────────────────────────────────────────────────────
   const balanceTankLines = useMemo(() => {
     if (!includeBalancingTank) return [];
 
+    // Use dedicated balance tank items if available, else fall back to main pool items
     const sourceItems =
       Array.isArray(balanceTankItems) && balanceTankItems.length > 0
         ? balanceTankItems
         : filteredMainPoolItems;
 
     return sourceItems
-      .filter(item => item.SlNo >= 1 && item.SlNo <= 10)
+      .filter(item => {
+        const slNo = Number(item.SlNo);
+        return slNo >= 1 && slNo <= 12 && BALANCE_TANK_QTY_FIELDS[slNo];
+      })
       .map((item, idx) => {
-        const slNo = item.SlNo;
+        const slNo = Number(item.SlNo);
         const qty  = getBalanceTankQuantity(slNo, balanceTankQuantities, resultData);
         const rate = item.Rate || 0;
         return {
@@ -524,13 +630,26 @@ export default function ProformaInvoice() {
       });
   }, [filteredMainPoolItems, balanceTankItems, balanceTankQuantities, resultData, includeBalancingTank]);
 
-  // Build Pump Room lines
+  // ─────────────────────────────────────────────────────────
+  // BUILD PUMP ROOM LINES
+  // Uses 12-item PUMP_ROOM_QTY_FIELDS
+  // Source items: pumpRoomItems (if available) else filteredMainPoolItems
+  // ─────────────────────────────────────────────────────────
   const pumpRoomLines = useMemo(() => {
-    if (!includePumpRoom || !Array.isArray(pumpRoomItems)) return [];
-    return pumpRoomItems
-      .filter(item => item.SlNo >= 1 && item.SlNo <= 10)
+    if (!includePumpRoom) return [];
+
+    const sourceItems =
+      Array.isArray(pumpRoomItems) && pumpRoomItems.length > 0
+        ? pumpRoomItems
+        : filteredMainPoolItems;
+
+    return sourceItems
+      .filter(item => {
+        const slNo = Number(item.SlNo);
+        return slNo >= 1 && slNo <= 12 && PUMP_ROOM_QTY_FIELDS[slNo];
+      })
       .map((item, idx) => {
-        const slNo = item.SlNo;
+        const slNo = Number(item.SlNo);
         const qty  = getPumpRoomQuantity(slNo, pumpRoomQuantities, resultData);
         const rate = item.Rate || 0;
         return {
@@ -547,35 +666,38 @@ export default function ProformaInvoice() {
           _raw:       item,
         };
       });
-  }, [pumpRoomItems, pumpRoomQuantities, resultData, includePumpRoom]);
+  }, [pumpRoomItems, filteredMainPoolItems, pumpRoomQuantities, resultData, includePumpRoom]);
 
-  // Build MEP lines
+  // ─────────────────────────────────────────────────────────
+  // BUILD MEP LINES
+  // Jacuzzi: use JACUZZI_MEP_QTY_FIELDS (29 items)
+  // Others: use MEP_QTY_FIELDS (34 items)
+  // ─────────────────────────────────────────────────────────
   const mepLines = useMemo(() => {
     if (!Array.isArray(filteredMepItems)) return [];
 
     return filteredMepItems
       .filter(item => {
-        if (isOverflow && item.SlNo === 13) return false;
-        return isJacuzzi ? item.SlNo <= 29 : item.SlNo < 35;
+        const slNo = Number(item.SlNo);
+        if (isJacuzzi) return slNo >= 1 && slNo <= 29;
+        // Overflow: exclude SlNo 13 (GutterDrain) — it's shown but excluded from totals
+        // Actually keep it, just show zero qty
+        return slNo >= 1 && slNo <= 34;
       })
       .map((item, idx) => {
-        const slNo = item.SlNo;
-
+        const slNo = Number(item.SlNo);
         let qty;
-        if (item.isOverflowGrating) {
+
+        if (isJacuzzi) {
+          qty = getJacuzziMepQuantity(slNo, mepQuantities, resultData, selectedAdvancedEquipment);
+        } else if (item.isOverflowGrating) {
           qty = getOverflowGratingQty(resultData);
         } else {
-          qty = getMepQuantity(
-            slNo,
-            mepQuantities,
-            resultData,
-            selectedAdvancedEquipment,
-            includeHeatPump,
-            poolType
-          );
+          qty = getMepQuantity(slNo, mepQuantities, resultData, selectedAdvancedEquipment, includeHeatPump, poolType);
         }
 
-        const rate = getSupplyRate(item, dynamicRates);
+        const rate = getSupplyRate(item, dynamicRates, poolType);
+
         return {
           _key:              `mep_${idx}`,
           section:           "mep",
@@ -592,11 +714,15 @@ export default function ProformaInvoice() {
           _raw:              item,
         };
       });
-  }, [filteredMepItems, mepQuantities, resultData, selectedAdvancedEquipment, includeHeatPump, dynamicRates, poolType, isJacuzzi, isOverflow]);
+  }, [filteredMepItems, mepQuantities, resultData, selectedAdvancedEquipment,
+      includeHeatPump, dynamicRates, poolType, isJacuzzi, isOverflow]);
 
-  // Build Piping lines
+  // ─────────────────────────────────────────────────────────
+  // BUILD PIPING LINES
+  // ─────────────────────────────────────────────────────────
   const pipingLines = useMemo(() => buildPipingLines(rawPipingItems), [rawPipingItems]);
 
+  // ── All lines grouped ────────────────────────────────────
   const allLines = {
     mainPool:    mainPoolLines,
     balanceTank: balanceTankLines,
@@ -605,38 +731,63 @@ export default function ProformaInvoice() {
     piping:      pipingLines,
   };
 
-  // Piping items start DESELECTED by default
+  // ── Deselection: piping starts DESELECTED by default ────
   const [desel, setDesel] = useState(() => {
     const init = new Set();
     buildPipingLines(rawPipingItems).forEach(l => init.add(l._key));
     return init;
   });
 
-  const isSel      = k  => !desel.has(k);
-  const toggleItem = k  => setDesel(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
-  const selectAll  = () => setDesel(new Set());
-  const deselectAll= () => setDesel(new Set(Object.values(allLines).flat().map(l => l._key)));
-  const toggleSection = sk => {
-    const keys  = allLines[sk].map(l => l._key);
-    const allOn = keys.every(k => isSel(k));
+  const isSel      = useCallback(k => !desel.has(k), [desel]);
+
+  const toggleItem = useCallback(k => {
     setDesel(p => {
       const n = new Set(p);
-      allOn ? keys.forEach(k => n.add(k)) : keys.forEach(k => n.delete(k));
+      if (n.has(k)) n.delete(k);
+      else           n.add(k);
       return n;
     });
-  };
+  }, []);
 
-  const [qtyOvr, setQtyOvr] = useState({});
-  const getQty = l  => qtyOvr[l._key] !== undefined ? qtyOvr[l._key] : l.qty;
-  const setQty = (key, v) => setQtyOvr(p => ({ ...p, [key]: parseFloat(v) || 0 }));
+  const selectAll = useCallback(() => setDesel(new Set()), []);
 
-  const activeLines = useMemo(() => {
-    const proc = sk => allLines[sk].filter(l => isSel(l._key)).map(l => {
-      const qty = getQty(l);
-      const sup = qty * l.rate;
-      const ins = l.hasInstall ? sup * INSTALL_PCT : 0;
-      return { ...l, qty, supplyAmt: sup, installAmt: ins, amount: sup + ins };
+  const deselectAll = useCallback(() => {
+    setDesel(new Set(Object.values(allLines).flat().map(l => l._key)));
+  }, [allLines]);
+
+  const toggleSection = useCallback(sk => {
+    const keys  = allLines[sk].map(l => l._key);
+    const allOn = keys.every(k => !desel.has(k));
+    setDesel(p => {
+      const n = new Set(p);
+      if (allOn) keys.forEach(k => n.add(k));
+      else       keys.forEach(k => n.delete(k));
+      return n;
     });
+  }, [allLines, desel]);
+
+  // ── Quantity overrides ───────────────────────────────────
+  const [qtyOvr, setQtyOvr] = useState({});
+
+  const getQty = useCallback(l => {
+    return qtyOvr[l._key] !== undefined ? qtyOvr[l._key] : l.qty;
+  }, [qtyOvr]);
+
+  const setQty = useCallback((key, v) => {
+    setQtyOvr(p => ({ ...p, [key]: parseFloat(v) || 0 }));
+  }, []);
+
+  // ── Active lines with computed amounts ───────────────────
+  const activeLines = useMemo(() => {
+    const proc = sk => allLines[sk]
+      .filter(l => isSel(l._key))
+      .map(l => {
+        const qty        = getQty(l);
+        const supplyAmt  = qty * l.rate;
+        const installAmt = l.hasInstall ? supplyAmt * INSTALL_PCT : 0;
+        const amount     = supplyAmt + installAmt;
+        return { ...l, qty, supplyAmt, installAmt, amount };
+      });
     return {
       mainPool:    proc("mainPool"),
       balanceTank: proc("balanceTank"),
@@ -644,11 +795,16 @@ export default function ProformaInvoice() {
       mep:         proc("mep"),
       piping:      proc("piping"),
     };
-  }, [allLines, desel, qtyOvr]);
+  }, [allLines, desel, qtyOvr, isSel, getQty]);
 
-  const totals = useMemo(() => Object.fromEntries(
-    Object.entries(activeLines).map(([k, v]) => [k, v.reduce((s, l) => s + l.amount, 0)])
-  ), [activeLines]);
+  // ── Section totals ───────────────────────────────────────
+  const totals = useMemo(() => {
+    const result = {};
+    Object.entries(activeLines).forEach(([k, v]) => {
+      result[k] = v.reduce((s, l) => s + l.amount, 0);
+    });
+    return result;
+  }, [activeLines]);
 
   const mainPoolTotal    = totals.mainPool    || 0;
   const balanceTankTotal = totals.balanceTank || 0;
@@ -660,6 +816,7 @@ export default function ProformaInvoice() {
   const gstAmt     = subTotal * GST_RATE;
   const grandTotal = subTotal + gstAmt;
 
+  // ── Dimensions ───────────────────────────────────────────
   const dimL   = num(dimensions?.length || resultData?.length || 0);
   const dimW   = num(dimensions?.width  || resultData?.width  || 0);
   const dimD   = num(dimensions?.depth  || resultData?.depth  || resultData?.height || 0);
@@ -667,7 +824,9 @@ export default function ProformaInvoice() {
 
   const docRef = useRef();
 
-  // Print / PDF
+  // ─────────────────────────────────────────────────────────
+  // PRINT / PDF
+  // ─────────────────────────────────────────────────────────
   const handlePrint = useCallback(() => {
     const html = docRef.current?.innerHTML || "";
     const w    = window.open("", "_blank", "width=950,height=750");
@@ -680,7 +839,7 @@ body{font-family:'Source Sans 3',sans-serif;background:#fff;color:#1a202c;-webki
 @page{size:A4;margin:9mm 8mm}
 h1,h2,h3{font-family:'Playfair Display',serif}
 .pi-mono{font-family:'JetBrains Mono',monospace}
-table{border-collapse:collapse;width:100%}
+table{border-collapse:collapse;width:100%;table-layout:fixed}
 .pi-doc{background:#fff}
 .pi-doc-header{background:linear-gradient(135deg,#0d2d52 0%,#1a4272 100%);color:#fff;padding:20px 24px 0}
 .pi-dh-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:16px}
@@ -714,75 +873,79 @@ table{border-collapse:collapse;width:100%}
 .pi-chip-k{font-size:9px;font-weight:600;color:rgba(255,255,255,.45);text-transform:uppercase}
 .pi-chip-v{font-size:10.5px;font-weight:600;color:#fff}
 .pi-doc-items{padding:14px 24px}
-.pi-doc-section{margin-bottom:18px;border:1px solid #dce6f0;border-radius:8px;overflow:hidden}
+.pi-doc-section{margin-bottom:18px;border:1px solid #dce6f0;border-radius:8px;overflow:hidden;page-break-inside:avoid}
 .pi-doc-sec-head{display:flex;align-items:center;gap:8px;padding:9px 14px;color:#fff}
 .pi-doc-sec-title{font-size:11px;font-weight:700;letter-spacing:.04em;flex:1}
 .pi-doc-sec-count{font-size:9px;background:rgba(255,255,255,.15);padding:2px 7px;border-radius:20px}
 .pi-doc-table{width:100%;border-collapse:collapse;table-layout:fixed}
 .pi-doc-table thead tr{background:rgba(13,59,110,.06)}
-.pi-doc-table th{padding:8px 10px;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0d3b6e;text-align:left;border-bottom:2px solid #dce6f0;border-right:1px solid #dce6f0;white-space:nowrap}
+.pi-doc-table thead{display:table-header-group}
+.pi-doc-table th{padding:8px 6px;font-size:8.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0d3b6e;text-align:left;border-bottom:2px solid #dce6f0;border-right:1px solid #dce6f0;white-space:nowrap;word-break:break-word;overflow-wrap:break-word}
 .pi-doc-table th:last-child{border-right:none}
-.pi-col-sl{width:42px;text-align:center}
-.pi-col-unit,.pi-col-qty{width:62px;text-align:center}
-.pi-col-rate{width:112px;text-align:right}
-.pi-col-amt{width:122px;text-align:right}
+.pi-col-sl{width:45px;text-align:center}
+.pi-col-desc{width:auto}
+.pi-col-unit{width:60px;text-align:center}
+.pi-col-qty{width:60px;text-align:center}
+.pi-col-rate{width:100px;text-align:right}
+.pi-col-amt{width:110px;text-align:right}
 .pi-row-even{background:#f9fbfe}.pi-row-odd{background:#fff}
-.pi-doc-table td{border-bottom:1px solid #e8eef5;border-right:1px solid #e8eef5}
+.pi-doc-table td{border-bottom:1px solid #e8eef5;border-right:1px solid #e8eef5;padding:6px 6px;word-break:break-word;overflow-wrap:break-word}
 .pi-doc-table td:last-child{border-right:none}
 .pi-doc-table tbody tr:last-child td{border-bottom:none}
-.pi-td-sl{text-align:center;font-size:9.5px;color:#718096;padding:8px 10px}
-.pi-td-desc{padding:8px 10px;vertical-align:top}
-.pi-td-desc-main{font-weight:500;color:#1a202c;font-size:11px;line-height:1.45}
-.pi-td-code{font-size:9px;background:#edf2f7;color:#4a5568;padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block}
-.pi-td-center{text-align:center;padding:8px 10px;color:#4a5568;font-size:11px}
-.pi-td-num{text-align:right;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#4a5568}
+.pi-doc-table tfoot{display:table-footer-group}
+.pi-td-sl{text-align:center;font-size:9px;color:#718096}
+.pi-td-desc{padding:6px 6px;vertical-align:top}
+.pi-td-desc-main{font-weight:500;color:#1a202c;font-size:10px;line-height:1.45}
+.pi-td-code{font-size:8px;background:#edf2f7;color:#4a5568;padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block}
+.pi-td-center{text-align:center;color:#4a5568;font-size:10px}
+.pi-td-num{text-align:right;font-family:'JetBrains Mono',monospace;font-size:10px;color:#4a5568}
 .pi-td-install{color:#718096!important}
-.pi-td-amt{text-align:right;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:#0d2d52}
+.pi-td-amt{text-align:right;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;color:#0d2d52}
 .pi-sec-sub{background:rgba(13,59,110,.06)}
-.pi-sub-label{padding:9px 10px;font-size:10px;font-weight:700;text-align:right;color:#0d2d52;letter-spacing:.03em;text-transform:uppercase;border-top:2px solid #dce6f0}
-.pi-sub-val{padding:9px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#0d2d52;text-align:right;border-top:2px solid #dce6f0}
-.pi-doc-totals-section{display:grid;grid-template-columns:1fr auto;gap:20px;padding:12px 24px 10px;background:#f7f9fc;border-top:1px solid #dce6f0;border-bottom:1px solid #dce6f0}
+.pi-sub-label{padding:8px 10px;font-size:9.5px;font-weight:700;text-align:right;color:#0d2d52;letter-spacing:.03em;text-transform:uppercase;border-top:2px solid #dce6f0}
+.pi-sub-val{padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#0d2d52;text-align:right;border-top:2px solid #dce6f0}
+.pi-doc-totals-section{display:grid;grid-template-columns:1fr auto;gap:20px;padding:12px 24px 10px;background:#f7f9fc;border-top:1px solid #dce6f0;border-bottom:1px solid #dce6f0;page-break-inside:avoid}
 .pi-breakdown-head{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#718096;margin-bottom:8px}
-.pi-bd-row{display:flex;justify-content:space-between;gap:16px;padding:4px 0;font-size:11px;border-bottom:1px dashed #e2e8f0;color:#4a5568}
-.pi-bd-amt{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:500;color:#2d3748}
-.pi-doc-totals{min-width:250px;background:#fff;border:1px solid #dce6f0;border-radius:8px;padding:14px 18px}
-.pi-tot-row{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:12px;color:#4a5568}
-.pi-tot-row span:last-child{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500}
-.pi-tot-gst{color:#718096;font-size:11px}
+.pi-bd-row{display:flex;justify-content:space-between;gap:16px;padding:4px 0;font-size:10px;border-bottom:1px dashed #e2e8f0;color:#4a5568}
+.pi-bd-amt{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:#2d3748}
+.pi-doc-totals{min-width:220px;background:#fff;border:1px solid #dce6f0;border-radius:8px;padding:14px 18px}
+.pi-tot-row{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:11px;color:#4a5568}
+.pi-tot-row span:last-child{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:500}
+.pi-tot-gst{color:#718096;font-size:10.5px}
 .pi-tot-divider{height:2px;background:linear-gradient(90deg,#c9a84c,#0d3b6e);margin:8px 0;border-radius:2px}
-.pi-tot-grand{font-size:14px!important;font-weight:700!important;color:#0d2d52!important}
-.pi-tot-grand span:first-child{font-family:'Playfair Display',serif;font-size:13px;color:#0d2d52!important}
-.pi-tot-grand span:last-child{font-family:'JetBrains Mono',monospace!important;font-size:14px!important;font-weight:700!important;color:#0d2d52!important}
-.pi-doc-words{margin:0 24px 12px;padding:10px 16px;background:#fdf6e3;border:1px solid #e8d9a8;border-left:3px solid #c9a84c;border-radius:5px;font-size:11px}
-.pi-words-k{font-weight:700;color:#0d2d52;margin-right:8px;text-transform:uppercase;font-size:9px;letter-spacing:.07em}
+.pi-tot-grand{font-size:13px!important;font-weight:700!important;color:#0d2d52!important}
+.pi-tot-grand span:first-child{font-family:'Playfair Display',serif;font-size:12px;color:#0d2d52!important}
+.pi-tot-grand span:last-child{font-family:'JetBrains Mono',monospace!important;font-size:13px!important;font-weight:700!important;color:#0d2d52!important}
+.pi-doc-words{margin:0 24px 12px;padding:10px 16px;background:#fdf6e3;border:1px solid #e8d9a8;border-left:3px solid #c9a84c;border-radius:5px;font-size:10px;page-break-inside:avoid}
+.pi-words-k{font-weight:700;color:#0d2d52;margin-right:8px;text-transform:uppercase;font-size:8.5px;letter-spacing:.07em}
 .pi-words-v{color:#2d3748;font-style:italic}
-.pi-doc-terms{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:10px 24px 12px}
+.pi-doc-terms{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:10px 24px 12px;page-break-inside:avoid}
 .pi-term-card{background:#f7f9fc;border:1px solid #dce6f0;border-radius:8px;overflow:hidden}
-.pi-term-head{padding:7px 14px;background:#0d3b6e;color:rgba(255,255,255,.85);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.pi-term-head{padding:7px 14px;background:#0d3b6e;color:rgba(255,255,255,.85);font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
 .pi-term-body{padding:10px 14px}
-.pi-pre{font-family:'Source Sans 3',sans-serif;font-size:10.5px;color:#4a5568;white-space:pre-wrap;line-height:1.6}
-.pi-bank-row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #e2e8f0;font-size:10.5px}
+.pi-pre{font-family:'Source Sans 3',sans-serif;font-size:10px;color:#4a5568;white-space:pre-wrap;line-height:1.6}
+.pi-bank-row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #e2e8f0;font-size:10px}
 .pi-bank-row:last-child{border-bottom:none}
-.pi-bank-k{min-width:90px;color:#718096;font-size:9.5px;text-transform:uppercase;letter-spacing:.03em;font-weight:600}
+.pi-bank-k{min-width:90px;color:#718096;font-size:9px;text-transform:uppercase;letter-spacing:.03em;font-weight:600}
 .pi-bank-v{color:#2d3748;font-weight:600}
-.pi-doc-notes{margin:0 24px 10px;padding:10px 14px;background:#f7f9fc;border:1px solid #dce6f0;border-radius:6px;font-size:11px;color:#4a5568}
-.pi-notes-head{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#0d3b6e;margin-bottom:6px}
-.pi-doc-gt{margin:0 24px 14px;padding:12px 16px;background:#f7f9fc;border:1px solid #dce6f0;border-radius:8px}
-.pi-gt-head{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#0d3b6e;margin-bottom:8px}
+.pi-doc-notes{margin:0 24px 10px;padding:10px 14px;background:#f7f9fc;border:1px solid #dce6f0;border-radius:6px;font-size:10px;color:#4a5568;page-break-inside:avoid}
+.pi-notes-head{font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#0d3b6e;margin-bottom:6px}
+.pi-doc-gt{margin:0 24px 14px;padding:12px 16px;background:#f7f9fc;border:1px solid #dce6f0;border-radius:8px;page-break-inside:avoid}
+.pi-gt-head{font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#0d3b6e;margin-bottom:8px}
 .pi-gt-ol{padding-left:16px;display:flex;flex-direction:column;gap:4px}
-.pi-gt-ol li{font-size:10.5px;color:#4a5568;line-height:1.5}
-.pi-doc-footer{background:linear-gradient(135deg,#0d2d52,#1a4272);padding:18px 24px;color:rgba(255,255,255,.7)}
-.pi-footer-msg{font-size:11px;font-style:italic;margin-bottom:18px}
+.pi-gt-ol li{font-size:10px;color:#4a5568;line-height:1.5}
+.pi-doc-footer{background:linear-gradient(135deg,#0d2d52,#1a4272);padding:18px 24px;color:rgba(255,255,255,.7);page-break-inside:avoid}
+.pi-footer-msg{font-size:10px;font-style:italic;margin-bottom:18px}
 .pi-footer-msg strong{color:#fff}
 .pi-doc-sigs{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-bottom:18px}
 .pi-sig-box{text-align:center}
 .pi-sig-space{height:36px}
 .pi-sig-line{border-top:1px solid rgba(255,255,255,.2);width:75%;margin:0 auto 8px}
-.pi-sig-title{font-size:10.5px;color:rgba(255,255,255,.5)}
-.pi-sig-name{font-family:'Playfair Display',serif;font-size:12px;color:#fff;margin:3px 0}
-.pi-sig-role{font-size:10px;color:#e8d08a}
-.pi-footer-stamp{text-align:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,.3);border-top:1px solid rgba(255,255,255,.08);padding-top:12px}
-.pi-overflow-badge,.pi-gutter-badge{display:inline-block;font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px;margin-top:3px}
+.pi-sig-title{font-size:10px;color:rgba(255,255,255,.5)}
+.pi-sig-name{font-family:'Playfair Display',serif;font-size:11px;color:#fff;margin:3px 0}
+.pi-sig-role{font-size:9px;color:#e8d08a}
+.pi-footer-stamp{text-align:center;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);border-top:1px solid rgba(255,255,255,.08);padding-top:12px}
+.pi-overflow-badge,.pi-gutter-badge{display:inline-block;font-size:7.5px;font-weight:700;padding:1px 6px;border-radius:3px;margin-top:3px}
 .pi-overflow-badge{background:#e8f4fd;color:#0d3b6e}
 .pi-gutter-badge{background:#fff5e6;color:#b7791f}
 </style></head><body>${html}</body></html>`);
@@ -790,7 +953,8 @@ table{border-collapse:collapse;width:100%}
     setTimeout(() => { w.print(); }, 800);
   }, [piNo, docRef]);
 
-  const selCount   = sk => allLines[sk]?.filter(l => isSel(l._key)).length || 0;
+  // ── UI helpers ───────────────────────────────────────────
+  const selCount   = useCallback(sk => allLines[sk]?.filter(l => isSel(l._key)).length || 0, [allLines, isSel]);
   const totalItems = Object.values(allLines).flat().length;
   const selItems   = Object.values(allLines).flat().filter(l => isSel(l._key)).length;
   const handleClose = () => navigate(-1);
@@ -809,10 +973,13 @@ table{border-collapse:collapse;width:100%}
     );
   }
 
+  // ─────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────
   return (
     <div className="pi-root">
 
-      {/* TOOLBAR */}
+      {/* ── TOOLBAR ── */}
       <div className="pi-toolbar">
         <div className="pi-tb-left">
           <button className="pi-tb-close" onClick={handleClose} title="Close">✕</button>
@@ -845,7 +1012,7 @@ table{border-collapse:collapse;width:100%}
         </div>
       </div>
 
-      {/* SETUP PANEL */}
+      {/* ── SETUP PANEL ── */}
       <div className={`pi-setup ${view !== "setup" ? "pi-hidden" : ""}`}>
 
         {/* Client + Invoice meta */}
@@ -933,11 +1100,15 @@ table{border-collapse:collapse;width:100%}
             const meta  = SECTION_META[sk];
             const cnt   = selCount(sk);
             const allOn = lines.every(l => isSel(l._key));
-            const secTotal = lines.filter(l => isSel(l._key)).reduce((s, l) => {
-              const q   = getQty(l);
-              const sup = q * l.rate;
-              return s + sup + (l.hasInstall ? sup * INSTALL_PCT : 0);
-            }, 0);
+
+            const secTotal = lines
+              .filter(l => isSel(l._key))
+              .reduce((s, l) => {
+                const q      = getQty(l);
+                const supply = q * l.rate;
+                const install = l.hasInstall ? supply * INSTALL_PCT : 0;
+                return s + supply + install;
+              }, 0);
 
             return (
               <div key={sk} className="pi-sel-block">
@@ -959,7 +1130,7 @@ table{border-collapse:collapse;width:100%}
                 </div>
 
                 <div className="pi-sel-tbl-wrap">
-                  <table className="pi-sel-tbl">
+                  <table className="pi-sel-tbl" style={{ tableLayout: "fixed" }}>
                     <thead>
                       <tr>
                         <th className="pi-sth pi-sth-chk" />
@@ -970,7 +1141,7 @@ table{border-collapse:collapse;width:100%}
                         <th className="pi-sth pi-sth-num">Supply Rate</th>
                         {meta.hasInstall && <th className="pi-sth pi-sth-num">Install</th>}
                         <th className="pi-sth pi-sth-amt">Amount</th>
-                       </tr>
+                      </tr>
                     </thead>
                     <tbody>
                       {lines.map(line => {
@@ -992,14 +1163,14 @@ table{border-collapse:collapse;width:100%}
                                   </svg>
                                 )}
                               </button>
-                             </td>
+                            </td>
                             <td className="pi-stc pi-stc-sl">{line.slNo}</td>
                             <td className="pi-stc pi-stc-desc">
                               <div className="pi-std-main">{shortDesc(line.desc, 110) || "—"}</div>
                               {line.code && <span className="pi-std-code">{line.code}</span>}
                               {line.isOverflowGrating && <div className="pi-overflow-badge">Overflow Grating</div>}
                               {line.isGutterDrain     && <div className="pi-gutter-badge">Gutter Drain</div>}
-                             </td>
+                            </td>
                             <td className="pi-stc pi-stc-ctr">{line.unit || "—"}</td>
                             <td className="pi-stc pi-stc-qty">
                               <input
@@ -1011,16 +1182,16 @@ table{border-collapse:collapse;width:100%}
                                 disabled={!sel}
                                 onChange={e => setQty(line._key, e.target.value)}
                               />
-                             </td>
+                            </td>
                             <td className="pi-stc pi-stc-num">{formatINR(line.rate)}</td>
                             {line.hasInstall && (
                               <td className="pi-stc pi-stc-num pi-stc-install">
-                                {formatINR(line.rate * INSTALL_PCT)}
-                               </td>
+                                {formatINR(ins)}
+                              </td>
                             )}
                             <td className={`pi-stc pi-stc-amt ${!sel ? "pi-stc-dim" : ""}`}>
                               {formatINR(amt)}
-                             </td>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1047,7 +1218,7 @@ table{border-collapse:collapse;width:100%}
         </div>
       </div>
 
-      {/* PREVIEW NOTICE */}
+      {/* ── PREVIEW NOTICE ── */}
       {view === "preview" && (
         <div className="pi-preview-bar">
           <button className="pi-link-btn" onClick={() => setView("setup")}>← Back to item selection</button>
@@ -1055,7 +1226,7 @@ table{border-collapse:collapse;width:100%}
         </div>
       )}
 
-      {/* INVOICE DOCUMENT */}
+      {/* ── INVOICE DOCUMENT ── */}
       <div className={`pi-doc-wrap ${view === "setup" ? "pi-doc-hidden" : ""}`} ref={docRef}>
         <div className="pi-doc">
 
@@ -1143,7 +1314,6 @@ table{border-collapse:collapse;width:100%}
                   <span className="pi-chip-v">{volume.toFixed(2)} m³</span>
                 </div>
               )}
-              {/* Jacuzzi specific specs */}
               {isJacuzzi && resultData?.water_jets && (
                 <div className="pi-chip">
                   <span className="pi-chip-k">Water Jets</span>
@@ -1162,7 +1332,6 @@ table{border-collapse:collapse;width:100%}
                   <span className="pi-chip-v">{resultData.seating_capacity} persons</span>
                 </div>
               )}
-              {/* Balance tank volume — for overflow, infinity, freeform */}
               {(isOverflow || isInfinity || isFreeform) && resultData?.bt_volume && (
                 <div className="pi-chip">
                   <span className="pi-chip-k">Balance Tank</span>
@@ -1203,16 +1372,16 @@ table{border-collapse:collapse;width:100%}
                   </div>
                   <table className="pi-doc-table">
                     <colgroup>
-                      <col style={{ width: "42px" }} />
+                      <col style={{ width: "45px" }} />
                       <col />
-                      <col style={{ width: "64px" }} />
-                      <col style={{ width: "64px" }} />
-                      <col style={{ width: "112px" }} />
-                      {meta.hasInstall && <col style={{ width: "112px" }} />}
-                      <col style={{ width: "122px" }} />
+                      <col style={{ width: "60px" }} />
+                      <col style={{ width: "60px" }} />
+                      <col style={{ width: "100px" }} />
+                      {meta.hasInstall && <col style={{ width: "100px" }} />}
+                      <col style={{ width: "110px" }} />
                     </colgroup>
                     <thead>
-                       <tr>
+                      <tr>
                         <th className="pi-col-sl">Sl.No</th>
                         <th className="pi-col-desc">Description</th>
                         <th className="pi-col-unit">Unit</th>
@@ -1220,7 +1389,7 @@ table{border-collapse:collapse;width:100%}
                         <th className="pi-col-rate">Supply Rate</th>
                         {meta.hasInstall && <th className="pi-col-rate">Install (15%)</th>}
                         <th className="pi-col-amt">Amount</th>
-                       </tr>
+                      </tr>
                     </thead>
                     <tbody>
                       {lines.map((line, i) => (
@@ -1230,7 +1399,7 @@ table{border-collapse:collapse;width:100%}
                             <div className="pi-td-desc-main">{shortDesc(line.desc, 130) || "—"}</div>
                             {line.code && <span className="pi-td-code">{line.code}</span>}
                             {line.isOverflowGrating && (
-                              <div className="pi-overflow-badge">Overflow Grating (replaces Skimmer)</div>
+                              <div className="pi-overflow-badge">Overflow Grating</div>
                             )}
                             {line.isGutterDrain && (
                               <div className="pi-gutter-badge">Gutter Drain</div>
@@ -1240,7 +1409,7 @@ table{border-collapse:collapse;width:100%}
                           <td className="pi-td-center">{line.qty}</td>
                           <td className="pi-td-num">{formatINR(line.rate)}</td>
                           {meta.hasInstall && (
-                            <td className="pi-td-num pi-td-install">{formatINR(line.rate * INSTALL_PCT)}</td>
+                            <td className="pi-td-num pi-td-install">{formatINR(line.installAmt)}</td>
                           )}
                           <td className="pi-td-amt">{formatINR(line.amount)}</td>
                         </tr>
@@ -1251,7 +1420,7 @@ table{border-collapse:collapse;width:100%}
                         <td colSpan={meta.hasInstall ? 6 : 5} className="pi-sub-label">
                           {meta.label} — SUBTOTAL
                         </td>
-                                                <td className="pi-sub-val">{formatINR(totals[sk])}</td>
+                        <td className="pi-sub-val">{formatINR(totals[sk])}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -1270,7 +1439,7 @@ table{border-collapse:collapse;width:100%}
                   <span className="pi-bd-amt">{formatINR(mainPoolTotal)}</span>
                 </div>
               )}
-              {(isOverflow || isInfinity || isFreeform) && balanceTankTotal > 0 && (
+              {includeBalancingTank && balanceTankTotal > 0 && (
                 <div className="pi-bd-row">
                   <span>⚖️ Civil — Balance Tank</span>
                   <span className="pi-bd-amt">{formatINR(balanceTankTotal)}</span>

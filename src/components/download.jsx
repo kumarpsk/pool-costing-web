@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 // CONSTANTS
 // ============================================================
 const INSTALLATION_PERCENT = 0.15;
+const API_BASE = 'https://pool-costing-api.intelithon.in/admin';
 
 const ALLOWED_PIPING_CATEGORIES = [
   'pipe',
@@ -27,6 +28,20 @@ const MPV_SIZE_STANDARDS = {
 };
 
 // ============================================================
+// SUB-ROWS FOR ITEMS 9 AND 10
+// ============================================================
+const SUB_ROWS = {
+  9: [
+    { slNo: "9.1", description: "Raft", unit: "sqm" },
+    { slNo: "9.2", description: "Retaining wall / overflow drain", unit: "sqm" }
+  ],
+  10: [
+    { slNo: "10.1", description: "Raft", unit: "sqm" },
+    { slNo: "10.2", description: "Retaining Wall", unit: "sqm" }
+  ]
+};
+
+// ============================================================
 // UTILITY FUNCTIONS
 // ============================================================
 function safeToFixed(value, decimals = 2) {
@@ -34,19 +49,24 @@ function safeToFixed(value, decimals = 2) {
   return Number(value).toFixed(decimals);
 }
 
-function getImageUrlForPDF(imageData, baseUrl = 'https://pool-costing-api.intelithon.in/admin') {
+function getImageUrlForPDF(imageData) {
   if (!imageData) return null;
-  if (imageData.startsWith('data:image')) return imageData;
-  if (imageData.startsWith('http') || imageData.startsWith('/')) return imageData;
-  return `${baseUrl}/static/${imageData}`;
+  try {
+    if (imageData.startsWith('data:image')) return imageData;
+    if (imageData.startsWith('http') || imageData.startsWith('/')) return imageData;
+    return `${API_BASE}/static/${imageData}`;
+  } catch {
+    return null;
+  }
 }
 
 function formatCurrencyValue(amount, currency = 'INR', exchangeRate = 83.0) {
+  const safeAmount = Number(amount) || 0;
   if (currency === 'USD') {
-    const usdAmount = (amount || 0) / exchangeRate;
+    const usdAmount = safeAmount / (Number(exchangeRate) || 83);
     return `$${safeToFixed(usdAmount, 2)}`;
   }
-  return `₹${safeToFixed(amount || 0)}`;
+  return `₹${safeToFixed(safeAmount)}`;
 }
 
 function getCurrencyLabel(currency = 'INR') {
@@ -54,7 +74,7 @@ function getCurrencyLabel(currency = 'INR') {
 }
 
 function getPoolTypeDisplayName(poolType = 'skimmer') {
-  const t = String(poolType).toLowerCase();
+  const t = String(poolType || 'skimmer').toLowerCase();
   const map = {
     skimmer: 'Skimmer Pool',
     overflow: 'Overflow Pool',
@@ -70,6 +90,7 @@ function getPoolTypeDisplayName(poolType = 'skimmer') {
 function getMPVSize(filterDiameter) {
   if (!filterDiameter) return '2" MPV (Standard)';
   const d = parseInt(filterDiameter);
+  if (isNaN(d)) return '2" MPV (Standard)';
   for (const [range, size] of Object.entries(MPV_SIZE_STANDARDS)) {
     const [min, max] = range.split('-').map(Number);
     if (d >= min && d <= max) return size;
@@ -81,44 +102,50 @@ function getMPVSize(filterDiameter) {
 // QUANTITY FIELD MAPS (UNIVERSAL)
 // ============================================================
 const MAIN_POOL_QTY_FIELDS = {
-  1: 'EarthExcavation_QTY',
-  2: 'BackFilling_QTY',
-  3: 'Soling_QTY',
-  4: 'plaincement_QTY',
-  5: 'BurntBrick_QTY',
-  6: 'steelreinforcement_QTY',
-  7: 'Shuttering_QTY',
-  8: 'shotcreting_QTY',
-  9: 'WaterProofing_QTY',
-  10: 'plastering_QTY',
-  11: 'Coping_QTY',
-  12: 'Tiling_QTY',
+  1: "EarthExcavation_QTY",
+  2: "BackFilling_QTY",
+  3: "Consolidation_QTY",
+  4: "Disposal_QTY",
+  5: "Soling_QTY",
+  6: "plaincement_QTY",
+  7: "BurntBrick_QTY",
+  8: "steelreinforcement_QTY",
+  9: "Shuttering_QTY",
+  10: "shotcreting_QTY",
+  11: "WaterProofing_QTY",
+  12: "plastering_QTY",
+  13: "Coping_QTY",
+  14: "Tiling_QTY"
 };
 
 const BALANCE_TANK_QTY_FIELDS = {
   1: 'EarthExcavation_QTY_1',
   2: 'BackFilling_QTY_1',
-  3: 'Soling_QTY_1',
-  4: 'plaincement_QTY_1',
-  5: 'BurntBrick_QTY_1',
-  6: 'steelreinforcement_QTY_1',
-  7: 'Shuttering_QTY_1',
-  8: 'shotcreting_QTY_1',
-  9: 'WaterProofing_QTY_1',
-  10: 'plastering_QTY_1',
+  3: 'Consolidation_QTY_1',
+  4: 'Disposal_QTY_1',
+  5: 'Soling_QTY_1',
+  6: 'plaincement_QTY_1',
+  7: 'BurntBrick_QTY_1',
+  8: 'steelreinforcement_QTY_1',
+  9: 'Shuttering_QTY_1',
+  10: 'shotcreting_QTY_1',
+  11: 'WaterProofing_QTY_1',
+  12: 'plastering_QTY_1',
 };
 
 const PUMP_ROOM_QTY_FIELDS = {
-  1: 'EarthExcavation_QTY_2',
-  2: 'BackFilling_QTY_2',
-  3: 'Soling_QTY_2',
-  4: 'plaincement_QTY_2',
-  5: 'BurntBrick_QTY_2',
-  6: 'steelreinforcement_QTY_2',
-  7: 'Shuttering_QTY_2',
-  8: 'shotcreting_QTY_2',
-  9: 'WaterProofing_QTY_2',
-  10: 'plastering_QTY_2',
+  1: "EarthExcavation_QTY_2",
+  2: "BackFilling_QTY_2",
+  3: "Consolidation_QTY_2",
+  4: "Disposal_QTY_2",
+  5: "Soling_QTY_2",
+  6: "plaincement_QTY_2",
+  7: "BurntBrick_QTY_2",
+  8: "steelreinforcement_QTY_2",
+  9: "Shuttering_QTY_2",
+  10: "shotcreting_QTY_2",
+  11: "WaterProofing_QTY_2",
+  12: "plastering_QTY_2"
 };
 
 const MEP_QTY_FIELDS = {
@@ -191,12 +218,91 @@ const JACUZZI_MEP_QTY_FIELDS = {
 };
 
 // ============================================================
+// EXTRACT SUB QTY SAFELY
+// ============================================================
+function extractSubQty(raw) {
+  if (raw === undefined || raw === null) return 0;
+  if (typeof raw === "number") return raw;
+  if (typeof raw === "string") {
+    const n = Number(raw);
+    return isNaN(n) ? 0 : n;
+  }
+  if (typeof raw === "object") {
+    return Number(
+      raw.qty ?? raw.QTY ?? raw.quantity ?? raw.Quantity ?? raw.value ?? raw.amount ?? raw.total ?? 0
+    ) || 0;
+  }
+  return 0;
+}
+
+// ============================================================
+// GET SPLIT DATA FOR ITEMS 9 AND 10 - WITH EXPLICIT PASSED SPLITS
+// ============================================================
+function getSplitData(slNo, quantities, resultData, shotcretingSplit, rccShutteringSplit) {
+  const safeQty = quantities || {};
+  const safeRD = resultData || {};
+  const civilQty = safeRD.civil_quantities || {};
+
+  if (slNo === 9) {
+    const split =
+      rccShutteringSplit ||
+      safeQty.rcc_shuttering_split ||
+      safeQty.shuttering_split ||
+      civilQty.rcc_shuttering_split ||
+      civilQty.shuttering_split ||
+      safeRD.rcc_shuttering_split ||
+      safeRD.shuttering_split ||
+      {};
+
+    return {
+      "9.1": split["9.1"] ?? split.raft ?? split.Raft ?? split.raft_qty ?? split.foundation ?? 0,
+      "9.2": split["9.2"] ?? split.retaining_wall ?? split.retainingWall ?? split.wall ?? split.wall_qty ?? split.sidewall ?? split.retaining ?? 0
+    };
+  }
+  
+  if (slNo === 10) {
+    const split =
+      shotcretingSplit ||
+      safeQty.shotcreting_split ||
+      safeQty.shotcretingSplit ||
+      safeQty.rcc_split ||
+      safeQty.rcc_subrows ||
+      safeQty.civilQuantities?.shotcreting_split ||
+      civilQty.shotcreting_split ||
+      civilQty.rcc_split ||
+      safeRD.shotcreting_split ||
+      safeRD.rcc_subrows ||
+      safeRD.civil_quantities?.shotcreting_split ||
+      {};
+
+    return {
+      "10.1":
+        split["10.1"] ??
+        split.raft ??
+        split.Raft ??
+        split.raft_qty ??
+        0,
+      "10.2":
+        split["10.2"] ??
+        split.retaining_wall ??
+        split.retainingWall ??
+        split.wall ??
+        split.wall_qty ??
+        0
+    };
+  }
+  
+  return {};
+}
+
+// ============================================================
 // RESOLVE QUANTITY (UNIVERSAL)
 // ============================================================
 function resolveQty(slNo, qtyFieldMap, quantities = {}, resultData = {}) {
+  if (!qtyFieldMap) return 0;
   const field = qtyFieldMap[slNo];
   if (!field) return 0;
-  const qty = quantities?.[field] ?? resultData?.[field] ?? 0;
+  const qty = (quantities || {})[field] ?? (resultData || {})[field] ?? 0;
   const num = Number(qty);
   return isNaN(num) ? 0 : num;
 }
@@ -204,10 +310,46 @@ function resolveQty(slNo, qtyFieldMap, quantities = {}, resultData = {}) {
 // ============================================================
 // TOTAL CALCULATORS
 // ============================================================
-function calcCivilTotal(items, quantities, resultData, qtyMap = MAIN_POOL_QTY_FIELDS) {
+function calcCivilTotal(items, quantities, resultData, qtyMap, shotcretingSplit, rccShutteringSplit) {
   let total = 0;
+  const qMap = qtyMap || MAIN_POOL_QTY_FIELDS;
+  
   (items || []).forEach(item => {
-    const qty = resolveQty(item.SlNo, qtyMap, quantities, resultData);
+    if (!item) return;
+    const slNo = Number(item.SlNo ?? item.sl_no);
+    
+    // For excavation (item 1), use split data with individual rates
+    if (slNo === 1 && qMap === MAIN_POOL_QTY_FIELDS) {
+      const split = (resultData || {}).civil_quantities?.excavation_split || (quantities || {}).excavation_split || {};
+      if (split && (split['1.1'] || split['1.2'])) {
+        const qty11 = extractSubQty(split['1.1']);
+        const rate11 = Number(split['1.1']?.rate ?? split['1.1']?.Rate ?? item.Rate ?? 0) || 0;
+        const qty12 = extractSubQty(split['1.2']);
+        const rate12 = Number(split['1.2']?.rate ?? split['1.2']?.Rate ?? item.Rate ?? 0) || 0;
+        total += (qty11 * rate11) + (qty12 * rate12);
+      } else {
+        const qty = resolveQty(slNo, qMap, quantities, resultData);
+        const rate = Number(item.Rate) || 0;
+        total += qty * rate;
+      }
+      return;
+    }
+    
+    if ((slNo === 9 || slNo === 10) && qMap === MAIN_POOL_QTY_FIELDS) {
+      const splitData = getSplitData(slNo, quantities, resultData, shotcretingSplit, rccShutteringSplit);
+      const rate = Number(item.Rate) || 0;
+      const subRows = SUB_ROWS[slNo] || [];
+      
+      let subTotal = 0;
+      subRows.forEach(sub => {
+        const subQty = extractSubQty(splitData[sub.slNo]);
+        subTotal += subQty * rate;
+      });
+      total += subTotal;
+      return;
+    }
+    
+    const qty = resolveQty(slNo, qMap, quantities, resultData);
     const rate = Number(item.Rate) || 0;
     total += qty * rate;
   });
@@ -215,25 +357,27 @@ function calcCivilTotal(items, quantities, resultData, qtyMap = MAIN_POOL_QTY_FI
 }
 
 function calcBalanceTankTotal(items, quantities, resultData) {
-  return calcCivilTotal(items, quantities, resultData, BALANCE_TANK_QTY_FIELDS);
+  return calcCivilTotal(items, quantities, resultData, BALANCE_TANK_QTY_FIELDS, null, null);
 }
 
 function calcPumpRoomTotal(items, quantities, resultData) {
-  return calcCivilTotal(items, quantities, resultData, PUMP_ROOM_QTY_FIELDS);
+  return calcCivilTotal(items, quantities, resultData, PUMP_ROOM_QTY_FIELDS, null, null);
 }
 
 function calcMepTotal(items, mepQuantities, resultData, dynamicRates, selectedAdvancedEquipment, isJacuzzi = false) {
   let total = 0;
   const qtyMap = isJacuzzi ? JACUZZI_MEP_QTY_FIELDS : MEP_QTY_FIELDS;
+  const safeAdvanced = selectedAdvancedEquipment || [];
 
   (items || []).forEach(item => {
-    const slNo = item.SlNo;
+    if (!item) return;
+    const slNo = Number(item.SlNo ?? item.sl_no);
     let qty = 0;
 
     if (slNo >= 30 && slNo <= 34) {
-      qty = (selectedAdvancedEquipment || []).includes(slNo) ? 1 : 0;
+      qty = safeAdvanced.includes(slNo) ? 1 : 0;
     } else if (isJacuzzi && slNo === 29) {
-      qty = (selectedAdvancedEquipment || []).includes(29) ? 1 : 0;
+      qty = safeAdvanced.includes(29) ? 1 : 0;
     } else {
       qty = resolveQty(slNo, qtyMap, mepQuantities, resultData);
     }
@@ -250,7 +394,8 @@ function calcMepTotal(items, mepQuantities, resultData, dynamicRates, selectedAd
 
 function calcPipingTotal(pipingItems = []) {
   let total = 0;
-  pipingItems.forEach(item => {
+  (pipingItems || []).forEach(item => {
+    if (!item) return;
     const qty = Number(item.quantity ?? item.Quantity ?? 0) || 0;
     const rate = Number(item.rate ?? item.Rate ?? 0) || 0;
     const supply = qty * rate;
@@ -262,8 +407,10 @@ function calcPipingTotal(pipingItems = []) {
 
 function getSupplyRate(item, dynamicRates = {}) {
   if (!item) return 0;
-  if (item.SlNo === 1) return dynamicRates.filter_rate ?? item.Rate ?? 0;
-  if (item.SlNo === 7) return dynamicRates.pump_rate ?? item.Rate ?? 0;
+  const rates = dynamicRates || {};
+  const slNo = Number(item.SlNo ?? item.sl_no);
+  if (slNo === 1) return rates.filter_rate ?? item.Rate ?? 0;
+  if (slNo === 7) return rates.pump_rate ?? item.Rate ?? 0;
   return item.Rate ?? 0;
 }
 
@@ -273,6 +420,7 @@ function getSupplyRate(item, dynamicRates = {}) {
 function cleanPipingItems(items = []) {
   if (!Array.isArray(items)) return [];
   return items.filter(item => {
+    if (!item) return false;
     const cat = (item.category || item.Category || '').toLowerCase();
     return ALLOWED_PIPING_CATEGORIES.includes(cat);
   });
@@ -360,6 +508,7 @@ function getPDFStyles() {
     .pdf-table tr.subtotal-row td { background: #dce9f5 !important; font-weight: 600; }
     .pdf-table tr.total-row td { background: #1a5276 !important; color: #fff !important; font-weight: 700; }
     .pdf-table tr.section-header-row td { background: #2e86c1 !important; color: #fff !important; font-weight: 700; }
+    .pdf-table tr.sub-row td { background: #fefefe !important; font-size: 8.5px; }
     .item-badge { display: inline-block; margin-top: 2px; font-size: 7.5px; background: #d5e8d4; color: #27ae60; padding: 1px 5px; border-radius: 8px; }
     .section-total-bar { background: #27ae60; color: #fff; padding: 7px 12px; border-radius: 4px; font-weight: 700; font-size: 10px; display: flex; justify-content: space-between; margin: 8px 0 6px; }
     .section-total-bar.blue { background: #1a5276; }
@@ -435,9 +584,9 @@ function buildPipingTableHeaders(options = {}) {
 }
 
 // ============================================================
-// ROW BUILDERS (UNIVERSAL)
+// ROW BUILDERS (UNIVERSAL) - WITH SUB-ROW SUPPORT AND FIXED EXCAVATION RATES
 // ============================================================
-function buildCivilRows(items, quantities, resultData, remarks = {}, qtyMap, colOpts = {}) {
+function buildCivilRows(items, quantities, resultData, remarks = {}, qtyMap, colOpts = {}, shotcretingSplit, rccShutteringSplit) {
   if (!items || items.length === 0) {
     return `<tr><td colspan="10" style="text-align:center;padding:12px;">No data available</td></tr>`;
   }
@@ -446,14 +595,41 @@ function buildCivilRows(items, quantities, resultData, remarks = {}, qtyMap, col
   const fmt = (v) => formatCurrencyValue(v, currency, exchangeRate);
   let html = '';
 
-  items.forEach(item => {
-    const slNo = item.SlNo;
+  (items || []).forEach(item => {
+    if (!item) return;
+    const slNo = Number(item.SlNo ?? item.sl_no);
     const isExcavation = (slNo === 1);
+    const hasSubRows = (slNo === 9 || slNo === 10);
 
-    // Main row
-    const qty = resolveQty(slNo, qtyMap, quantities, resultData);
-    const rate = Number(item.Rate) || 0;
-    const amount = qty * rate;
+    let qty = 0;
+    let rate = 0;
+    let amount = 0;
+    let showValues = true;
+
+    if (hasSubRows && qtyMap === MAIN_POOL_QTY_FIELDS) {
+      showValues = false;
+    } else if (isExcavation && qtyMap === MAIN_POOL_QTY_FIELDS) {
+      // Excavation parent row shows total from split
+      const split = (resultData || {}).civil_quantities?.excavation_split || (quantities || {}).excavation_split || {};
+      if (split && (split['1.1'] || split['1.2'])) {
+        const qty11 = extractSubQty(split['1.1']);
+        const rate11 = Number(split['1.1']?.rate ?? split['1.1']?.Rate ?? item.Rate ?? 0) || 0;
+        const qty12 = extractSubQty(split['1.2']);
+        const rate12 = Number(split['1.2']?.rate ?? split['1.2']?.Rate ?? item.Rate ?? 0) || 0;
+        qty = qty11 + qty12;
+        amount = (qty11 * rate11) + (qty12 * rate12);
+        rate = qty > 0 ? amount / qty : 0; // blended rate for display
+      } else {
+        qty = resolveQty(slNo, qtyMap, quantities, resultData);
+        rate = Number(item.Rate) || 0;
+        amount = qty * rate;
+      }
+    } else {
+      qty = resolveQty(slNo, qtyMap, quantities, resultData);
+      rate = Number(item.Rate) || 0;
+      amount = qty * rate;
+    }
+
     const imageUrl = getImageUrlForPDF(item.Image);
 
     html += '<tr>';
@@ -462,18 +638,43 @@ function buildCivilRows(items, quantities, resultData, remarks = {}, qtyMap, col
     html += `<td class="desc">${item.Description || 'N/A'}</td>`;
     if (hasImage) html += `<td class="img-cell">${imageUrl ? `<img src="${imageUrl}" onerror="this.parentNode.innerHTML='-'"/>` : '-'}</td>`;
     if (hasUnit) html += `<td class="center">${item.Unit || ''}</td>`;
-    if (hasQty) html += `<td class="center">${qty ? safeToFixed(qty, 3) : '0.000'}</td>`;
-    if (hasRate) html += `<td class="right">${fmt(rate)}</td>`;
-    html += `<td class="amount">${fmt(amount)}</td>`;
-    if (hasRemarks) html += `<td style="font-size:8px;">${remarks[slNo] || ''}</td>`;
+    if (hasQty) {
+      if (showValues) {
+        html += `<td class="center">${qty ? safeToFixed(qty, 3) : '0.000'}</td>`;
+      } else {
+        html += `<td class="center">—</td>`;
+      }
+    }
+    if (hasRate) {
+      if (showValues) {
+        html += `<td class="right">${fmt(rate)}</td>`;
+      } else {
+        html += `<td class="right">—</td>`;
+      }
+    }
+    if (showValues) {
+      html += `<td class="amount">${fmt(amount)}</td>`;
+    } else {
+      html += `<td class="amount">—</td>`;
+    }
+    if (hasRemarks) html += `<td style="font-size:8px;">${(remarks || {})[slNo] || ''}</td>`;
     html += '</tr>';
 
-    // Excavation sub-rows (only for main pool, slNo === 1, and only if excavation_split exists)
+    // Excavation sub-rows — FIXED: use individual rates from split
     if (isExcavation && qtyMap === MAIN_POOL_QTY_FIELDS) {
-      const split = resultData?.civil_quantities?.excavation_split || quantities?.excavation_split;
+      const split = (resultData || {}).civil_quantities?.excavation_split || (quantities || {}).excavation_split || (quantities || {}).excavation_split_qty || {};
+      
       if (split && (split['1.1'] || split['1.2'])) {
-        const sub1 = split['1.1'] || { qty: 0, rate: 0, amount: 0 };
-        const sub2 = split['1.2'] || { qty: 0, rate: 0, amount: 0 };
+        const sub1 = split['1.1'] || {};
+        const sub2 = split['1.2'] || {};
+        
+        // FIX: use each sub-row's own rate, fallback to parent rate
+        const parentRate = Number(item.Rate) || 0;
+        const rate11 = Number(sub1.rate ?? sub1.Rate ?? parentRate) || 0;
+        const rate12 = Number(sub2.rate ?? sub2.Rate ?? parentRate) || 0;
+        const qty11  = extractSubQty(sub1);
+        const qty12  = extractSubQty(sub2);
+        
         // Sub-row 1.1
         html += '<tr class="sub-row">';
         html += `<td class="center">1.1</td>`;
@@ -481,11 +682,12 @@ function buildCivilRows(items, quantities, resultData, remarks = {}, qtyMap, col
         html += `<td class="desc" style="padding-left:20px;">Excavation up to 1.50m depth</td>`;
         if (hasImage) html += `<td class="img-cell">—</td>`;
         if (hasUnit) html += `<td class="center">CuM</td>`;
-        if (hasQty) html += `<td class="center">${safeToFixed(sub1.qty, 3)}</td>`;
-        if (hasRate) html += `<td class="right">${fmt(sub1.rate)}</td>`;
-        html += `<td class="amount">${fmt(sub1.amount)}</td>`;
+        if (hasQty) html += `<td class="center">${safeToFixed(qty11, 3)}</td>`;
+        if (hasRate) html += `<td class="right">${fmt(rate11)}</td>`;   // ← own rate
+        html += `<td class="amount">${fmt(qty11 * rate11)}</td>`;       // ← own calc
         if (hasRemarks) html += '<td>—</td>';
         html += '</tr>';
+        
         // Sub-row 1.2
         html += '<tr class="sub-row">';
         html += `<td class="center">1.2</td>`;
@@ -493,12 +695,37 @@ function buildCivilRows(items, quantities, resultData, remarks = {}, qtyMap, col
         html += `<td class="desc" style="padding-left:20px;">Excavation from 1.50m to 3.00m depth</td>`;
         if (hasImage) html += `<td class="img-cell">—</td>`;
         if (hasUnit) html += `<td class="center">CuM</td>`;
-        if (hasQty) html += `<td class="center">${safeToFixed(sub2.qty, 3)}</td>`;
-        if (hasRate) html += `<td class="right">${fmt(sub2.rate)}</td>`;
-        html += `<td class="amount">${fmt(sub2.amount)}</td>`;
+        if (hasQty) html += `<td class="center">${safeToFixed(qty12, 3)}</td>`;
+        if (hasRate) html += `<td class="right">${fmt(rate12)}</td>`;   // ← own rate
+        html += `<td class="amount">${fmt(qty12 * rate12)}</td>`;       // ← own calc
         if (hasRemarks) html += '<td>—</td>';
         html += '</tr>';
       }
+    }
+
+    // Sub-rows for items 9 and 10
+    if (hasSubRows && qtyMap === MAIN_POOL_QTY_FIELDS) {
+      const splitData = getSplitData(slNo, quantities, resultData, shotcretingSplit, rccShutteringSplit);
+      const subRows = SUB_ROWS[slNo] || [];
+      const parentRate = Number(item.Rate) || 0;
+      
+      subRows.forEach(sub => {
+        const rawValue = splitData?.[sub.slNo];
+        const subQty = extractSubQty(rawValue);
+        const subAmount = subQty * parentRate;
+        
+        html += '<tr class="sub-row">';
+        html += `<td class="center">${sub.slNo}</td>`;
+        if (hasCode) html += `<td class="center">—</td>`;
+        html += `<td class="desc" style="padding-left:20px;">${sub.description}</td>`;
+        if (hasImage) html += `<td class="img-cell">—</td>`;
+        if (hasUnit) html += `<td class="center">${sub.unit || (item.Unit || '')}</td>`;
+        if (hasQty) html += `<td class="center">${safeToFixed(subQty, 3)}</td>`;
+        if (hasRate) html += `<td class="right">${fmt(parentRate)}</td>`;
+        html += `<td class="amount">${fmt(subAmount)}</td>`;
+        if (hasRemarks) html += '<td>—</td>';
+        html += '</tr>';
+      });
     }
   });
 
@@ -507,27 +734,49 @@ function buildCivilRows(items, quantities, resultData, remarks = {}, qtyMap, col
 
 function buildBalanceTankRows(items, quantities, resultData, remarks, colOpts) {
   if (!items || items.length === 0) return '<tr><td colspan="10">No data available</td></tr>';
-  return buildCivilRows(items.filter(i => i.SlNo <= 10), quantities, resultData, remarks, BALANCE_TANK_QTY_FIELDS, colOpts);
+  return buildCivilRows(
+    (items || []).filter(i => i && (Number(i.SlNo ?? i.sl_no) >= 1 && Number(i.SlNo ?? i.sl_no) <= 12)),
+    quantities,
+    resultData,
+    remarks,
+    BALANCE_TANK_QTY_FIELDS,
+    colOpts,
+    null,
+    null
+  );
 }
 
 function buildPumpRoomRows(items, quantities, resultData, remarks, colOpts) {
   if (!items || items.length === 0) return '<tr><td colspan="10">No data available</td></tr>';
-  return buildCivilRows(items.filter(i => i.SlNo <= 10), quantities, resultData, remarks, PUMP_ROOM_QTY_FIELDS, colOpts);
+  return buildCivilRows(
+    (items || []).filter(i => i && (Number(i.SlNo ?? i.sl_no) >= 1 && Number(i.SlNo ?? i.sl_no) <= 12)),
+    quantities,
+    resultData,
+    remarks,
+    PUMP_ROOM_QTY_FIELDS,
+    colOpts,
+    null,
+    null
+  );
 }
 
 function buildMEPRows(items, mepQuantities, resultData, dynamicRates, selectedAdvancedEquipment, mepRemarks, isOverflow, isInfinity, isJacuzzi, colOpts = {}) {
-  if (!items || items.length === 0) {
+  const safeItems = items || [];
+  if (safeItems.length === 0) {
     return '<tr><td colspan="12" style="text-align:center;padding:12px;">No MEP data available</td></tr>';
   }
 
   const { hasImage = true, hasCode = true, hasUnit = true, hasQty = true, hasRate = true, hasRemarks = true, currency = 'INR', exchangeRate = 83.0 } = colOpts;
   const fmt = (v) => formatCurrencyValue(v, currency, exchangeRate);
   const qtyMap = isJacuzzi ? JACUZZI_MEP_QTY_FIELDS : MEP_QTY_FIELDS;
+  const safeAdvanced = selectedAdvancedEquipment || [];
+  const safeRemarks = mepRemarks || {};
+  const safeDynamicRates = dynamicRates || {};
   let html = '';
 
-  const sortedItems = [...items].sort((a, b) => a.SlNo - b.SlNo);
-  const baseItems = sortedItems.filter(i => i.SlNo <= 29);
-  const advancedItems = sortedItems.filter(i => i.SlNo >= 30 && i.SlNo <= 34);
+  const sortedItems = [...safeItems].sort((a, b) => (Number(a.SlNo ?? a.sl_no) || 0) - (Number(b.SlNo ?? b.sl_no) || 0));
+  const baseItems = sortedItems.filter(i => i && (Number(i.SlNo ?? i.sl_no) <= 29));
+  const advancedItems = sortedItems.filter(i => i && (Number(i.SlNo ?? i.sl_no) >= 30 && Number(i.SlNo ?? i.sl_no) <= 34));
 
   const colCount = 1 + (hasCode ? 1 : 0) + 1 + (hasImage ? 1 : 0) + (hasUnit ? 1 : 0) + (hasQty ? 1 : 0) + (hasRate ? 2 : 0) + 3 + (hasRemarks ? 1 : 0);
   html += `<tr class="section-header-row"><td colspan="${colCount}">Base MEP Systems (Items 1–29)</td></tr>`;
@@ -535,9 +784,9 @@ function buildMEPRows(items, mepQuantities, resultData, dynamicRates, selectedAd
   let baseTotal = 0;
 
   baseItems.forEach(item => {
-    const slNo = item.SlNo;
+    if (!item) return;
+    const slNo = Number(item.SlNo ?? item.sl_no);
 
-    // Skip hidden items based on pool type
     if (isInfinity && slNo === 11) return;
     if (isJacuzzi && (slNo === 11 || slNo === 12 || slNo === 13)) return;
 
@@ -548,7 +797,7 @@ function buildMEPRows(items, mepQuantities, resultData, dynamicRates, selectedAd
       qty = resolveQty(slNo, qtyMap, mepQuantities, resultData);
     }
 
-    const supplyRate = getSupplyRate(item, dynamicRates);
+    const supplyRate = getSupplyRate(item, safeDynamicRates);
     const installRate = supplyRate * INSTALLATION_PERCENT;
     const supplyCost = qty * supplyRate;
     const installCost = qty * installRate;
@@ -581,7 +830,7 @@ function buildMEPRows(items, mepQuantities, resultData, dynamicRates, selectedAd
     html += `<td class="right">${fmt(supplyCost)}</td>`;
     html += `<td class="right">${fmt(installCost)}</td>`;
     html += `<td class="amount">${fmt(total)}</td>`;
-    if (hasRemarks) html += `<td style="font-size:8px;">${mepRemarks[slNo] || ''}</td>`;
+    if (hasRemarks) html += `<td style="font-size:8px;">${safeRemarks[slNo] || ''}</td>`;
     html += '</tr>';
   });
 
@@ -593,15 +842,15 @@ function buildMEPRows(items, mepQuantities, resultData, dynamicRates, selectedAd
   if (hasRemarks) html += '<td></td>';
   html += '</tr>';
 
-  // Advanced equipment
-  const filteredAdvanced = (advancedItems || []).filter(item => selectedAdvancedEquipment.includes(item.SlNo));
+  const filteredAdvanced = (advancedItems || []).filter(item => item && safeAdvanced.includes(Number(item.SlNo ?? item.sl_no)));
   if (filteredAdvanced.length > 0) {
     html += `<tr class="section-header-row"><td colspan="${colCount}">Advanced Equipment (Items 30–34) — Optional</td></tr>`;
     let advTotal = 0;
     filteredAdvanced.forEach(item => {
-      const slNo = item.SlNo;
+      if (!item) return;
+      const slNo = Number(item.SlNo ?? item.sl_no);
       const qty = 1;
-      const supplyRate = getSupplyRate(item, dynamicRates);
+      const supplyRate = getSupplyRate(item, safeDynamicRates);
       const installRate = supplyRate * INSTALLATION_PERCENT;
       const supplyCost = qty * supplyRate;
       const installCost = qty * installRate;
@@ -624,7 +873,7 @@ function buildMEPRows(items, mepQuantities, resultData, dynamicRates, selectedAd
       html += `<td class="right">${fmt(supplyCost)}</td>`;
       html += `<td class="right">${fmt(installCost)}</td>`;
       html += `<td class="amount">${fmt(total)}</td>`;
-      if (hasRemarks) html += `<td style="font-size:8px;">${mepRemarks[slNo] || ''}</td>`;
+      if (hasRemarks) html += `<td style="font-size:8px;">${safeRemarks[slNo] || ''}</td>`;
       html += '</tr>';
     });
     html += `<tr class="subtotal-row">`;
@@ -636,10 +885,10 @@ function buildMEPRows(items, mepQuantities, resultData, dynamicRates, selectedAd
   }
 
   if (isJacuzzi) {
-    const heatPumpItem = items.find(i => i.SlNo === 29);
-    if (heatPumpItem && selectedAdvancedEquipment.includes(29)) {
+    const heatPumpItem = safeItems.find(i => i && Number(i.SlNo ?? i.sl_no) === 29);
+    if (heatPumpItem && safeAdvanced.includes(29)) {
       const qty = 1;
-      const supplyRate = getSupplyRate(heatPumpItem, dynamicRates);
+      const supplyRate = getSupplyRate(heatPumpItem, safeDynamicRates);
       const installRate = supplyRate * INSTALLATION_PERCENT;
       const supplyCost = qty * supplyRate;
       const installCost = qty * installRate;
@@ -661,7 +910,7 @@ function buildMEPRows(items, mepQuantities, resultData, dynamicRates, selectedAd
       html += `<td class="right">${fmt(supplyCost)}</td>`;
       html += `<td class="right">${fmt(installCost)}</td>`;
       html += `<td class="amount">${fmt(total)}</td>`;
-      if (hasRemarks) html += `<td style="font-size:8px;">${mepRemarks[29] || ''}</td>`;
+      if (hasRemarks) html += `<td style="font-size:8px;">${safeRemarks[29] || ''}</td>`;
       html += '</tr>';
     }
   }
@@ -670,7 +919,8 @@ function buildMEPRows(items, mepQuantities, resultData, dynamicRates, selectedAd
 }
 
 function buildPipingRows(pipingItems, colOpts = {}) {
-  if (!pipingItems || pipingItems.length === 0) {
+  const safeItems = pipingItems || [];
+  if (safeItems.length === 0) {
     return '<tr><td colspan="12" style="text-align:center;padding:12px;">No piping data available</td></tr>';
   }
 
@@ -679,9 +929,9 @@ function buildPipingRows(pipingItems, colOpts = {}) {
   let html = '';
   let grandTotal = 0;
 
-  // Group by category
   const categories = {};
-  pipingItems.forEach((item, idx) => {
+  safeItems.forEach((item, idx) => {
+    if (!item) return;
     const cat = (item.category || item.Category || 'other').toLowerCase();
     if (!categories[cat]) categories[cat] = [];
     categories[cat].push({ ...item, _idx: idx });
@@ -702,7 +952,8 @@ function buildPipingRows(pipingItems, colOpts = {}) {
     const label = catLabels[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
     let catTotal = 0;
 
-    items.forEach((item, idx) => {
+    (items || []).forEach((item, idx) => {
+      if (!item) return;
       const qty = Number(item.quantity ?? item.Quantity ?? 0) || 0;
       const rate = Number(item.rate ?? item.Rate ?? 0) || 0;
       const supply = qty * rate;
@@ -792,41 +1043,44 @@ async function generatePDFContent(config) {
     currency = 'INR',
     exchangeRate = 83.0,
     companyProfile = DEFAULT_COMPANY_PROFILE,
-  } = config;
+    shotcretingSplit = null,
+    rccShutteringSplit = null,
+  } = config || {};
 
   const fmt = (v) => formatCurrencyValue(v, currency, exchangeRate);
   const currentDate = new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
   const poolTypeStr = String(poolType || 'skimmer').toLowerCase();
   const isOverflow = poolTypeStr === 'overflow';
   const isInfinity = poolTypeStr === 'infinity';
-  const isWaterbody = poolTypeStr === 'waterbody';
-  const isFreeForm = poolTypeStr === 'freeform' || poolTypeStr === 'curved';
 
   const colOpts = {
-    hasImage: columnVisibility.image !== false,
-    hasCode: columnVisibility.code !== false,
-    hasUnit: columnVisibility.unit !== false,
-    hasQty: columnVisibility.qty !== false,
-    hasRate: columnVisibility.fixedRate !== false,
-    hasRemarks: columnVisibility.remarks !== false,
+    hasImage: (columnVisibility || {}).image !== false,
+    hasCode: (columnVisibility || {}).code !== false,
+    hasUnit: (columnVisibility || {}).unit !== false,
+    hasQty: (columnVisibility || {}).qty !== false,
+    hasRate: (columnVisibility || {}).fixedRate !== false,
+    hasRemarks: (columnVisibility || {}).remarks !== false,
     currency,
     exchangeRate,
   };
 
-  const filterDiameter = resultData?.filter_dia_mm || dynamicRates?.filter_dia;
+  const safeDynamicRates = dynamicRates || {};
+  const safeResultData = resultData || {};
+
+  const filterDiameter = safeResultData?.filter_dia_mm || safeDynamicRates?.filter_dia;
   const mpvSize = getMPVSize(filterDiameter);
-  const pumpHP = resultData?.hp || dynamicRates?.hp;
-  const poolVolume = resultData?.volume_m3 || (dimensions.length * dimensions.width * dimensions.depth) || 0;
-  const flowRate = resultData?.flowrate_m3_per_hr || (poolVolume / 4.5) || 0;
+  const pumpHP = safeResultData?.hp || safeDynamicRates?.hp;
+  const poolVolume = safeResultData?.volume_m3 || ((dimensions || {}).length * (dimensions || {}).width * (dimensions || {}).depth) || 0;
+  const flowRate = safeResultData?.flowrate_m3_per_hr || (poolVolume / 4.5) || 0;
 
   const gstAmount = grandTotal * 0.18;
   const grandWithGST = grandTotal + gstAmount;
 
-  const dimStr = dimensions.length && dimensions.width && dimensions.depth
-    ? `${dimensions.length} × ${dimensions.width} × ${dimensions.depth} m`
-    : resultData?.dimensions || 'N/A';
+  const safeDimensions = dimensions || {};
+  const dimStr = safeDimensions.length && safeDimensions.width && safeDimensions.depth
+    ? `${safeDimensions.length} × ${safeDimensions.width} × ${safeDimensions.depth} m`
+    : safeResultData?.dimensions || 'N/A';
 
-  // Company details
   const company = companyProfile || DEFAULT_COMPANY_PROFILE;
   let logoBase64 = null;
   if (company.logo_url) {
@@ -837,24 +1091,19 @@ async function generatePDFContent(config) {
     }
   }
 
-  // Build tables
-  const civilRows = buildCivilRows(mainPoolItems, civilQuantities, resultData, mainPoolRemarks, MAIN_POOL_QTY_FIELDS, colOpts);
-  const balanceRows = buildBalanceTankRows(balanceTankItems, balanceTankQuantities, resultData, balanceTankRemarks, colOpts);
-  const pumpRows = buildPumpRoomRows(pumpRoomItems, pumpRoomQuantities, resultData, pumpRoomRemarks, colOpts);
-  const mepRows = buildMEPRows(mepItems, mepQuantities, resultData, dynamicRates, selectedAdvancedEquipment, mepRemarks, isOverflow, isInfinity, isJacuzzi, colOpts);
-  const pipingRows = buildPipingRows(pipingItems, colOpts);
+  const civilRows = buildCivilRows(
+    mainPoolItems || [], civilQuantities || {}, safeResultData, mainPoolRemarks || {},
+    MAIN_POOL_QTY_FIELDS, colOpts, shotcretingSplit, rccShutteringSplit
+  );
+  const balanceRows = buildBalanceTankRows(balanceTankItems || [], balanceTankQuantities || {}, safeResultData, balanceTankRemarks || {}, colOpts);
+  const pumpRows = buildPumpRoomRows(pumpRoomItems || [], pumpRoomQuantities || {}, safeResultData, pumpRoomRemarks || {}, colOpts);
+  const mepRows = buildMEPRows(mepItems || [], mepQuantities || {}, safeResultData, safeDynamicRates, selectedAdvancedEquipment || [], mepRemarks || {}, isOverflow, isInfinity, isJacuzzi, colOpts);
+  const pipingRows = buildPipingRows(pipingItems || [], colOpts);
 
   const civilColsBeforeAmount =
-    1 + // SlNo
-    (colOpts.hasCode ? 1 : 0) +
-    1 + // Description
-    (colOpts.hasImage ? 1 : 0) +
-    (colOpts.hasUnit ? 1 : 0) +
-    (colOpts.hasQty ? 1 : 0) +
-    (colOpts.hasRate ? 1 : 0);
+    1 + (colOpts.hasCode ? 1 : 0) + 1 + (colOpts.hasImage ? 1 : 0) + (colOpts.hasUnit ? 1 : 0) + (colOpts.hasQty ? 1 : 0) + (colOpts.hasRate ? 1 : 0);
 
-  // Hide piping section for Infinity Pool (piping cost already included in MEP)
-  const showPipingSection = pipingItems.length > 0 && !isInfinity;
+  const showPipingSection = (pipingItems || []).length > 0 && !isInfinity;
 
   return `
 <!DOCTYPE html>
@@ -879,7 +1128,6 @@ async function generatePDFContent(config) {
   </div>
 </div>
 
-<!-- Executive Summary -->
 <div class="pdf-section">
   <h2>Executive Summary</h2>
   <div class="summary-grid">
@@ -893,12 +1141,11 @@ async function generatePDFContent(config) {
     ${flowRate ? `<div class="summary-item"><div class="label">Flow Rate</div><div class="value">${safeToFixed(flowRate)} m³/hr</div></div>` : ''}
     ${hasBalancingTank ? `<div class="summary-item"><div class="label">Balance Tank</div><div class="value">Included</div></div>` : ''}
     ${includePumpRoom ? `<div class="summary-item"><div class="label">Pump Room</div><div class="value">Included (${pumpRoomDistance}m)</div></div>` : ''}
-    ${selectedAdvancedEquipment.length > 0 ? `<div class="summary-item"><div class="label">Advanced Equipment</div><div class="value">${selectedAdvancedEquipment.length} selected</div></div>` : ''}
+    ${(selectedAdvancedEquipment || []).length > 0 ? `<div class="summary-item"><div class="label">Advanced Equipment</div><div class="value">${(selectedAdvancedEquipment || []).length} selected</div></div>` : ''}
     <div class="summary-item highlight"><div class="label">Total (excl. GST)</div><div class="value">${fmt(grandTotal)}</div></div>
   </div>
 </div>
 
-<!-- Cost Breakdown -->
 <div class="pdf-section">
   <h2>Project Cost Summary</h2>
   <div class="cost-box">
@@ -913,9 +1160,8 @@ async function generatePDFContent(config) {
   </div>
 </div>
 
-<!-- Civil Works - Main Pool -->
 <div class="pdf-section page-break">
-  <h2>Civil Works — Main Pool Construction (12 Items)</h2>
+  <h2>Civil Works — Main Pool Construction (14 Items)</h2>
   <div class="section-total-bar"><span>Civil Works Total</span><span>${fmt(mainPoolTotal)}</span></div>
   <table class="pdf-table">
     <thead><tr>${buildCivilTableHeaders(colOpts)}</tr></thead>
@@ -932,7 +1178,7 @@ async function generatePDFContent(config) {
 
 ${hasBalancingTank ? `
 <div class="pdf-section">
-  <h2>Civil Works — Balance Tank (10 Items)</h2>
+  <h2>Civil Works — Balance Tank (12 Items)</h2>
   <div class="section-total-bar blue"><span>Balance Tank Total</span><span>${fmt(balanceTankTotal)}</span></div>
   <table class="pdf-table">
     <thead><tr>${buildCivilTableHeaders(colOpts)}</tr></thead>
@@ -950,7 +1196,7 @@ ${hasBalancingTank ? `
 
 ${includePumpRoom ? `
 <div class="pdf-section">
-  <h2>Civil Works — Pump Room Construction (10 Items)</h2>
+  <h2>Civil Works — Pump Room Construction (12 Items)</h2>
   <div class="section-total-bar orange"><span>Pump Room Total</span><span>${fmt(pumpRoomTotal)}</span></div>
   <table class="pdf-table">
     <thead><tr>${buildCivilTableHeaders(colOpts)}</tr></thead>
@@ -966,11 +1212,10 @@ ${includePumpRoom ? `
 </div>
 ` : ''}
 
-<!-- MEP Systems -->
 <div class="pdf-section page-break">
   <h2>MEP Systems — Mechanical, Electrical &amp; Plumbing</h2>
   <div class="section-total-bar purple"><span>MEP Total (Supply + Installation)</span><span>${fmt(mepTotal)}</span></div>
-  ${dynamicRates?.source === 'no_match' ? `<div style="background:#fde8e8;border-left:4px solid #c0392b;padding:8px;margin-bottom:10px;font-size:9px;">⚠️ No exact filter diameter match found. Filter/Pump rates are ₹0.</div>` : ''}
+  ${safeDynamicRates?.source === 'no_match' ? `<div style="background:#fde8e8;border-left:4px solid #c0392b;padding:8px;margin-bottom:10px;font-size:9px;">⚠️ No exact filter diameter match found. Filter/Pump rates are ₹0.</div>` : ''}
   ${isInfinity ? `<div style="background:#e8f4fc;border-left:4px solid #1a5276;padding:8px;margin-bottom:10px;font-size:9px;">🌊 Infinity Pool: Skimmer (SlNo 11) is not required.</div>` : ''}
   ${isOverflow ? `<div style="background:#e8f4fc;border-left:4px solid #1a5276;padding:8px;margin-bottom:10px;font-size:9px;">⭐ Overflow Pool: SlNo 11 = Overflow Grating, SlNo 13 = Gutter Drain.</div>` : ''}
   <table class="pdf-table">
@@ -979,12 +1224,11 @@ ${includePumpRoom ? `
   </table>
 </div>
 
-<!-- Piping System (hidden for Infinity Pool) -->
 ${showPipingSection ? `
 <div class="pdf-section page-break">
   <h2>Piping System (Supply + 15% Installation)</h2>
   <div class="section-total-bar teal"><span>Piping Total (Supply + Installation)</span><span>${fmt(pipingTotal)}</span></div>
-  ${pumpRoomDistance ? `<div style="font-size:8.5px;margin-bottom:8px;padding:6px 10px;background:#e8f4f8;border-radius:4px;">📏 Pump Room Distance: <strong>${pumpRoomDistance} m</strong> | ${pipingItems.length} piping items</div>` : ''}
+  ${pumpRoomDistance ? `<div style="font-size:8.5px;margin-bottom:8px;padding:6px 10px;background:#e8f4f8;border-radius:4px;">📏 Pump Room Distance: <strong>${pumpRoomDistance} m</strong> | ${(pipingItems || []).length} piping items</div>` : ''}
   <table class="pdf-table">
     <thead><tr>${buildPipingTableHeaders(colOpts)}</tr></thead>
     <tbody>${pipingRows}</tbody>
@@ -992,7 +1236,6 @@ ${showPipingSection ? `
 </div>
 ` : ''}
 
-<!-- Footer -->
 <div class="pdf-footer">
   <div class="footer-grid">
     <div class="footer-section">
@@ -1005,7 +1248,7 @@ ${showPipingSection ? `
         <li>5. Scope: Supply, Installation, Testing &amp; Commissioning of MEP &amp; Tiling.</li>
         <li>6. Quantities may vary ±10-15% due to site conditions.</li>
         <li>7. Pump Room: ${includePumpRoom ? 'Included' : 'Not included'} | MPV: ${mpvSize} | Pump: ${pumpHP || 'N/A'} HP.</li>
-        <li>8. ${selectedAdvancedEquipment.length > 0 ? `${selectedAdvancedEquipment.length} advanced equipment item(s) selected.` : 'No advanced equipment selected.'}</li>
+        <li>8. ${(selectedAdvancedEquipment || []).length > 0 ? `${(selectedAdvancedEquipment || []).length} advanced equipment item(s) selected.` : 'No advanced equipment selected.'}</li>
       </ul>
     </div>
     <div class="footer-section">
@@ -1019,9 +1262,9 @@ ${showPipingSection ? `
       <br/>
       <h3>Rate Source</h3>
       <ul>
-        <li>Filter: ${fmt(dynamicRates?.filter_rate || 0)}</li>
-        <li>Pump: ${fmt(dynamicRates?.pump_rate || 0)}</li>
-        <li>Source: ${dynamicRates?.source || 'N/A'}</li>
+        <li>Filter: ${fmt(safeDynamicRates?.filter_rate || 0)}</li>
+        <li>Pump: ${fmt(safeDynamicRates?.pump_rate || 0)}</li>
+        <li>Source: ${safeDynamicRates?.source || 'N/A'}</li>
       </ul>
     </div>
   </div>
@@ -1066,193 +1309,163 @@ function showNotification(message, isError = false) {
 }
 
 // ============================================================
-// MAIN EXPORT: generatePDF (UNIVERSAL - OBJECT DESTRUCTURING)
+// CORE PDF BUILDER (INTERNAL)
 // ============================================================
-export const generatePDF = async ({
-  // CORE
-  resultData = {},
-  poolType = 'skimmer',
-  constructionType = 'in-ground',
-
-  // DIMENSIONS
-  dimensions = {},
-  pumpRoomDimensions = {},
-
-  // TABLE ITEMS
-  mainPoolItems = [],
-  mepItems = [],
-  pumpRoomItems = [],
-  balanceTankItems = [],
-  pipingItems = [],
-
-  // QUANTITIES
-  civilQuantities = {},
-  mepQuantities = {},
-  pumpRoomQuantities = {},
-  balanceTankQuantities = {},
-
-  // TOTALS
-  mainPoolTotal = 0,
-  mepTotal = 0,
-  pumpRoomTotal = 0,
-  balanceTankTotal = 0,
-  pipingTotal = 0,
-
-  // REMARKS
-  mainPoolRemarks = {},
-  mepRemarks = {},
-  pumpRoomRemarks = {},
-  balanceTankRemarks = {},
-
-  // TEMPLATE
-  templateDescriptions = {},
-
-  // RATES
-  dynamicRates = {},
-
-  // CURRENCY
-  currency = 'INR',
-  exchangeRate = 83,
-
-  // SETTINGS
-  selectedTables = {},
-  columnVisibility = {
-    image: true,
-    unit: true,
-    qty: true,
-    fixedRate: true,
-    remarks: true,
-    code: true,
-  },
-
-  // ADVANCED EQUIPMENT
-  selectedAdvancedEquipment = [],
-
-  // PUMP ROOM
-  includePumpRoom = false,
-  pumpRoomDistance = 15,
-
-  // COMPANY
-  companyProfile = DEFAULT_COMPANY_PROFILE,
-
-  // EXTRA
-  excavationSplit = {},
-  overflowGratingData = null,
-  hasBalancingTank = false,
-  hasGutter = false,
-
-  // WATERBODY
-  waterBodySpecs = {},
-  waterBodyMetrics = {},
-
-  // JACUZZI
-  seatingCapacity = null,
-  waterJets = null,
-  airJets = null,
-  heaterKW = null,
-
-}) => {
+async function buildPDF(pdfData = {}) {
   try {
     showLoadingModal();
 
-    // Detect pool type dynamically
+    const {
+      resultData = {},
+      dimensions = {},
+      poolType = 'skimmer',
+      constructionType = 'in-ground',
+      mainPoolItems = [],
+      mepItems = [],
+      pipingItems = [],
+      balanceTankItems = [],
+      pumpRoomItems = [],
+      civilQuantities = {},
+      mepQuantities = {},
+      pumpRoomQuantities = {},
+      balanceTankQuantities = {},
+      dynamicRates = {},
+      selectedAdvancedEquipment = [],
+      mainPoolRemarks = {},
+      mepRemarks = {},
+      pumpRoomRemarks = {},
+      balanceTankRemarks = {},
+      currency = 'INR',
+      exchangeRate = 83.0,
+      companyProfile = {},
+      pumpRoomDistance = 15,
+      hasBalancingTank = false,
+      hasGutter = false,
+      includePumpRoom = true,
+      columnVisibility = {},
+      mainPoolTotal = 0,
+      mepTotal = 0,
+      pumpRoomTotal = 0,
+      balanceTankTotal = 0,
+      pipingTotal = 0,
+      shotcretingSplit = null,
+      rccShutteringSplit = null,
+    } = pdfData;
+
     const detectedPoolType =
-      resultData?.pool_type ||
-      resultData?.system_parameters?.pool_type ||
-      resultData?.calculation_type ||
+      (resultData || {}).pool_type ||
+      (resultData || {}).system_parameters?.pool_type ||
+      (resultData || {}).calculation_type ||
       poolType ||
       'skimmer';
     const normalizedPoolType = String(detectedPoolType).toLowerCase().trim();
     const isJacuzzi = normalizedPoolType === 'jacuzzi';
     const isInfinity = normalizedPoolType === 'infinity';
-    const isOverflow = normalizedPoolType === 'overflow';
 
-    // Resolve data sources
-    const civilQty = Object.keys(civilQuantities || {}).length > 0 ? civilQuantities : (resultData || {});
-    const mepQty = Object.keys(mepQuantities || {}).length > 0 ? mepQuantities : (resultData || {});
-    const btQty = Object.keys(balanceTankQuantities || {}).length > 0 ? balanceTankQuantities : (resultData || {});
-    const prQty = Object.keys(pumpRoomQuantities || {}).length > 0 ? pumpRoomQuantities : (resultData || {});
-    const dynRates = Object.keys(dynamicRates || {}).length > 0 ? dynamicRates : ({});
+    const safeResultData = resultData || {};
+    const civilQty = Object.keys(civilQuantities || {}).length > 0 ? civilQuantities : safeResultData;
+    const mepQty = Object.keys(mepQuantities || {}).length > 0 ? mepQuantities : safeResultData;
+    const btQty = Object.keys(balanceTankQuantities || {}).length > 0 ? balanceTankQuantities : safeResultData;
+    const prQty = Object.keys(pumpRoomQuantities || {}).length > 0 ? pumpRoomQuantities : safeResultData;
+    const dynRates = Object.keys(dynamicRates || {}).length > 0 ? dynamicRates : {};
 
-    // Piping data
     let rawPiping = [];
     if (Array.isArray(pipingItems) && pipingItems.length > 0) {
       rawPiping = pipingItems;
-    } else if (resultData?.piping && Array.isArray(resultData.piping)) {
-      rawPiping = resultData.piping;
-    } else if (resultData?.piping_items && Array.isArray(resultData.piping_items)) {
-      rawPiping = resultData.piping_items;
+    } else if (safeResultData?.piping && Array.isArray(safeResultData.piping)) {
+      rawPiping = safeResultData.piping;
+    } else if (safeResultData?.piping_items && Array.isArray(safeResultData.piping_items)) {
+      rawPiping = safeResultData.piping_items;
     }
     const resolvedPipingItems = cleanPipingItems(rawPiping);
     const resolvedPipingTotal = pipingTotal > 0 ? pipingTotal : calcPipingTotal(resolvedPipingItems);
 
-    // Main pool items
-    const mainItemsFiltered = (mainPoolItems || []).filter(i => MAIN_POOL_QTY_FIELDS[i.SlNo]);
+    const mainItemsFiltered = (mainPoolItems || []).filter(item => {
+      const slNo = Number(item?.SlNo ?? item?.sl_no);
+      return item && slNo >= 1 && slNo <= 14;
+    });
 
-    // Balance tank items
-    const btItemsForRows = (balanceTankItems || []).length > 0
-      ? balanceTankItems
-      : (mainPoolItems || []).filter(i => i.SlNo <= 10);
-    // Pump room items
-    const prItemsForRows = (pumpRoomItems || []).length > 0
-      ? pumpRoomItems
-      : (mainPoolItems || []).filter(i => i.SlNo <= 10);
+    const btItemsForRows =
+      (balanceTankItems || []).length > 0
+        ? balanceTankItems
+        : (mainPoolItems || []).filter(item => {
+            const sl = Number(item?.SlNo ?? item?.sl_no);
+            return sl >= 1 && sl <= 12;
+          });
 
-    // Compute totals
-    const computedMainPoolTotal = mainPoolTotal > 0 ? mainPoolTotal : calcCivilTotal(mainItemsFiltered, civilQty, resultData, MAIN_POOL_QTY_FIELDS);
-    const computedBalanceTankTotal = hasBalancingTank && balanceTankTotal > 0 ? balanceTankTotal
-      : (hasBalancingTank ? calcBalanceTankTotal(btItemsForRows, btQty, resultData) : 0);
-    const computedPumpRoomTotal = includePumpRoom && pumpRoomTotal > 0 ? pumpRoomTotal
-      : (includePumpRoom ? calcPumpRoomTotal(prItemsForRows, prQty, resultData) : 0);
-    const computedMepTotal = (mepTotal > 0 ? mepTotal : 0)
-      || calcMepTotal(mepItems, mepQty, resultData, dynRates, selectedAdvancedEquipment, isJacuzzi);
+    const prItemsForRows =
+      (pumpRoomItems || []).length > 0
+        ? pumpRoomItems
+        : (mainPoolItems || []).filter(item => {
+            const sl = Number(item?.SlNo ?? item?.sl_no);
+            return sl >= 1 && sl <= 12;
+          });
 
-    // For Infinity Pool, piping cost is already included in MEP total, so exclude it from grand total
+    const computedMainPoolTotal = calcCivilTotal(
+      mainItemsFiltered, civilQty, safeResultData, MAIN_POOL_QTY_FIELDS,
+      shotcretingSplit, rccShutteringSplit
+    );
+
+    const computedBalanceTankTotal = hasBalancingTank
+      ? calcBalanceTankTotal(btItemsForRows, btQty, safeResultData)
+      : 0;
+
+    const computedPumpRoomTotal = includePumpRoom
+      ? calcPumpRoomTotal(prItemsForRows, prQty, safeResultData)
+      : 0;
+
+    const computedMepTotal = calcMepTotal(
+      (mepItems || []), (mepQty || {}), safeResultData || {},
+      dynRates || {}, selectedAdvancedEquipment || [], isJacuzzi
+    );
+
     const finalResolvedPipingTotal = isInfinity ? 0 : resolvedPipingTotal;
 
     const computedGrandTotal = computedMainPoolTotal + computedBalanceTankTotal + computedPumpRoomTotal + computedMepTotal + finalResolvedPipingTotal;
 
     const htmlContent = await generatePDFContent({
-      resultData,
+      resultData: safeResultData,
       dimensions,
       poolType: normalizedPoolType,
       constructionType,
       mainPoolItems: mainItemsFiltered,
       civilQuantities: civilQty,
-      mainPoolRemarks,
+      mainPoolRemarks: mainPoolRemarks || {},
       mainPoolTotal: computedMainPoolTotal,
       balanceTankItems: btItemsForRows,
       balanceTankQuantities: btQty,
-      balanceTankRemarks,
+      balanceTankRemarks: balanceTankRemarks || {},
       balanceTankTotal: computedBalanceTankTotal,
       hasBalancingTank: hasBalancingTank || hasGutter,
       pumpRoomItems: prItemsForRows,
       pumpRoomQuantities: prQty,
-      pumpRoomRemarks,
+      pumpRoomRemarks: pumpRoomRemarks || {},
       pumpRoomTotal: computedPumpRoomTotal,
       includePumpRoom,
-      mepItems: (mepItems || []).filter(i => i.SlNo < 35),
+      mepItems: (mepItems || []).filter(i => i && (Number(i.SlNo ?? i.sl_no) < 35)),
       mepQuantities: mepQty,
-      mepRemarks,
+      mepRemarks: mepRemarks || {},
       dynamicRates: dynRates,
-      selectedAdvancedEquipment,
+      selectedAdvancedEquipment: selectedAdvancedEquipment || [],
       mepTotal: computedMepTotal,
       isJacuzzi,
       pipingItems: resolvedPipingItems,
       pipingTotal: resolvedPipingTotal,
       pumpRoomDistance: pumpRoomDistance,
       grandTotal: computedGrandTotal,
-      columnVisibility,
+      columnVisibility: columnVisibility || {},
       currency,
       exchangeRate,
       companyProfile: companyProfile || DEFAULT_COMPANY_PROFILE,
+      shotcretingSplit: shotcretingSplit,
+      rccShutteringSplit: rccShutteringSplit,
     });
 
     const printWindow = window.open('', '_blank', 'width=1100,height=800');
     if (!printWindow) {
       alert('Popup blocked! Please allow popups and try again.');
       hideLoadingModal();
-      return;
+      return false;
     }
 
     printWindow.document.write(htmlContent);
@@ -1265,11 +1478,68 @@ export const generatePDF = async ({
 
     hideLoadingModal();
     showNotification('✅ PDF Report opened! Use Print → Save as PDF.');
+    return true;
 
   } catch (error) {
     console.error('PDF generation error:', error);
     hideLoadingModal();
     showNotification(`❌ PDF generation failed: ${error.message}`, true);
+    return false;
+  }
+}
+
+// ============================================================
+// MAIN EXPORT: generatePDF (UNIVERSAL - SAFE WRAPPER)
+// ============================================================
+export const generatePDF = async (pdfData = {}) => {
+  try {
+    if (!pdfData || typeof pdfData !== "object") {
+      throw new Error("Invalid PDF data");
+    }
+
+    const safeData = {
+      resultData: pdfData.resultData || {},
+      dimensions: pdfData.dimensions || {},
+      mainPoolItems: pdfData.mainPoolItems || pdfData.mainPoolData || [],
+      mepItems: pdfData.mepItems || [],
+      pipingItems: pdfData.pipingItems || [],
+      balanceTankItems: pdfData.balanceTankItems || [],
+      pumpRoomItems: pdfData.pumpRoomItems || [],
+      civilQuantities: pdfData.civilQuantities || {},
+      mepQuantities: pdfData.mepQuantities || {},
+      pumpRoomQuantities: pdfData.pumpRoomQuantities || {},
+      balanceTankQuantities: pdfData.balanceTankQuantities || {},
+      companyProfile: pdfData.companyProfile || {},
+      poolType: pdfData.poolType || "pool",
+      currency: pdfData.currency || "INR",
+      exchangeRate: pdfData.exchangeRate || 83,
+      dynamicRates: pdfData.dynamicRates || {},
+      selectedAdvancedEquipment: pdfData.selectedAdvancedEquipment || [],
+      mainPoolRemarks: pdfData.mainPoolRemarks || {},
+      mepRemarks: pdfData.mepRemarks || {},
+      pumpRoomRemarks: pdfData.pumpRoomRemarks || {},
+      balanceTankRemarks: pdfData.balanceTankRemarks || {},
+      columnVisibility: pdfData.columnVisibility || {},
+      mainPoolTotal: pdfData.mainPoolTotal || 0,
+      mepTotal: pdfData.mepTotal || pdfData.totalMepWithFittings || 0,
+      pumpRoomTotal: pdfData.pumpRoomTotal || 0,
+      balanceTankTotal: pdfData.balanceTankTotal || pdfData.balancingTankTotal || 0,
+      pipingTotal: pdfData.pipingTotal || 0,
+      constructionType: pdfData.constructionType || 'in-ground',
+      hasBalancingTank: pdfData.hasBalancingTank || false,
+      hasGutter: pdfData.hasGutter || false,
+      includePumpRoom: pdfData.includePumpRoom !== false,
+      pumpRoomDistance: pdfData.pumpRoomDistance || 15,
+      shotcretingSplit: pdfData.shotcretingSplit || null,
+      rccShutteringSplit: pdfData.rccShutteringSplit || null,
+    };
+
+    return await buildPDF(safeData);
+
+  } catch (err) {
+    console.error("PDF GENERATION ERROR:", err);
+    alert(`PDF generation failed: ${err.message}`);
+    return false;
   }
 };
 
@@ -1338,6 +1608,16 @@ export const PDFDownloadButton = ({
   const handleDownload = async () => {
     setIsGenerating(true);
     try {
+      const safeCivilQuantities = civilQuantities || {};
+      const shotcretingSplit =
+        safeCivilQuantities?.shotcreting_split ||
+        resultData?.civil_quantities?.shotcreting_split ||
+        {};
+      const rccShutteringSplit =
+        safeCivilQuantities?.rcc_shuttering_split ||
+        resultData?.civil_quantities?.rcc_shuttering_split ||
+        {};
+
       await generatePDF({
         resultData,
         poolType,
@@ -1356,7 +1636,7 @@ export const PDFDownloadButton = ({
         mainPoolTotal,
         mepTotal: totalMepWithFittings,
         pumpRoomTotal,
-        balanceTankTotal,
+        balanceTankTotal: balancingTankTotal,
         pipingTotal,
         mainPoolRemarks,
         mepRemarks,
@@ -1382,6 +1662,8 @@ export const PDFDownloadButton = ({
         waterJets: null,
         airJets: null,
         heaterKW: null,
+        shotcretingSplit: shotcretingSplit,
+        rccShutteringSplit: rccShutteringSplit,
       });
     } catch (err) {
       console.error('PDF download error:', err);
@@ -1392,17 +1674,21 @@ export const PDFDownloadButton = ({
   };
 
   return (
-    <button onClick={handleDownload} disabled={isGenerating} style={{
-      display: 'inline-flex', alignItems: 'center', gap: '8px',
-      padding: '8px 16px', background: isGenerating ? '#95a5a6' : '#1a5276',
-      color: '#fff', border: 'none', borderRadius: '6px',
-      cursor: isGenerating ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 600
-    }}>
+    <button
+      onClick={handleDownload}
+      disabled={isGenerating}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: '8px',
+        padding: '8px 16px', background: isGenerating ? '#95a5a6' : '#1a5276',
+        color: '#fff', border: 'none', borderRadius: '6px',
+        cursor: isGenerating ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 600
+      }}
+    >
       <span>{isGenerating ? '⏳' : '📄'}</span>
-      <span>{isGenerating ? 'Generating PDF…' : 'Download PDF Report'}</span>
-      {selectedAdvancedEquipment.length > 0 && (
+      &nbsp;&nbsp;<span>{isGenerating ? 'Generating PDF…' : 'Export PDF'}</span>
+      {(selectedAdvancedEquipment || []).length > 0 && (
         <span style={{ background: '#f39c12', fontSize: '10px', padding: '2px 7px', borderRadius: '10px' }}>
-          {selectedAdvancedEquipment.length} selected
+          {(selectedAdvancedEquipment || []).length} selected
         </span>
       )}
     </button>

@@ -1,5 +1,8 @@
-// admindashboard.jsx - Professional Modern Admin Dashboard (Fixed)
-// Fully responsive with animations, glassmorphism, and interactive elements
+// admindashboard.jsx - Professional Modern Admin Dashboard
+// ✅ FIXED: excavation_rates now shows data in Database tab
+// ✅ ADDED: Full water_nozzles table support with CRUD, search, bulk discount, dashboard card
+// ✅ SECURITY: Company identity fields (company_name, owner_name, company_code) are now READONLY
+// ✅ ENTERPRISE: Protected fields visually indicate they are managed by Super Admin
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -93,7 +96,8 @@ import {
   BellOutlined,
   QuestionCircleOutlined,
   RocketOutlined,
-  CrownOutlined
+  CrownOutlined,
+  ExperimentOutlined
 } from "@ant-design/icons";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -110,11 +114,12 @@ const TENANT_INFO_KEY = "tenant_info";
 
 // Master tables that have read-only fields from master data
 const MASTER_TABLES = [
-  'main_pool', 
-  'balancetank', 
-  'mep', 
-  'jacuzzi_spa_mep_master', 
+  'main_pool',
+  'balancetank',
+  'mep',
+  'jacuzzi_spa_mep_master',
   'waterbody_mep_items',
+  'water_nozzles',
   'pipes',
   'ball_valves',
   'puddle_flanges'
@@ -123,10 +128,11 @@ const MASTER_TABLES = [
 // Tables that support bulk discount application
 const DISCOUNT_ENABLED_TABLES = [
   'main_pool',
-  'balancetank', 
+  'balancetank',
   'mep',
   'jacuzzi_spa_mep_master',
   'waterbody_mep_items',
+  'water_nozzles',
   'mep_rates',
   'heat_pump',
   'pipes',
@@ -144,6 +150,9 @@ const PIPING_ENDPOINTS = {
   ball_valves: '/admin/ball-valves',
   puddle_flanges: '/admin/puddle-flanges',
 };
+
+// Water nozzles endpoint
+const WATER_NOZZLES_ENDPOINT = '/admin/water-nozzles';
 
 // ==================== Animation Variants ====================
 const fadeIn = {
@@ -214,6 +223,18 @@ const apiRequestFormData = async (endpoint, formData, method = "POST") => {
 // ==================== normalizeRow Helper ====================
 const normalizeRow = (r) => {
   if (!r) return {};
+  
+  // Handle water_nozzles records
+  if (r.nozzle_type !== undefined) {
+    return {
+      SlNo: r.display_slno || r.id,
+      id: r.id,
+      nozzle_type: r.nozzle_type || "",
+      description: r.description || "",
+      rate: parseFloat(r.rate || 0)
+    };
+  }
+  
   if (r.code !== undefined) {
     return {
       id: r.id,
@@ -269,8 +290,8 @@ const AnimatedStatCard = ({ title, value, icon, color, prefix, onClick }) => {
           title={<span style={{ color: color, fontWeight: 500 }}>{title}</span>}
           value={value}
           prefix={prefix || icon}
-          valueStyle={{ 
-            color: "#1a1a1a", 
+          valueStyle={{
+            color: "#1a1a1a",
             fontWeight: 600,
             fontSize: screens.md ? "32px" : "24px"
           }}
@@ -293,12 +314,12 @@ const AnimatedStatCard = ({ title, value, icon, color, prefix, onClick }) => {
 
 // ==================== ReusableTable Component ====================
 const ReusableTable = ({ data, columns, loading, selectedRowKeys, onSelectChange, rowKey, pagination, ...props }) => {
-  const rowSelection = onSelectChange ? { 
-    selectedRowKeys, 
-    onChange: onSelectChange, 
-    selections: [Table.SELECTION_ALL, Table.SELECTION_INVERT, Table.SELECTION_NONE] 
+  const rowSelection = onSelectChange ? {
+    selectedRowKeys,
+    onChange: onSelectChange,
+    selections: [Table.SELECTION_ALL, Table.SELECTION_INVERT, Table.SELECTION_NONE]
   } : undefined;
-  
+
   return (
     <Table
       rowKey={rowKey}
@@ -306,10 +327,10 @@ const ReusableTable = ({ data, columns, loading, selectedRowKeys, onSelectChange
       dataSource={data}
       loading={loading}
       rowSelection={rowSelection}
-      pagination={pagination !== false ? { 
-        pageSize: pagination?.pageSize || 10, 
-        showSizeChanger: true, 
-        showTotal: (total) => `${total} items` 
+      pagination={pagination !== false ? {
+        pageSize: pagination?.pageSize || 10,
+        showSizeChanger: true,
+        showTotal: (total) => `${total} items`
       } : false}
       bordered
       style={{ borderRadius: "16px", overflow: "hidden" }}
@@ -352,18 +373,18 @@ const AdminLayout = ({ children, collapsed, onCollapse, user, onLogout, menuCont
           {menuContent}
         </Drawer>
         <Layout>
-          <div style={{ 
-            padding: "0 16px", 
-            background: "#fff", 
-            display: "flex", 
-            alignItems: "center", 
-            justifyContent: "space-between", 
+          <div style={{
+            padding: "0 16px",
+            background: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
             height: "56px",
             borderBottom: "1px solid #f0f0f0"
           }}>
             <Button type="text" icon={<MenuOutlined />} onClick={() => setMobileMenuOpen(true)} />
-            <motion.img 
-              src={getLogoUrl()} 
+            <motion.img
+              src={getLogoUrl()}
               alt={getCompanyName()}
               height={32}
               whileHover={{ scale: 1.05 }}
@@ -405,18 +426,18 @@ const AdminLayout = ({ children, collapsed, onCollapse, user, onLogout, menuCont
             boxShadow: "4px 0 20px rgba(0, 0, 0, 0.08)"
           }}
         >
-          <motion.div 
-            style={{ 
-              padding: collapsed ? "24px 16px" : "24px 16px", 
-              display: "flex", 
-              alignItems: "center", 
+          <motion.div
+            style={{
+              padding: collapsed ? "24px 16px" : "24px 16px",
+              display: "flex",
+              alignItems: "center",
               justifyContent: collapsed ? "center" : "flex-start",
               borderBottom: "1px solid rgba(255,255,255,0.1)"
             }}
             whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
           >
-            <img 
-              src={getLogoUrl()} 
+            <img
+              src={getLogoUrl()}
               alt={getCompanyName()}
               width={collapsed ? 40 : 80}
               height={collapsed ? 40 : 80}
@@ -424,7 +445,7 @@ const AdminLayout = ({ children, collapsed, onCollapse, user, onLogout, menuCont
               onError={(e) => { e.target.onerror = null; e.target.src = '/INt.png'; }}
             />
             {!collapsed && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 style={{ marginLeft: 12 }}
@@ -436,11 +457,11 @@ const AdminLayout = ({ children, collapsed, onCollapse, user, onLogout, menuCont
           </motion.div>
           {menuContent}
           {!collapsed && (
-            <motion.div 
-              style={{ 
-                margin: "16px", 
-                padding: "16px", 
-                background: "rgba(255,255,255,0.05)", 
+            <motion.div
+              style={{
+                margin: "16px",
+                padding: "16px",
+                background: "rgba(255,255,255,0.05)",
                 borderRadius: "12px",
                 border: "1px solid rgba(255,255,255,0.1)"
               }}
@@ -462,10 +483,10 @@ const AdminLayout = ({ children, collapsed, onCollapse, user, onLogout, menuCont
 };
 
 // ==================== HeaderBar Component ====================
-const HeaderBar = ({ 
-  user, onLogout, connectionStatus, onRefresh, effectiveDate, 
-  isHistoricalView, isDateLocked, quotationId, onDateChange, 
-  onExitQuotation, collapsed, onToggleCollapse 
+const HeaderBar = ({
+  user, onLogout, connectionStatus, onRefresh, effectiveDate,
+  isHistoricalView, isDateLocked, quotationId, onDateChange,
+  onExitQuotation, collapsed, onToggleCollapse
 }) => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -490,9 +511,9 @@ const HeaderBar = ({
       animate={{ y: 0 }}
       transition={{ duration: 0.4, type: "spring" }}
     >
-      <Header style={{ 
-        background: "#fff", 
-        padding: isMobile ? "0 12px" : "0 24px", 
+      <Header style={{
+        background: "#fff",
+        padding: isMobile ? "0 12px" : "0 24px",
         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
         position: "sticky",
         top: 0,
@@ -512,7 +533,7 @@ const HeaderBar = ({
               style={{ fontSize: "18px" }}
             />
           )}
-          
+
           <motion.div whileHover={{ scale: 1.02 }}>
             <DatePicker
               value={dayjs(effectiveDate)}
@@ -525,7 +546,7 @@ const HeaderBar = ({
               style={{ borderRadius: "12px" }}
             />
           </motion.div>
-          
+
           {isHistoricalView && (
             <motion.div
               initial={{ scale: 0 }}
@@ -542,7 +563,7 @@ const HeaderBar = ({
               />
             </motion.div>
           )}
-          
+
           {isDateLocked && quotationId && (
             <motion.div
               initial={{ scale: 0 }}
@@ -558,7 +579,7 @@ const HeaderBar = ({
             </motion.div>
           )}
         </Space>
-        
+
         <Space size={isMobile ? "small" : "middle"} align="center">
           {!isMobile && (
             <motion.div whileHover={{ scale: 1.05 }}>
@@ -575,7 +596,7 @@ const HeaderBar = ({
               </Tooltip>
             </motion.div>
           )}
-          
+
           <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
             <Tooltip title="Refresh Data">
               <Button
@@ -587,7 +608,7 @@ const HeaderBar = ({
               />
             </Tooltip>
           </motion.div>
-          
+
           <Dropdown
             menu={{
               items: notifications.map((n, i) => ({
@@ -610,7 +631,7 @@ const HeaderBar = ({
               <Button type="text" icon={<BellOutlined />} style={{ borderRadius: "50%" }} />
             </Badge>
           </Dropdown>
-          
+
           <Dropdown
             menu={{
               items: [
@@ -647,10 +668,10 @@ const DescriptionSection = ({ title, content }) => {
   const screens = useBreakpoint();
   return (
     <motion.div variants={fadeIn} initial="initial" animate="animate" style={{ marginBottom: 24 }}>
-      <div style={{ 
-        background: "#fafafa", 
-        padding: screens.md ? "24px" : "16px", 
-        borderRadius: "20px" 
+      <div style={{
+        background: "#fafafa",
+        padding: screens.md ? "24px" : "16px",
+        borderRadius: "20px"
       }}>
         {title && <Title level={4}><InfoCircleOutlined style={{ color: "#667eea" }} /> {title}</Title>}
         <Text type="secondary">{content}</Text>
@@ -693,7 +714,7 @@ const BulkDiscountManager = ({ tableName, records, onApplyDiscount, isHistorical
   const [confirmVisible, setConfirmVisible] = useState(false);
   const screens = useBreakpoint();
 
-  const currentTotal = useMemo(() => records.reduce((sum, item) => sum + (item.Rate || 0), 0), [records]);
+  const currentTotal = useMemo(() => records.reduce((sum, item) => sum + (item.Rate || item.rate || 0), 0), [records]);
   const discountedTotal = currentTotal * (1 - discountPercent / 100);
   const discountAmount = currentTotal - discountedTotal;
 
@@ -782,7 +803,7 @@ const BulkDiscountManager = ({ tableName, records, onApplyDiscount, isHistorical
   );
 };
 
-// ==================== DatabaseManager Component ====================
+// ==================== DatabaseManager Component (UPDATED for water_nozzles) ====================
 const DatabaseManager = ({ table, tables, tableSchema, records, loading, editingId, searchTerm, selectedRecords, isHistoricalView, isDateLocked, dashboardStats, onTableChange, onStartEdit, onSaveRecord, onDeleteRecord, onBulkDelete, onSearch, onSelectRecords, onExport, onCreateTable, onAddColumn, onDeleteColumn, onDeleteTable, onApplyBulkDiscount, bulkDiscountLoading }) => {
   const [form] = Form.useForm();
   const [newTableForm] = Form.useForm();
@@ -797,6 +818,57 @@ const DatabaseManager = ({ table, tables, tableSchema, records, loading, editing
   const hasDiaColumn = isPipingTable;
 
   const getColumnsForTable = useCallback(() => {
+    // ✅ WATER NOZZLES TABLE COLUMNS
+    if (table === "water_nozzles") {
+      return [
+        {
+          title: 'ID',
+          dataIndex: 'SlNo',
+          key: 'SlNo',
+          width: 70,
+          fixed: 'left',
+          align: 'center',
+          render: (t) => (
+            <Tag color="purple">
+              #{t}
+            </Tag>
+          )
+        },
+        {
+          title: 'NOZZLE TYPE',
+          dataIndex: 'nozzle_type',
+          key: 'nozzle_type',
+          width: 180,
+          render: (t) => (
+            <Tag color="blue">
+              {t}
+            </Tag>
+          )
+        },
+        {
+          title: 'DESCRIPTION',
+          dataIndex: 'description',
+          key: 'description',
+          ellipsis: true
+        },
+        {
+          title: 'RATE (₹)',
+          dataIndex: 'rate',
+          key: 'rate',
+          width: 160,
+          align: 'right',
+          render: (v) => (
+            <Text
+              strong
+              style={{ color: "#52c41a" }}
+            >
+              ₹{Number(v || 0).toLocaleString()}
+            </Text>
+          )
+        }
+      ];
+    }
+
     if (table === "excavation_rates") {
       return [
         { title: 'ID', dataIndex: 'SlNo', key: 'SlNo', width: 70, fixed: 'left', align: 'center', render: (t) => <Tag color="purple">#{t}</Tag> },
@@ -834,7 +906,7 @@ const DatabaseManager = ({ table, tables, tableSchema, records, loading, editing
           <Button type="link" icon={<EditOutlined />} onClick={() => onStartEdit(record)} disabled={isHistoricalView || isDateLocked} style={{ color: "#667eea" }} />
         </Tooltip>
         <Tooltip title="Delete">
-          <Popconfirm title="Delete?" onConfirm={() => onDeleteRecord(record.SlNo)}>
+          <Popconfirm title="Delete?" onConfirm={() => onDeleteRecord(record.SlNo || record.id)}>
             <Button type="link" danger icon={<DeleteOutlined />} disabled={isHistoricalView || isDateLocked} />
           </Popconfirm>
         </Tooltip>
@@ -843,12 +915,30 @@ const DatabaseManager = ({ table, tables, tableSchema, records, loading, editing
   };
 
   const allColumns = [...getColumnsForTable(), actionColumn];
-  const filteredRecords = useMemo(() => searchTerm ? records.filter(r => Object.values(r).some(v => String(v || '').toLowerCase().includes(searchTerm.toLowerCase()))) : records, [records, searchTerm]);
+  
+  // ✅ Search filter includes water_nozzles fields
+  const filteredRecords = useMemo(() => {
+    if (!searchTerm) return records;
+    return records.filter(r => {
+      if (table === "water_nozzles") {
+        return (
+          String(r.nozzle_type || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          String(r.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          String(r.rate || '').includes(searchTerm)
+        );
+      }
+      return Object.values(r).some(v => String(v || '').toLowerCase().includes(searchTerm.toLowerCase()));
+    });
+  }, [records, searchTerm, table]);
 
   useEffect(() => {
     if (editingId) {
-      const record = records.find(r => r.SlNo === editingId);
-      if (record && (MASTER_TABLES.includes(table) || table === "excavation_rates" || isPipingTable)) {
+      const record = records.find(r => (r.SlNo === editingId || r.id === editingId));
+      if (record && table === "water_nozzles") {
+        form.setFieldsValue({ nozzle_type: record.nozzle_type, description: record.description, rate: record.rate });
+      } else if (record && table === "excavation_rates") {
+        form.setFieldsValue({ Code: record.Code, Rate: record.Rate, Description: record.Description });
+      } else if (record && (MASTER_TABLES.includes(table) || isPipingTable)) {
         form.setFieldsValue({ Code: record.Code, Rate: record.Rate, Description: record.Description });
       } else if (record) {
         form.setFieldsValue(record);
@@ -858,7 +948,58 @@ const DatabaseManager = ({ table, tables, tableSchema, records, loading, editing
     }
   }, [editingId, records, form, table, isPipingTable]);
 
+  // ✅ Updated renderFormFields to handle water_nozzles
   const renderFormFields = () => {
+    // ✅ WATER NOZZLES FORM FIELDS
+    if (table === "water_nozzles") {
+      return (
+        <>
+          <Col span={12}>
+            <Form.Item
+              name="nozzle_type"
+              label="Nozzle Type"
+              rules={[{ required: true, message: "Nozzle type is required" }]}
+            >
+              <Input
+                placeholder="cascade / jet / foam / fan / bell / spray"
+                size="large"
+              />
+            </Form.Item>
+          </Col>
+
+          <Col span={12}>
+            <Form.Item
+              name="rate"
+              label="Rate (₹)"
+              rules={[{ required: true, message: "Rate is required" }]}
+            >
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0}
+                step={0.01}
+                formatter={v => `₹ ${v}`}
+                parser={v => v.replace(/₹\s?|(,*)/g, '')}
+                size="large"
+                placeholder="Rate in INR"
+              />
+            </Form.Item>
+          </Col>
+
+          <Col span={24}>
+            <Form.Item
+              name="description"
+              label="Description"
+            >
+              <TextArea
+                rows={3}
+                placeholder="Nozzle description (e.g., SS304 Jet Nozzle for water features)"
+              />
+            </Form.Item>
+          </Col>
+        </>
+      );
+    }
+
     if (table === "excavation_rates") {
       return (
         <>
@@ -899,8 +1040,8 @@ const DatabaseManager = ({ table, tables, tableSchema, records, loading, editing
     return tableSchema.columns?.filter(c => !['id', 'SlNo', 'display_slno'].includes(c.name)).map(col => (
       <Col xs={24} sm={12} key={col.name}>
         <Form.Item name={col.name} label={col.name.replace(/_/g, ' ').toUpperCase()}>
-          {col.type?.includes('INT') || col.type?.includes('FLOAT') || col.name?.includes('rate') ? 
-            <InputNumber style={{ width: '100%' }} min={0} step={0.01} size="large" /> : 
+          {col.type?.includes('INT') || col.type?.includes('FLOAT') || col.name?.includes('rate') ?
+            <InputNumber style={{ width: '100%' }} min={0} step={0.01} size="large" /> :
             <Input size="large" />}
         </Form.Item>
       </Col>
@@ -924,7 +1065,7 @@ const DatabaseManager = ({ table, tables, tableSchema, records, loading, editing
       {DISCOUNT_ENABLED_TABLES.includes(table) && records.length > 0 && (
         <BulkDiscountManager tableName={table} records={records} onApplyDiscount={(p) => onApplyBulkDiscount(table, p)} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} loading={bulkDiscountLoading} />
       )}
-      
+
       <AnimatedCard
         title={<Space><DatabaseOutlined style={{ color: "#667eea" }} />Database Explorer</Space>}
         extra={
@@ -946,7 +1087,9 @@ const DatabaseManager = ({ table, tables, tableSchema, records, loading, editing
               suffixIcon={<TableOutlined />}
             >
               {tables.filter(t => !['mep_rates', 'jacuzzi_spa_mep_master', 'waterbody_mep_items'].includes(t)).map(tn => (
-                <Option key={tn} value={tn}>{tn.replace(/_/g, " ").toUpperCase()}</Option>
+                <Select.Option key={tn} value={tn}>
+                  {tn === "water_nozzles" ? "🌊 " : ""}{tn.replace(/_/g, " ").toUpperCase()}
+                </Select.Option>
               ))}
             </Select>
           </Col>
@@ -1021,7 +1164,7 @@ const DatabaseManager = ({ table, tables, tableSchema, records, loading, editing
                 {fields.map(({ key, name }) => (
                   <Row key={key} gutter={8} align="middle">
                     <Col span={10}><Form.Item name={[name, 'name']} label="Name" rules={[{ required: true }]}><Input /></Form.Item></Col>
-                    <Col span={12}><Form.Item name={[name, 'type']} label="Type" rules={[{ required: true }]}><Select><Option value="VARCHAR(255)">Text</Option><Option value="INT">Integer</Option><Option value="FLOAT">Float</Option><Option value="DECIMAL(10,2)">Decimal</Option></Select></Form.Item></Col>
+                    <Col span={12}><Form.Item name={[name, 'type']} label="Type" rules={[{ required: true }]}><Select><Select.Option value="VARCHAR(255)">Text</Select.Option><Select.Option value="INT">Integer</Select.Option><Select.Option value="FLOAT">Float</Select.Option><Select.Option value="DECIMAL(10,2)">Decimal</Select.Option></Select></Form.Item></Col>
                     <Col span={2}><Button onClick={() => remove(name)} icon={<DeleteOutlined />} danger /></Col>
                   </Row>
                 ))}
@@ -1039,36 +1182,36 @@ const DatabaseManager = ({ table, tables, tableSchema, records, loading, editing
           </Form.Item>
           <Form.Item name="type" label="Data Type" rules={[{ required: true }]}>
             <Select size="large">
-              <Option value="VARCHAR(255)">Text (VARCHAR)</Option>
-              <Option value="INT">Integer</Option>
-              <Option value="FLOAT">Float</Option>
-              <Option value="DECIMAL(10,2)">Decimal</Option>
-              <Option value="DATE">Date</Option>
-              <Option value="TEXT">Long Text</Option>
+              <Select.Option value="VARCHAR(255)">Text (VARCHAR)</Select.Option>
+              <Select.Option value="INT">Integer</Select.Option>
+              <Select.Option value="FLOAT">Float</Select.Option>
+              <Select.Option value="DECIMAL(10,2)">Decimal</Select.Option>
+              <Select.Option value="DATE">Date</Select.Option>
+              <Select.Option value="TEXT">Long Text</Select.Option>
             </Select>
           </Form.Item>
         </Form>
       </Modal>
 
-      <Modal title="Delete Column" open={deleteColumnModal} onCancel={() => setDeleteColumnModal(false)} footer={[<Button key="cancel" onClick={() => setDeleteColumnModal(false)}>Cancel</Button>,<Button key="delete" danger onClick={() => { const col = newColumnForm.getFieldValue('column'); if (col) { onDeleteColumn(col); setDeleteColumnModal(false); } }}>Delete</Button>]} centered>
+      <Modal title="Delete Column" open={deleteColumnModal} onCancel={() => setDeleteColumnModal(false)} footer={[<Button key="cancel" onClick={() => setDeleteColumnModal(false)}>Cancel</Button>, <Button key="delete" danger onClick={() => { const col = newColumnForm.getFieldValue('column'); if (col) { onDeleteColumn(col); setDeleteColumnModal(false); } }}>Delete</Button>]} centered>
         <Form form={newColumnForm}>
           <Form.Item name="column" label="Select Column" rules={[{ required: true }]}>
             <Select size="large">
-              {tableSchema.columns?.filter(c => !['id', 'SlNo', 'display_slno'].includes(c.name)).map(c => (<Option key={c.name} value={c.name}>{c.name} ({c.type})</Option>))}
+              {tableSchema.columns?.filter(c => !['id', 'SlNo', 'display_slno'].includes(c.name)).map(c => (<Select.Option key={c.name} value={c.name}>{c.name} ({c.type})</Select.Option>))}
             </Select>
           </Form.Item>
         </Form>
       </Modal>
 
-      <Modal title="Delete Entire Table" open={deleteTableModal} onCancel={() => setDeleteTableModal(false)} footer={[<Button key="cancel" onClick={() => setDeleteTableModal(false)}>Cancel</Button>,<Button key="delete" danger onClick={onDeleteTable}>Delete Permanently</Button>]} centered>
+      <Modal title="Delete Entire Table" open={deleteTableModal} onCancel={() => setDeleteTableModal(false)} footer={[<Button key="cancel" onClick={() => setDeleteTableModal(false)}>Cancel</Button>, <Button key="delete" danger onClick={onDeleteTable}>Delete Permanently</Button>]} centered>
         <Alert message={`Delete table "${table}"?`} description="This action cannot be undone. All data will be permanently lost." type="error" showIcon />
       </Modal>
     </div>
   );
 };
 
-// ==================== Dashboard Overview Component ====================
-const DashboardOverview = ({ stats, availableTables, mepRates, jacuzziSpaRecords, waterbodyRecords, excavationRates, loading }) => {
+// ==================== Dashboard Overview Component (UPDATED with water nozzles card) ====================
+const DashboardOverview = ({ stats, availableTables, mepRates, jacuzziSpaRecords, waterbodyRecords, excavationRates, waterNozzles, loading }) => {
   const screens = useBreakpoint();
   const chartData = useMemo(() => ({
     tables: availableTables.length,
@@ -1077,15 +1220,16 @@ const DashboardOverview = ({ stats, availableTables, mepRates, jacuzziSpaRecords
     excavation: excavationRates?.length || 0,
     jacuzzi: jacuzziSpaRecords.length,
     waterbody: waterbodyRecords.length,
+    nozzles: waterNozzles?.length || 0,
     value: stats.totalValue || 0
-  }), [availableTables, stats, mepRates, excavationRates, jacuzziSpaRecords, waterbodyRecords]);
+  }), [availableTables, stats, mepRates, excavationRates, jacuzziSpaRecords, waterbodyRecords, waterNozzles]);
 
   return (
     <div>
       <motion.div variants={fadeIn} initial="initial" animate="animate">
-        <div style={{ 
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", 
-          borderRadius: "24px", 
+        <div style={{
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          borderRadius: "24px",
           padding: screens.md ? "40px" : "24px",
           marginBottom: "32px",
           color: "white",
@@ -1123,6 +1267,10 @@ const DashboardOverview = ({ stats, availableTables, mepRates, jacuzziSpaRecords
         </Col>
         <Col xs={12} sm={12} md={8} lg={4}>
           <AnimatedStatCard title="Jacuzzi" value={chartData.jacuzzi} icon={<DashboardOutlined />} color="#eb2f96" />
+        </Col>
+        {/* ✅ WATER NOZZLES CARD */}
+        <Col xs={12} sm={12} md={8} lg={4}>
+          <AnimatedStatCard title="Nozzles" value={chartData.nozzles} icon={<ExperimentOutlined />} color="#13c2c2" />
         </Col>
         <Col xs={12} sm={12} md={8} lg={4}>
           <AnimatedStatCard title="Total Value" value={chartData.value} icon={<WalletOutlined />} color="#13c2c2" prefix="₹" />
@@ -1176,16 +1324,16 @@ const DashboardOverview = ({ stats, availableTables, mepRates, jacuzziSpaRecords
           </AnimatedCard>
         </Col>
       </Row>
-      
+
       <Row style={{ marginTop: 24 }}>
         <Col span={24}>
           <AnimatedCard title="Recent Activity">
             <Timeline
               items={[
-                { color: "green", children: <><strong>System Update</strong><br />New features deployed</>, time: "2 min ago" },
-                { color: "blue", children: <><strong>Rate Update</strong><br />MEP rates were modified</>, time: "1 hour ago" },
-                { color: "orange", children: <><strong>Backup Completed</strong><br />Database backup successful</>, time: "3 hours ago" },
-                { color: "purple", children: <><strong>User Login</strong><br />Admin logged in from new device</>, time: "5 hours ago" },
+                { color: "green", children: <><strong>System Update</strong><br />New features deployed</> },
+                { color: "blue", children: <><strong>Rate Update</strong><br />MEP rates were modified</> },
+                { color: "orange", children: <><strong>Backup Completed</strong><br />Database backup successful</> },
+                { color: "purple", children: <><strong>User Login</strong><br />Admin logged in from new device</> },
               ]}
             />
           </AnimatedCard>
@@ -1195,7 +1343,7 @@ const DashboardOverview = ({ stats, availableTables, mepRates, jacuzziSpaRecords
   );
 };
 
-// ==================== TenantProfileManager Component ====================
+// ==================== TenantProfileManager Component (UPDATED with SECURE READONLY FIELDS) ====================
 const TenantProfileManager = ({ tenantProfile, loading, isHistoricalView, isDateLocked, onProfileUpdateSuccess }) => {
   const [form] = Form.useForm();
   const [logoFile, setLogoFile] = useState(null);
@@ -1209,7 +1357,8 @@ const TenantProfileManager = ({ tenantProfile, loading, isHistoricalView, isDate
     if (tenantProfile) {
       form.setFieldsValue({
         company_name: tenantProfile.company_name || '',
-        director_name: tenantProfile.director_name || '',
+        owner_name: tenantProfile.owner_name || '',
+        company_code: tenantProfile.company_code || '',
         gst_number: tenantProfile.gst_number || '',
         address: tenantProfile.address || '',
         phone: tenantProfile.phone || '',
@@ -1226,20 +1375,43 @@ const TenantProfileManager = ({ tenantProfile, loading, isHistoricalView, isDate
     setSaving(true);
     try {
       const formData = new FormData();
-      Object.keys(values).forEach(key => formData.append(key, values[key]));
+      Object.keys(values).forEach(key => {
+        // ✅ ONLY include allowed editable fields (company_name, owner_name, company_code are protected)
+        if (key !== 'company_name' && key !== 'owner_name' && key !== 'company_code') {
+          if (values[key] !== undefined && values[key] !== null) {
+            formData.append(key, values[key]);
+          }
+        }
+      });
       if (logoFile) formData.append('logo', logoFile);
       if (stampFile) formData.append('stamp', stampFile);
       const data = await apiRequestFormData('/admin/tenant/profile', formData, "PUT");
       message.success("Profile updated successfully!");
       if (data?.data) onProfileUpdateSuccess(data.data);
-    } catch (error) { message.error(error.message || "Update failed"); } 
+    } catch (error) { message.error(error.message || "Update failed"); }
     finally { setSaving(false); }
   };
 
   return (
     <div>
       <DescriptionSection title="Company Profile" content="Manage your company information, logo, and stamp used in quotations." />
-      
+
+      {/* 🔒 SECURITY HEADER - Protected Company Identity */}
+      <div className="protected-identity-header" style={{
+        background: "linear-gradient(135deg, #f8fbff, #eef5ff)",
+        border: "1px solid #dbe8ff",
+        padding: "18px",
+        borderRadius: "14px",
+        marginBottom: "20px"
+      }}>
+        <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#1f3c88" }}>
+          🔒 Protected Company Identity
+        </h3>
+        <p style={{ marginTop: "6px", color: "#5f6b7a", fontSize: "13px" }}>
+          These details are controlled only by Super Admin for security and quotation authenticity.
+        </p>
+      </div>
+
       <AnimatedCard
         title={<Space><HomeOutlined style={{ color: "#667eea" }} />Company Information</Space>}
         loading={loading}
@@ -1289,13 +1461,114 @@ const TenantProfileManager = ({ tenantProfile, loading, isHistoricalView, isDate
           </Row>
 
           <Row gutter={[24, 16]} style={{ marginTop: 24 }}>
-            <Col xs={24} md={12}><Form.Item name="company_name" label="Company Name" rules={[{ required: true }]}><Input placeholder="Company Name" size="large" prefix={<HomeOutlined />} /></Form.Item></Col>
-            <Col xs={24} md={12}><Form.Item name="director_name" label="Director Name"><Input placeholder="Director Name" size="large" prefix={<UserOutlined />} /></Form.Item></Col>
-            <Col xs={24} md={12}><Form.Item name="gst_number" label="GST Number" rules={[{ required: true }]}><Input placeholder="GST Number" size="large" prefix={<IdcardOutlined />} /></Form.Item></Col>
-            <Col xs={24} md={12}><Form.Item name="phone" label="Phone" rules={[{ required: true }]}><Input placeholder="Phone" size="large" prefix={<PhoneOutlined />} /></Form.Item></Col>
-            <Col xs={24}><Form.Item name="email" label="Email" rules={[{ type: 'email', required: true }]}><Input placeholder="Email" size="large" prefix={<MailOutlined />} /></Form.Item></Col>
-            <Col xs={24}><Form.Item name="website" label="Website"><Input placeholder="Website" size="large" prefix={<GlobalOutlined />} /></Form.Item></Col>
-            <Col xs={24}><Form.Item name="address" label="Address" rules={[{ required: true }]}><TextArea rows={3} placeholder="Address" size="large" /></Form.Item></Col>
+            {/* 🔒 COMPANY NAME - READONLY */}
+            <Col xs={24} md={12}>
+              <div className="protected-field-wrapper" style={{ marginBottom: "18px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: 500 }}>Company Name</label>
+                <div className="protected-input-container" style={{ position: "relative" }}>
+                  <Input
+                    name="company_name"
+                    value={tenantProfile?.company_name || ''}
+                    disabled={true}
+                    className="protected-identity-input"
+                    style={{
+                      background: "#f5f7fa !important",
+                      color: "#555 !important",
+                      cursor: "not-allowed !important",
+                      border: "1px solid #d9e2f2 !important",
+                      paddingRight: "40px"
+                    }}
+                  />
+                  <span className="protected-lock-icon" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", fontSize: "16px", opacity: 0.75 }}>🔒</span>
+                </div>
+                <p className="protected-field-note" style={{ marginTop: "5px", fontSize: "12px", color: "#7b8794" }}>
+                  Only Super Admin can modify company identity.
+                </p>
+              </div>
+            </Col>
+
+            {/* 🔒 COMPANY CODE - READONLY */}
+            <Col xs={24} md={12}>
+              <div className="protected-field-wrapper" style={{ marginBottom: "18px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: 500 }}>Company Code</label>
+                <div className="protected-input-container" style={{ position: "relative" }}>
+                  <Input
+                    name="company_code"
+                    value={tenantProfile?.company_code || ''}
+                    disabled={true}
+                    className="protected-identity-input"
+                    style={{
+                      background: "#f5f7fa !important",
+                      color: "#555 !important",
+                      cursor: "not-allowed !important",
+                      border: "1px solid #d9e2f2 !important",
+                      paddingRight: "40px"
+                    }}
+                  />
+                  <span className="protected-lock-icon" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", fontSize: "16px", opacity: 0.75 }}>🔒</span>
+                </div>
+                <p className="protected-field-note" style={{ marginTop: "5px", fontSize: "12px", color: "#7b8794" }}>
+                  Permanent tenant identity code.
+                </p>
+              </div>
+            </Col>
+
+            {/* 🔒 DIRECTOR NAME - READONLY */}
+            <Col xs={24} md={12}>
+              <div className="protected-field-wrapper" style={{ marginBottom: "18px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: 500 }}>Director / Owner Name</label>
+                <div className="protected-input-container" style={{ position: "relative" }}>
+                  <Input
+                    name="owner_name"
+                    value={tenantProfile?.owner_name || ''}
+                    disabled={true}
+                    className="protected-identity-input"
+                    style={{
+                      background: "#f5f7fa !important",
+                      color: "#555 !important",
+                      cursor: "not-allowed !important",
+                      border: "1px solid #d9e2f2 !important",
+                      paddingRight: "40px"
+                    }}
+                  />
+                  <span className="protected-lock-icon" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", fontSize: "16px", opacity: 0.75 }}>🔒</span>
+                </div>
+                <p className="protected-field-note" style={{ marginTop: "5px", fontSize: "12px", color: "#7b8794" }}>
+                  Managed securely by Super Admin.
+                </p>
+              </div>
+            </Col>
+
+            {/* ✅ EDITABLE FIELDS - These can be updated by tenant admin */}
+            <Col xs={24} md={12}>
+              <Form.Item name="gst_number" label="GST Number" rules={[{ required: true }]}>
+                <Input placeholder="GST Number" size="large" prefix={<IdcardOutlined />} />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <Form.Item name="phone" label="Phone" rules={[{ required: true }]}>
+                <Input placeholder="Phone" size="large" prefix={<PhoneOutlined />} />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24}>
+              <Form.Item name="email" label="Email" rules={[{ type: 'email', required: true }]}>
+                <Input placeholder="Email" size="large" prefix={<MailOutlined />} />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24}>
+              <Form.Item name="website" label="Website">
+                <Input placeholder="Website" size="large" prefix={<GlobalOutlined />} />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24}>
+              <Form.Item name="address" label="Address" rules={[{ required: true }]}>
+                <TextArea rows={3} placeholder="Address" size="large" />
+              </Form.Item>
+            </Col>
           </Row>
 
           <Form.Item style={{ marginTop: 24, textAlign: "right" }}>
@@ -1331,24 +1604,16 @@ const MEPRatesManager = ({ data, loading, isHistoricalView, isDateLocked, onRefr
   const filteredData = useMemo(() => searchTerm ? data.filter(i => Object.values(i).some(v => String(v || '').toLowerCase().includes(searchTerm.toLowerCase()))) : data, [data, searchTerm]);
 
   const handleSubmit = async (values) => {
-    if (editingId) {
-      await onUpdate(editingId, values);
-    } else {
-      await onCreate(values);
-    }
-    setModalVisible(false);
-    setEditingId(null);
-    form.resetFields();
+    if (editingId) { await onUpdate(editingId, values); } else { await onCreate(values); }
+    setModalVisible(false); setEditingId(null); form.resetFields();
   };
 
   return (
     <div>
       <DescriptionSection title="MEP Rates Management" content="Manage Mechanical, Electrical, and Plumbing rates for filters and pumps." />
-      
       {data.length > 0 && (
         <BulkDiscountManager tableName="mep_rates" records={data} onApplyDiscount={(p) => onApplyBulkDiscount('mep_rates', p)} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} loading={bulkDiscountLoading} />
       )}
-      
       <AnimatedCard
         title={<Space><SettingOutlined style={{ color: "#667eea" }} />MEP Rates</Space>}
         extra={
@@ -1361,7 +1626,6 @@ const MEPRatesManager = ({ data, loading, isHistoricalView, isDateLocked, onRefr
       >
         <ReusableTable data={filteredData} columns={columns} loading={loading} rowKey="SlNo" pagination={{ pageSize: screens.md ? 10 : 5 }} />
       </AnimatedCard>
-
       <Modal title={editingId ? "Edit MEP Rate" : "Add MEP Rate"} open={modalVisible} onCancel={() => { setModalVisible(false); setEditingId(null); form.resetFields(); }} onOk={() => form.submit()} width={screens.md ? 700 : '95%'} centered>
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Row gutter={24}>
@@ -1395,24 +1659,16 @@ const JacuzziManager = ({ data, loading, isHistoricalView, isDateLocked, onRefre
   const filteredData = useMemo(() => searchTerm ? data.filter(i => Object.values(i).some(v => String(v || '').toLowerCase().includes(searchTerm.toLowerCase()))) : data, [data, searchTerm]);
 
   const handleSubmit = async (values) => {
-    if (editingId) {
-      await onUpdate(editingId, values);
-    } else {
-      await onCreate(values);
-    }
-    setModalVisible(false);
-    setEditingId(null);
-    form.resetFields();
+    if (editingId) { await onUpdate(editingId, values); } else { await onCreate(values); }
+    setModalVisible(false); setEditingId(null); form.resetFields();
   };
 
   return (
     <div>
       <DescriptionSection title="Jacuzzi Spa Management" content="Manage Jacuzzi and spa-related components and their rates." />
-      
       {data.length > 0 && (
         <BulkDiscountManager tableName="jacuzzi_spa_mep_master" records={data} onApplyDiscount={(p) => onApplyBulkDiscount('jacuzzi_spa_mep_master', p)} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} loading={bulkDiscountLoading} />
       )}
-      
       <AnimatedCard
         title={<Space><DashboardOutlined style={{ color: "#667eea" }} />Jacuzzi Spa Components</Space>}
         extra={
@@ -1425,7 +1681,6 @@ const JacuzziManager = ({ data, loading, isHistoricalView, isDateLocked, onRefre
       >
         <ReusableTable data={filteredData} columns={columns} loading={loading} rowKey="SlNo" pagination={{ pageSize: screens.md ? 10 : 5 }} />
       </AnimatedCard>
-
       <Modal title={editingId ? "Edit Item" : "Add Item"} open={modalVisible} onCancel={() => { setModalVisible(false); setEditingId(null); form.resetFields(); }} onOk={() => form.submit()} centered>
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item name="Code" label="Code" rules={[{ required: true }]}><Input placeholder="Item Code" size="large" /></Form.Item>
@@ -1455,24 +1710,16 @@ const WaterbodyManager = ({ data, loading, isHistoricalView, isDateLocked, onRef
   const filteredData = useMemo(() => searchTerm ? data.filter(i => Object.values(i).some(v => String(v || '').toLowerCase().includes(searchTerm.toLowerCase()))) : data, [data, searchTerm]);
 
   const handleSubmit = async (values) => {
-    if (editingId) {
-      await onUpdate(editingId, values);
-    } else {
-      await onCreate(values);
-    }
-    setModalVisible(false);
-    setEditingId(null);
-    form.resetFields();
+    if (editingId) { await onUpdate(editingId, values); } else { await onCreate(values); }
+    setModalVisible(false); setEditingId(null); form.resetFields();
   };
 
   return (
     <div>
       <DescriptionSection title="Waterbody MEP Management" content="Manage waterbody-related mechanical, electrical, and plumbing components." />
-      
       {data.length > 0 && (
         <BulkDiscountManager tableName="waterbody_mep_items" records={data} onApplyDiscount={(p) => onApplyBulkDiscount('waterbody_mep_items', p)} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} loading={bulkDiscountLoading} />
       )}
-      
       <AnimatedCard
         title={<Space><AppstoreOutlined style={{ color: "#667eea" }} />Waterbody MEP Items</Space>}
         extra={
@@ -1485,7 +1732,6 @@ const WaterbodyManager = ({ data, loading, isHistoricalView, isDateLocked, onRef
       >
         <ReusableTable data={filteredData} columns={columns} loading={loading} rowKey="SlNo" pagination={{ pageSize: screens.md ? 10 : 5 }} />
       </AnimatedCard>
-
       <Modal title={editingId ? "Edit Item" : "Add Item"} open={modalVisible} onCancel={() => { setModalVisible(false); setEditingId(null); form.resetFields(); }} onOk={() => form.submit()} centered>
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item name="Code" label="Code" rules={[{ required: true }]}><Input placeholder="Item Code" size="large" /></Form.Item>
@@ -1518,7 +1764,6 @@ const ProjectsManager = ({ projects, loading, onDeleteProject, onRefresh }) => {
   return (
     <div>
       <DescriptionSection title="Client Projects Management" content="View and manage all client projects saved from the calculator." />
-      
       <AnimatedCard
         title={<Space><FolderOpenOutlined style={{ color: "#667eea" }} />Client Projects</Space>}
         extra={
@@ -1531,7 +1776,7 @@ const ProjectsManager = ({ projects, loading, onDeleteProject, onRefresh }) => {
         <ReusableTable data={filteredProjects} columns={columns} loading={loading} rowKey="id" pagination={{ pageSize: screens.md ? 10 : 5 }} />
       </AnimatedCard>
 
-      <Modal open={viewOpen} onCancel={() => setViewOpen(false)} footer={[<Button key="close" onClick={() => setViewOpen(false)}>Close</Button>,<Button danger onClick={() => { if (selectedProject) { onDeleteProject(selectedProject.id); setViewOpen(false); } }}>Delete</Button>]} width={screens.md ? 900 : '95%'} title="Project Details" centered>
+      <Modal open={viewOpen} onCancel={() => setViewOpen(false)} footer={[<Button key="close" onClick={() => setViewOpen(false)}>Close</Button>, <Button danger key="delete" onClick={() => { if (selectedProject) { onDeleteProject(selectedProject.id); setViewOpen(false); } }}>Delete</Button>]} width={screens.md ? 900 : '95%'} title="Project Details" centered>
         {selectedProject && (
           <div>
             <Descriptions title="Client Details" column={screens.md ? 2 : 1} bordered>
@@ -1583,14 +1828,13 @@ const PaymentsManager = ({ payments, loading, onRefresh }) => {
     { title: 'Amount (₹)', dataIndex: 'amount', key: 'amount', width: 120, align: 'right', render: (v) => <Text strong style={{ color: "#52c41a" }}>₹{v?.toLocaleString()}</Text> },
     { title: 'Method', dataIndex: 'payment_method', key: 'payment_method', width: 100, render: (t) => <Tag color="blue">{t}</Tag> },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 100, render: (s) => <Tag color={s === 'success' ? 'green' : 'orange'}>{s.toUpperCase()}</Tag> },
-    { title: 'Date', dataIndex: 'paid_at', key: 'paid_at', width: 180, render: (d) => dayjs(d).format('DD/MM/YYYY HH:mm') },
+    { title: 'Date', dataIndex: 'paid_at', key: 'paid_at', width: 180, render: (d) => d ? dayjs(d).format('DD/MM/YYYY HH:mm') : '-' },
     { title: 'Receipt', key: 'receipt', width: 100, render: (_, r) => r.status === "success" && <Button type="link" icon={<DownloadOutlined />} onClick={() => downloadReceipt(r.id)}>Get</Button> }
   ];
 
   return (
     <div>
       <DescriptionSection title="Payment History" content="View all payment transactions and download receipts for successful payments." />
-      
       <AnimatedCard
         title={<Space><CreditCardOutlined style={{ color: "#667eea" }} />Payment Transactions</Space>}
         extra={<Button icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>Refresh</Button>}
@@ -1617,24 +1861,16 @@ const ExcavationManager = ({ data, loading, onRefresh, onCreate, onUpdate, onDel
   ];
 
   const handleSubmit = async (values) => {
-    if (editingId) {
-      await onUpdate(editingId, values);
-    } else {
-      await onCreate(values);
-    }
-    setModalVisible(false);
-    setEditingId(null);
-    form.resetFields();
+    if (editingId) { await onUpdate(editingId, values); } else { await onCreate(values); }
+    setModalVisible(false); setEditingId(null); form.resetFields();
   };
 
   return (
     <div>
       <DescriptionSection title="Excavation Rates Management" content="Manage excavation rates for different depth ranges. Code 1.1 = up to 1.5m, Code 1.2 = 1.5m to 3m." />
-      
       {data.length > 0 && (
         <BulkDiscountManager tableName="excavation_rates" records={data} onApplyDiscount={(p) => onApplyBulkDiscount('excavation_rates', p)} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} loading={bulkDiscountLoading} />
       )}
-      
       <AnimatedCard
         title={<Space><ToolOutlined style={{ color: "#667eea" }} />Excavation Rates</Space>}
         extra={
@@ -1646,7 +1882,6 @@ const ExcavationManager = ({ data, loading, onRefresh, onCreate, onUpdate, onDel
       >
         <ReusableTable data={data} columns={columns} loading={loading} rowKey="id" pagination={{ pageSize: screens.md ? 10 : 5 }} />
       </AnimatedCard>
-
       <Modal title={editingId ? "Edit Excavation Rate" : "Add Excavation Rate"} open={modalVisible} onCancel={() => { setModalVisible(false); setEditingId(null); form.resetFields(); }} onOk={() => form.submit()} centered>
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item name="Code" label="Code" rules={[{ required: true }]}><Input placeholder="1.1 / 1.2" size="large" /></Form.Item>
@@ -1658,14 +1893,14 @@ const ExcavationManager = ({ data, loading, onRefresh, onCreate, onUpdate, onDel
   );
 };
 
-// ==================== Main AdminDashboard Component ====================
+// ==================== Main AdminDashboard Component (UPDATED for water_nozzles) ====================
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const screens = useBreakpoint();
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  
+
   // Core state
   const [table, setTable] = useState("main_pool");
   const [records, setRecords] = useState([]);
@@ -1695,6 +1930,9 @@ export default function AdminDashboard() {
   const [waterbodySearchTerm, setWaterbodySearchTerm] = useState("");
   const [excavationRates, setExcavationRates] = useState([]);
   const [excavationLoading, setExcavationLoading] = useState(false);
+  // ✅ NEW: Water Nozzles state
+  const [waterNozzles, setWaterNozzles] = useState([]);
+  const [waterNozzlesLoading, setWaterNozzlesLoading] = useState(false);
   const [tenantProfile, setTenantProfile] = useState(null);
   const [tenantProfileLoading, setTenantProfileLoading] = useState(false);
   const [projects, setProjects] = useState([]);
@@ -1706,8 +1944,12 @@ export default function AdminDashboard() {
   const apiRequestLocal = async (url, method = "GET", body = null) => {
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
     if (!token) throw new Error("No token");
-    const res = await fetch(`${API_BASE_URL}${url}`, { method, headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
-    if (res.status === 401) { 
+    const res = await fetch(`${API_BASE_URL}${url}`, {
+      method,
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (res.status === 401) {
       localStorage.removeItem(AUTH_TOKEN_KEY);
       localStorage.removeItem(USER_DATA_KEY);
       localStorage.removeItem(TENANT_INFO_KEY);
@@ -1718,37 +1960,239 @@ export default function AdminDashboard() {
     return res.json();
   };
 
-  // Fetch Functions
-  const fetchExcavationRates = useCallback(async () => {
-    try { setExcavationLoading(true); const data = await apiRequestLocal("/admin/excavation-rates", "GET"); setExcavationRates((data || []).map(r => ({ id: r.id, SlNo: r.id, Code: r.code, Description: r.description || "", Rate: r.rate || 0 }))); } catch (err) { console.error(err); setExcavationRates([]); } finally { setExcavationLoading(false); }
+  // ==================== Fetch Functions ====================
+
+  // ✅ NEW: Fetch Water Nozzles
+  const fetchWaterNozzles = useCallback(async () => {
+    try {
+      setWaterNozzlesLoading(true);
+      const response = await apiRequestLocal(WATER_NOZZLES_ENDPOINT, "GET");
+      const normalized = (response || []).map((r) => ({
+        SlNo: r.display_slno || r.id,
+        id: r.id,
+        nozzle_type: r.nozzle_type || "",
+        description: r.description || "",
+        rate: parseFloat(r.rate || 0)
+      }));
+      setWaterNozzles(normalized);
+      console.log("✅ Water nozzles loaded:", normalized.length);
+    } catch (err) {
+      console.error("❌ Failed to fetch water nozzles:", err);
+      message.error("Failed to load water nozzles");
+      setWaterNozzles([]);
+    } finally {
+      setWaterNozzlesLoading(false);
+    }
   }, []);
-  
-  const createExcavationRate = async (values) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal("/admin/excavation-rates", "POST", { code: values.Code, description: values.Description, rate: values.Rate }); message.success("Excavation rate created!"); fetchExcavationRates(); } catch (err) { message.error(err.message); } };
-  const updateExcavationRate = async (id, values) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal(`/admin/excavation-rates/${id}`, "PUT", { code: values.Code, description: values.Description, rate: values.Rate }); message.success("Excavation rate updated!"); fetchExcavationRates(); } catch (err) { message.error(err.message); } };
-  const deleteExcavationRate = async (id) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal(`/admin/excavation-rates/${id}`, "DELETE"); message.success("Excavation rate deleted!"); fetchExcavationRates(); } catch (err) { message.error(err.message); } };
-  
-  const fetchProjects = useCallback(async () => { try { setProjectsLoading(true); const data = await apiRequestLocal("/admin/projects", "GET"); setProjects(data || []); } catch (err) { message.error(err.message); } finally { setProjectsLoading(false); } }, []);
-  const handleDeleteProject = async (id) => { try { await apiRequestLocal(`/admin/projects/${id}`, "DELETE"); message.success("Project deleted!"); fetchProjects(); } catch (err) { message.error(err.message); } };
-  const fetchPayments = useCallback(async () => { try { setPaymentsLoading(true); const data = await apiRequestLocal("/admin/payments", "GET"); setPayments(data || []); } catch (err) { message.error(err.message); } finally { setPaymentsLoading(false); } }, []);
-  const fetchTenantProfile = useCallback(async () => { try { setTenantProfileLoading(true); const data = await apiRequestLocal('/admin/tenant/profile', 'GET'); if (data?.data) setTenantProfile(data.data); } catch (err) { console.error(err); } finally { setTenantProfileLoading(false); } }, []);
-  
-  const fetchMepRates = useCallback(async () => { try { setMepLoading(true); const data = await apiRequestLocal('/admin/mep_rates', 'GET'); setMepRates((data || []).map(i => ({ SlNo: i.SlNo, filter_rate: i.filter_rate || 0, pump_rate: i.pump_rate || 0, filter_dia: i.filter_dia || 0, hp: i.hp || 0 }))); } catch (err) { message.error(err.message); } finally { setMepLoading(false); } }, []);
-  const createMepRate = async (v) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal('/admin/mep_rates', 'POST', v); message.success("MEP rate created!"); fetchMepRates(); } catch (err) { message.error(err.message); } };
-  const updateMepRate = async (id, v) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal(`/admin/mep_rates/${id}`, 'PUT', { filter_rate: v.filter_rate, pump_rate: v.pump_rate }); message.success("MEP rate updated!"); fetchMepRates(); } catch (err) { message.error(err.message); } };
-  const deleteMepRate = async (id) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal(`/admin/mep_rates/${id}`, 'DELETE'); message.success("MEP rate deleted!"); fetchMepRates(); } catch (err) { message.error(err.message); } };
-  
-  const fetchJacuzziSpaRecords = useCallback(async () => { try { setJacuzziLoading(true); const data = await apiRequestLocal(`/admin/jacuzzi_spa_mep_master?effective_date=${effectiveDate}`, 'GET'); setJacuzziSpaRecords((data || []).map(normalizeRow)); } catch (err) { message.error(err.message); } finally { setJacuzziLoading(false); } }, [effectiveDate]);
-  const createJacuzziRecord = async (v) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal('/admin/jacuzzi_spa_mep_master', 'POST', v); message.success("Jacuzzi record created!"); fetchJacuzziSpaRecords(); } catch (err) { message.error(err.message); } };
-  const updateJacuzziRecord = async (id, v) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal(`/admin/jacuzzi_spa_mep_master/${id}`, 'PUT', v); message.success("Jacuzzi record updated!"); fetchJacuzziSpaRecords(); } catch (err) { message.error(err.message); } };
-  const deleteJacuzziRecord = async (id) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal(`/admin/jacuzzi_spa_mep_master/${id}`, 'DELETE'); message.success("Jacuzzi record deleted!"); fetchJacuzziSpaRecords(); } catch (err) { message.error(err.message); } };
-  
-  const fetchWaterbodyRecords = useCallback(async () => { try { setWaterbodyLoading(true); const data = await apiRequestLocal(`/admin/waterbody_mep_items?effective_date=${effectiveDate}`, 'GET'); setWaterbodyRecords((data || []).map(normalizeRow)); } catch (err) { message.error(err.message); } finally { setWaterbodyLoading(false); } }, [effectiveDate]);
-  const createWaterbodyRecord = async (v) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal('/admin/waterbody_mep_items', 'POST', v); message.success("Waterbody record created!"); fetchWaterbodyRecords(); } catch (err) { message.error(err.message); } };
-  const updateWaterbodyRecord = async (id, v) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal(`/admin/waterbody_mep_items/${id}`, 'PUT', v); message.success("Waterbody record updated!"); fetchWaterbodyRecords(); } catch (err) { message.error(err.message); } };
-  const deleteWaterbodyRecord = async (id) => { if (isHistoricalView || isDateLocked) return; try { await apiRequestLocal(`/admin/waterbody_mep_items/${id}`, 'DELETE'); message.success("Waterbody record deleted!"); fetchWaterbodyRecords(); } catch (err) { message.error(err.message); } };
-  
+
+  // ✅ NEW: Create Water Nozzle
+  const createWaterNozzle = async (values) => {
+    if (isHistoricalView || isDateLocked) return;
+    try {
+      await apiRequestLocal(WATER_NOZZLES_ENDPOINT, "POST", {
+        nozzle_type: values.nozzle_type,
+        description: values.description,
+        rate: values.rate
+      });
+      message.success("Water nozzle created!");
+      fetchWaterNozzles();
+    } catch (err) { message.error(err.message); }
+  };
+
+  // ✅ NEW: Update Water Nozzle
+  const updateWaterNozzle = async (id, values) => {
+    if (isHistoricalView || isDateLocked) return;
+    try {
+      await apiRequestLocal(`${WATER_NOZZLES_ENDPOINT}/${id}`, "PUT", {
+        nozzle_type: values.nozzle_type,
+        description: values.description,
+        rate: values.rate
+      });
+      message.success("Water nozzle updated!");
+      fetchWaterNozzles();
+    } catch (err) { message.error(err.message); }
+  };
+
+  // ✅ NEW: Delete Water Nozzle
+  const deleteWaterNozzle = async (id) => {
+    if (isHistoricalView || isDateLocked) return;
+    try {
+      await apiRequestLocal(`${WATER_NOZZLES_ENDPOINT}/${id}`, "DELETE");
+      message.success("Water nozzle deleted!");
+      fetchWaterNozzles();
+    } catch (err) { message.error(err.message); }
+  };
+
+  const fetchExcavationRates = useCallback(async () => {
+    try {
+      setExcavationLoading(true);
+      const data = await apiRequestLocal("/admin/excavation-rates", "GET");
+      setExcavationRates((data || []).map(r => ({
+        id: r.id,
+        SlNo: r.id,
+        Code: r.code,
+        Description: r.description || "",
+        Rate: r.rate || 0
+      })));
+    } catch (err) {
+      console.error("fetchExcavationRates error:", err);
+      setExcavationRates([]);
+    } finally {
+      setExcavationLoading(false);
+    }
+  }, []);
+
+  const createExcavationRate = async (values) => {
+    if (isHistoricalView || isDateLocked) return;
+    try {
+      await apiRequestLocal("/admin/excavation-rates", "POST", { code: values.Code, description: values.Description, rate: values.Rate });
+      message.success("Excavation rate created!");
+      fetchExcavationRates();
+    } catch (err) { message.error(err.message); }
+  };
+
+  const updateExcavationRate = async (id, values) => {
+    if (isHistoricalView || isDateLocked) return;
+    try {
+      await apiRequestLocal(`/admin/excavation-rates/${id}`, "PUT", { code: values.Code, description: values.Description, rate: values.Rate });
+      message.success("Excavation rate updated!");
+      fetchExcavationRates();
+    } catch (err) { message.error(err.message); }
+  };
+
+  const deleteExcavationRate = async (id) => {
+    if (isHistoricalView || isDateLocked) return;
+    try {
+      await apiRequestLocal(`/admin/excavation-rates/${id}`, "DELETE");
+      message.success("Excavation rate deleted!");
+      fetchExcavationRates();
+    } catch (err) { message.error(err.message); }
+  };
+
+  const fetchProjects = useCallback(async () => {
+    try {
+      setProjectsLoading(true);
+      const data = await apiRequestLocal("/admin/projects", "GET");
+      setProjects(data || []);
+    } catch (err) { message.error(err.message); }
+    finally { setProjectsLoading(false); }
+  }, []);
+
+  const handleDeleteProject = async (id) => {
+    try {
+      await apiRequestLocal(`/admin/projects/${id}`, "DELETE");
+      message.success("Project deleted!");
+      fetchProjects();
+    } catch (err) { message.error(err.message); }
+  };
+
+  const fetchPayments = useCallback(async () => {
+    try {
+      setPaymentsLoading(true);
+      const data = await apiRequestLocal("/admin/payments", "GET");
+      setPayments(data || []);
+    } catch (err) { message.error(err.message); }
+    finally { setPaymentsLoading(false); }
+  }, []);
+
+  const fetchTenantProfile = useCallback(async () => {
+    try {
+      setTenantProfileLoading(true);
+      const data = await apiRequestLocal('/admin/tenant/profile', 'GET');
+      if (data?.data) setTenantProfile(data.data);
+    } catch (err) { console.error(err); }
+    finally { setTenantProfileLoading(false); }
+  }, []);
+
+  const fetchMepRates = useCallback(async () => {
+    try {
+      setMepLoading(true);
+      const data = await apiRequestLocal('/admin/mep_rates', 'GET');
+      setMepRates((data || []).map(i => ({
+        SlNo: i.SlNo,
+        filter_rate: i.filter_rate || 0,
+        pump_rate: i.pump_rate || 0,
+        filter_dia: i.filter_dia || 0,
+        hp: i.hp || 0
+      })));
+    } catch (err) { message.error(err.message); }
+    finally { setMepLoading(false); }
+  }, []);
+
+  const createMepRate = async (v) => {
+    if (isHistoricalView || isDateLocked) return;
+    try { await apiRequestLocal('/admin/mep_rates', 'POST', v); message.success("MEP rate created!"); fetchMepRates(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const updateMepRate = async (id, v) => {
+    if (isHistoricalView || isDateLocked) return;
+    try { await apiRequestLocal(`/admin/mep_rates/${id}`, 'PUT', { filter_rate: v.filter_rate, pump_rate: v.pump_rate }); message.success("MEP rate updated!"); fetchMepRates(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const deleteMepRate = async (id) => {
+    if (isHistoricalView || isDateLocked) return;
+    try { await apiRequestLocal(`/admin/mep_rates/${id}`, 'DELETE'); message.success("MEP rate deleted!"); fetchMepRates(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const fetchJacuzziSpaRecords = useCallback(async () => {
+    try {
+      setJacuzziLoading(true);
+      const data = await apiRequestLocal(`/admin/jacuzzi_spa_mep_master?effective_date=${effectiveDate}`, 'GET');
+      setJacuzziSpaRecords((data || []).map(normalizeRow));
+    } catch (err) { message.error(err.message); }
+    finally { setJacuzziLoading(false); }
+  }, [effectiveDate]);
+
+  const createJacuzziRecord = async (v) => {
+    if (isHistoricalView || isDateLocked) return;
+    try { await apiRequestLocal('/admin/jacuzzi_spa_mep_master', 'POST', v); message.success("Jacuzzi record created!"); fetchJacuzziSpaRecords(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const updateJacuzziRecord = async (id, v) => {
+    if (isHistoricalView || isDateLocked) return;
+    try { await apiRequestLocal(`/admin/jacuzzi_spa_mep_master/${id}`, 'PUT', v); message.success("Jacuzzi record updated!"); fetchJacuzziSpaRecords(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const deleteJacuzziRecord = async (id) => {
+    if (isHistoricalView || isDateLocked) return;
+    try { await apiRequestLocal(`/admin/jacuzzi_spa_mep_master/${id}`, 'DELETE'); message.success("Jacuzzi record deleted!"); fetchJacuzziSpaRecords(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const fetchWaterbodyRecords = useCallback(async () => {
+    try {
+      setWaterbodyLoading(true);
+      const data = await apiRequestLocal(`/admin/waterbody_mep_items?effective_date=${effectiveDate}`, 'GET');
+      setWaterbodyRecords((data || []).map(normalizeRow));
+    } catch (err) { message.error(err.message); }
+    finally { setWaterbodyLoading(false); }
+  }, [effectiveDate]);
+
+  const createWaterbodyRecord = async (v) => {
+    if (isHistoricalView || isDateLocked) return;
+    try { await apiRequestLocal('/admin/waterbody_mep_items', 'POST', v); message.success("Waterbody record created!"); fetchWaterbodyRecords(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const updateWaterbodyRecord = async (id, v) => {
+    if (isHistoricalView || isDateLocked) return;
+    try { await apiRequestLocal(`/admin/waterbody_mep_items/${id}`, 'PUT', v); message.success("Waterbody record updated!"); fetchWaterbodyRecords(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const deleteWaterbodyRecord = async (id) => {
+    if (isHistoricalView || isDateLocked) return;
+    try { await apiRequestLocal(`/admin/waterbody_mep_items/${id}`, 'DELETE'); message.success("Waterbody record deleted!"); fetchWaterbodyRecords(); }
+    catch (err) { message.error(err.message); }
+  };
+
   const fetchRecords = useCallback(async () => {
-    if (["mep_rates", "jacuzzi_spa_mep_master", "waterbody_mep_items", "excavation_rates"].includes(table)) return;
+    if (["mep_rates", "jacuzzi_spa_mep_master", "waterbody_mep_items", "excavation_rates", "water_nozzles"].includes(table)) return;
     setLoading(true);
     try {
       const endpoint = PIPING_TABLES.includes(table) ? PIPING_ENDPOINTS[table] : `/admin/${table}?effective_date=${effectiveDate}`;
@@ -1757,73 +2201,323 @@ export default function AdminDashboard() {
       const normalized = rows.map(normalizeRow);
       setRecords(normalized);
       setDashboardStats({ totalRecords: normalized.length, totalValue: normalized.reduce((s, r) => s + (r.Rate || 0), 0) });
-    } catch (err) { message.error(err.message); setRecords([]); } finally { setLoading(false); }
+    } catch (err) { message.error(err.message); setRecords([]); }
+    finally { setLoading(false); }
   }, [table, effectiveDate]);
-  
+
   const fetchTableSchema = useCallback(async (tableName) => {
-    try { let data; if (PIPING_TABLES.includes(tableName)) data = { table_name: tableName, columns: [{ name: 'SlNo', type: 'INT' }, { name: 'Dia', type: 'INT' }, { name: 'Description', type: 'VARCHAR' }, { name: 'Unit', type: 'VARCHAR' }, { name: 'Code', type: 'VARCHAR' }, { name: 'Rate', type: 'DECIMAL' }] }; else data = await apiRequestLocal(`/admin/tables/${tableName}/schema`, 'GET'); setTableSchema(data); } catch (err) { message.error(err.message); }
+    try {
+      let data;
+      if (PIPING_TABLES.includes(tableName)) {
+        data = { table_name: tableName, columns: [{ name: 'SlNo', type: 'INT' }, { name: 'Dia', type: 'INT' }, { name: 'Description', type: 'VARCHAR' }, { name: 'Unit', type: 'VARCHAR' }, { name: 'Code', type: 'VARCHAR' }, { name: 'Rate', type: 'DECIMAL' }] };
+      } else {
+        data = await apiRequestLocal(`/admin/tables/${tableName}/schema`, 'GET');
+      }
+      setTableSchema(data);
+    } catch (err) { message.error(err.message); }
   }, []);
-  
-  const fetchAvailableTables = useCallback(async () => { try { const data = await apiRequestLocal('/admin/tables', 'GET'); const tables = data.tables || []; setAvailableTables([...new Set([...tables, 'pipes', 'ball_valves', 'puddle_flanges', 'excavation_rates'])]); } catch (err) { setAvailableTables(['pipes', 'ball_valves', 'puddle_flanges', 'main_pool', 'balancetank', 'mep', 'excavation_rates']); } }, []);
-  
-  const testConnection = useCallback(async () => { try { setConnectionStatus("checking"); await apiRequestLocal('/'); setConnectionStatus("connected"); return true; } catch { setConnectionStatus("error"); return false; } }, []);
-  
-  const handleAddRecord = async (customData) => { if (isHistoricalView || isDateLocked) return; if (table === "excavation_rates") return createExcavationRate(customData); setLoading(true); try { const payload = (MASTER_TABLES.includes(table) && customData) ? customData : form; await apiRequestLocal(PIPING_TABLES.includes(table) ? `${PIPING_ENDPOINTS[table]}` : `/admin/${table}`, 'POST', payload); message.success("Record added!"); fetchRecords(); setForm({}); } catch (err) { message.error(err.message); } finally { setLoading(false); } };
-  const handleUpdateRecord = async (id, customData) => { if (isHistoricalView || isDateLocked) return; if (table === "excavation_rates") return updateExcavationRate(id, customData); setLoading(true); try { const payload = (MASTER_TABLES.includes(table) && customData) ? customData : form; await apiRequestLocal(PIPING_TABLES.includes(table) ? `${PIPING_ENDPOINTS[table]}/${id}` : `/admin/${table}/${id}`, 'PUT', payload); message.success("Record updated!"); setEditingId(null); setForm({}); fetchRecords(); } catch (err) { message.error(err.message); } finally { setLoading(false); } };
-  const handleDeleteRecord = async (id) => { if (isHistoricalView || isDateLocked) return; if (table === "excavation_rates") return deleteExcavationRate(id); setLoading(true); try { await apiRequestLocal(PIPING_TABLES.includes(table) ? `${PIPING_ENDPOINTS[table]}/${id}` : `/admin/${table}/${id}`, 'DELETE'); message.success("Record deleted!"); fetchRecords(); } catch (err) { message.error(err.message); } finally { setLoading(false); } };
-  const handleBulkDelete = async () => { if (isHistoricalView || isDateLocked) return; if (table === "excavation_rates") { await Promise.all(selectedRecords.map(id => deleteExcavationRate(id))); setSelectedRecords([]); return; } setLoading(true); try { await Promise.all(selectedRecords.map(id => apiRequestLocal(PIPING_TABLES.includes(table) ? `${PIPING_ENDPOINTS[table]}/${id}` : `/admin/${table}/${id}`, 'DELETE'))); message.success(`Deleted ${selectedRecords.length} records`); setSelectedRecords([]); fetchRecords(); } catch (err) { message.error(err.message); } finally { setLoading(false); } };
-  const handleExport = (format) => { const dataToExport = records; if (format === 'csv') { const headers = tableSchema.columns?.filter(c => !['id', 'SlNo'].includes(c.name)).map(c => c.name) || ['Description', 'Unit', 'Code', 'Rate']; const csv = [headers.join(','), ...dataToExport.map(r => headers.map(h => `"${r[h] || ''}"`).join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${table}_export_${effectiveDate}.csv`; a.click(); URL.revokeObjectURL(url); } else { const json = JSON.stringify(dataToExport, null, 2); const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${table}_export_${effectiveDate}.json`; a.click(); URL.revokeObjectURL(url); } message.success(`Exported as ${format.toUpperCase()}`); };
-  const handleCreateTable = async (data) => { try { await apiRequestLocal('/admin/tables', 'POST', data); message.success(`Table ${data.table_name} created!`); fetchAvailableTables(); } catch (err) { message.error(err.message); } };
-  const handleAddColumn = async (data) => { try { await apiRequestLocal(`/admin/tables/${table}/columns`, 'POST', data); message.success(`Column ${data.name} added!`); fetchTableSchema(table); fetchRecords(); } catch (err) { message.error(err.message); } };
-  const handleDeleteColumn = async (columnName) => { try { await apiRequestLocal(`/admin/tables/${table}/columns/${columnName}`, 'DELETE'); message.success(`Column ${columnName} deleted!`); fetchTableSchema(table); fetchRecords(); } catch (err) { message.error(err.message); } };
-  const handleDeleteTable = async () => { try { await apiRequestLocal(`/admin/tables/${table}`, 'DELETE'); message.success(`Table ${table} deleted!`); fetchAvailableTables(); if (availableTables.length) setTable(availableTables[0]); } catch (err) { message.error(err.message); } };
-  
-  const handleApplyBulkDiscount = useCallback(async (tableName, discountPercent) => { if (isHistoricalView || isDateLocked) return; setBulkDiscountLoading(true); try { let currentData = []; if (tableName === 'mep_rates') currentData = mepRates; else if (tableName === 'jacuzzi_spa_mep_master') currentData = jacuzziSpaRecords; else if (tableName === 'waterbody_mep_items') currentData = waterbodyRecords; else if (tableName === 'excavation_rates') currentData = excavationRates; else currentData = records; await Promise.all(currentData.map(async (item) => { const id = item.SlNo || item.id; if (tableName === 'mep_rates') await apiRequestLocal(`/admin/mep_rates/${id}`, 'PUT', { filter_rate: item.filter_rate * (1 - discountPercent/100), pump_rate: item.pump_rate * (1 - discountPercent/100) }); else if (tableName === 'excavation_rates') await apiRequestLocal(`/admin/excavation-rates/${id}`, 'PUT', { code: item.Code, description: item.Description, rate: (item.Rate || 0) * (1 - discountPercent/100) }); else await apiRequestLocal(PIPING_TABLES.includes(tableName) ? `${PIPING_ENDPOINTS[tableName]}/${id}` : `/admin/${tableName}/${id}`, 'PUT', { Rate: (item.Rate || 0) * (1 - discountPercent/100) }); })); if (tableName === 'mep_rates') fetchMepRates(); else if (tableName === 'jacuzzi_spa_mep_master') fetchJacuzziSpaRecords(); else if (tableName === 'waterbody_mep_items') fetchWaterbodyRecords(); else if (tableName === 'excavation_rates') fetchExcavationRates(); else fetchRecords(); message.success(`Applied ${discountPercent}% discount!`); } catch (err) { message.error(err.message); } finally { setBulkDiscountLoading(false); } }, [mepRates, jacuzziSpaRecords, waterbodyRecords, excavationRates, records, isHistoricalView, isDateLocked]);
 
-  const loadAllTables = useCallback(async () => { await Promise.all([fetchAvailableTables(), fetchMepRates(), fetchJacuzziSpaRecords(), fetchWaterbodyRecords(), fetchExcavationRates(), fetchPayments(), fetchTenantProfile()]); }, []);
+  const fetchAvailableTables = useCallback(async () => {
+    try {
+      const data = await apiRequestLocal('/admin/tables', 'GET');
+      const tables = data.tables || [];
+      setAvailableTables([...new Set([...tables, 'pipes', 'ball_valves', 'puddle_flanges', 'excavation_rates', 'water_nozzles'])]);
+    } catch (err) {
+      setAvailableTables(['pipes', 'ball_valves', 'puddle_flanges', 'main_pool', 'balancetank', 'mep', 'excavation_rates', 'water_nozzles']);
+    }
+  }, []);
 
-  // Check authentication on mount
-  useEffect(() => {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
-    if (!token) {
-      window.location.href = "/admin";
+  const testConnection = useCallback(async () => {
+    try {
+      setConnectionStatus("checking");
+      await apiRequestLocal('/');
+      setConnectionStatus("connected");
+      return true;
+    } catch {
+      setConnectionStatus("error");
+      return false;
+    }
+  }, []);
+
+  // ==================== CRUD Handlers ====================
+
+  const handleAddRecord = async (customData) => {
+    if (isHistoricalView || isDateLocked) return;
+    if (table === "excavation_rates") return createExcavationRate(customData);
+    if (table === "water_nozzles") return createWaterNozzle(customData);
+    setLoading(true);
+    try {
+      const payload = (MASTER_TABLES.includes(table) && customData) ? customData : form;
+      await apiRequestLocal(PIPING_TABLES.includes(table) ? `${PIPING_ENDPOINTS[table]}` : `/admin/${table}`, 'POST', payload);
+      message.success("Record added!");
+      fetchRecords();
+      setForm({});
+    } catch (err) { message.error(err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleUpdateRecord = async (id, customData) => {
+    if (isHistoricalView || isDateLocked) return;
+    if (table === "excavation_rates") return updateExcavationRate(id, customData);
+    if (table === "water_nozzles") return updateWaterNozzle(id, customData);
+    setLoading(true);
+    try {
+      const payload = (MASTER_TABLES.includes(table) && customData) ? customData : form;
+      await apiRequestLocal(PIPING_TABLES.includes(table) ? `${PIPING_ENDPOINTS[table]}/${id}` : `/admin/${table}/${id}`, 'PUT', payload);
+      message.success("Record updated!");
+      setEditingId(null);
+      setForm({});
+      fetchRecords();
+    } catch (err) { message.error(err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleDeleteRecord = async (id) => {
+    if (isHistoricalView || isDateLocked) return;
+    if (table === "excavation_rates") return deleteExcavationRate(id);
+    if (table === "water_nozzles") return deleteWaterNozzle(id);
+    setLoading(true);
+    try {
+      await apiRequestLocal(PIPING_TABLES.includes(table) ? `${PIPING_ENDPOINTS[table]}/${id}` : `/admin/${table}/${id}`, 'DELETE');
+      message.success("Record deleted!");
+      fetchRecords();
+    } catch (err) { message.error(err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (isHistoricalView || isDateLocked) return;
+    if (table === "excavation_rates") {
+      await Promise.all(selectedRecords.map(id => deleteExcavationRate(id)));
+      setSelectedRecords([]);
       return;
     }
+    if (table === "water_nozzles") {
+      await Promise.all(selectedRecords.map(id => deleteWaterNozzle(id)));
+      setSelectedRecords([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      await Promise.all(selectedRecords.map(id => apiRequestLocal(PIPING_TABLES.includes(table) ? `${PIPING_ENDPOINTS[table]}/${id}` : `/admin/${table}/${id}`, 'DELETE')));
+      message.success(`Deleted ${selectedRecords.length} records`);
+      setSelectedRecords([]);
+      fetchRecords();
+    } catch (err) { message.error(err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleExport = (format) => {
+    const dataToExport = table === "water_nozzles" ? waterNozzles : records;
+    if (format === 'csv') {
+      let headers;
+      if (table === "water_nozzles") {
+        headers = ['nozzle_type', 'description', 'rate'];
+      } else {
+        headers = tableSchema.columns?.filter(c => !['id', 'SlNo'].includes(c.name)).map(c => c.name) || ['Description', 'Unit', 'Code', 'Rate'];
+      }
+      const csv = [headers.join(','), ...dataToExport.map(r => headers.map(h => `"${r[h] || ''}"`).join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `${table}_export_${effectiveDate}.csv`; a.click(); URL.revokeObjectURL(url);
+    } else {
+      const json = JSON.stringify(dataToExport, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `${table}_export_${effectiveDate}.json`; a.click(); URL.revokeObjectURL(url);
+    }
+    message.success(`Exported as ${format.toUpperCase()}`);
+  };
+
+  const handleCreateTable = async (data) => {
+    try { await apiRequestLocal('/admin/tables', 'POST', data); message.success(`Table ${data.table_name} created!`); fetchAvailableTables(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const handleAddColumn = async (data) => {
+    try { await apiRequestLocal(`/admin/tables/${table}/columns`, 'POST', data); message.success(`Column ${data.name} added!`); fetchTableSchema(table); fetchRecords(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const handleDeleteColumn = async (columnName) => {
+    try { await apiRequestLocal(`/admin/tables/${table}/columns/${columnName}`, 'DELETE'); message.success(`Column ${columnName} deleted!`); fetchTableSchema(table); fetchRecords(); }
+    catch (err) { message.error(err.message); }
+  };
+
+  const handleDeleteTable = async () => {
+    try {
+      await apiRequestLocal(`/admin/tables/${table}`, 'DELETE');
+      message.success(`Table ${table} deleted!`);
+      fetchAvailableTables();
+      if (availableTables.length) setTable(availableTables[0]);
+    } catch (err) { message.error(err.message); }
+  };
+
+  // ✅ Updated handleApplyBulkDiscount to include water_nozzles
+  const handleApplyBulkDiscount = useCallback(async (tableName, discountPercent) => {
+    if (isHistoricalView || isDateLocked) return;
+    setBulkDiscountLoading(true);
+    try {
+      let currentData = [];
+      if (tableName === 'mep_rates') currentData = mepRates;
+      else if (tableName === 'jacuzzi_spa_mep_master') currentData = jacuzziSpaRecords;
+      else if (tableName === 'waterbody_mep_items') currentData = waterbodyRecords;
+      else if (tableName === 'water_nozzles') currentData = waterNozzles;
+      else if (tableName === 'excavation_rates') currentData = excavationRates;
+      else currentData = records;
+
+      await Promise.all(currentData.map(async (item) => {
+        const id = item.SlNo || item.id;
+        if (tableName === 'mep_rates') {
+          await apiRequestLocal(`/admin/mep_rates/${id}`, 'PUT', { filter_rate: item.filter_rate * (1 - discountPercent / 100), pump_rate: item.pump_rate * (1 - discountPercent / 100) });
+        } else if (tableName === 'water_nozzles') {
+          await apiRequestLocal(`${WATER_NOZZLES_ENDPOINT}/${id}`, 'PUT', {
+            nozzle_type: item.nozzle_type,
+            description: item.description,
+            rate: (item.rate || 0) * (1 - discountPercent / 100)
+          });
+        } else if (tableName === 'excavation_rates') {
+          await apiRequestLocal(`/admin/excavation-rates/${id}`, 'PUT', { code: item.Code, description: item.Description, rate: (item.Rate || 0) * (1 - discountPercent / 100) });
+        } else {
+          await apiRequestLocal(PIPING_TABLES.includes(tableName) ? `${PIPING_ENDPOINTS[tableName]}/${id}` : `/admin/${tableName}/${id}`, 'PUT', { Rate: (item.Rate || 0) * (1 - discountPercent / 100) });
+        }
+      }));
+
+      if (tableName === 'mep_rates') fetchMepRates();
+      else if (tableName === 'jacuzzi_spa_mep_master') fetchJacuzziSpaRecords();
+      else if (tableName === 'waterbody_mep_items') fetchWaterbodyRecords();
+      else if (tableName === 'water_nozzles') fetchWaterNozzles();
+      else if (tableName === 'excavation_rates') fetchExcavationRates();
+      else fetchRecords();
+
+      message.success(`Applied ${discountPercent}% discount!`);
+    } catch (err) { message.error(err.message); }
+    finally { setBulkDiscountLoading(false); }
+  }, [mepRates, jacuzziSpaRecords, waterbodyRecords, waterNozzles, excavationRates, records, isHistoricalView, isDateLocked]);
+
+  const loadAllTables = useCallback(async () => {
+    await Promise.all([
+      fetchAvailableTables(),
+      fetchMepRates(),
+      fetchJacuzziSpaRecords(),
+      fetchWaterbodyRecords(),
+      fetchExcavationRates(),
+      fetchWaterNozzles(),
+      fetchPayments(),
+      fetchTenantProfile()
+    ]);
+  }, []);
+
+  // ==================== Effects ====================
+
+  useEffect(() => {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (!token) { window.location.href = "/admin"; return; }
     const userData = localStorage.getItem(USER_DATA_KEY);
     if (userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (e) {
-        console.error("Error parsing user data");
-      }
+      try { setUser(JSON.parse(userData)); } catch (e) { console.error("Error parsing user data"); }
     }
   }, []);
 
-  useEffect(() => { const init = async () => { const token = localStorage.getItem(AUTH_TOKEN_KEY); if (!token) { navigate("/admin"); return; } const connected = await testConnection(); if (connected) { await loadAllTables(); if (table) { await fetchTableSchema(table); await fetchRecords(); } } else message.error("Cannot connect to server"); }; init(); }, []);
-  useEffect(() => { if (connectionStatus === "connected" && table && activeTab === "database") { fetchTableSchema(table); fetchRecords(); } }, [table, connectionStatus, activeTab]);
-  useEffect(() => { if (activeTab === "projects") fetchProjects(); }, [activeTab]); 
-  useEffect(() => { if (activeTab === "payments") fetchPayments(); }, [activeTab]); 
+  useEffect(() => {
+    const init = async () => {
+      const token = localStorage.getItem(AUTH_TOKEN_KEY);
+      if (!token) { navigate("/admin"); return; }
+      const connected = await testConnection();
+      if (connected) {
+        await loadAllTables();
+        if (table) { await fetchTableSchema(table); await fetchRecords(); }
+      } else {
+        message.error("Cannot connect to server");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (connectionStatus === "connected" && table && activeTab === "database") {
+      fetchTableSchema(table);
+      if (table === "excavation_rates") {
+        fetchExcavationRates();
+      } else if (table === "water_nozzles") {
+        fetchWaterNozzles();
+      } else {
+        fetchRecords();
+      }
+    }
+  }, [table, connectionStatus, activeTab]);
+
+  useEffect(() => { if (activeTab === "projects") fetchProjects(); }, [activeTab]);
+  useEffect(() => { if (activeTab === "payments") fetchPayments(); }, [activeTab]);
   useEffect(() => { setIsHistoricalView(dayjs(effectiveDate).startOf('day').isBefore(dayjs().startOf('day'))); }, [effectiveDate]);
 
-  const handleRefresh = () => { if (activeTab === "mep") fetchMepRates(); else if (activeTab === "jacuzzi") fetchJacuzziSpaRecords(); else if (activeTab === "waterbody") fetchWaterbodyRecords(); else if (activeTab === "database") { fetchTableSchema(table); fetchRecords(); } else if (activeTab === "tenant_profile") fetchTenantProfile(); else if (activeTab === "projects") fetchProjects(); else if (activeTab === "payments") fetchPayments(); else if (activeTab === "overview") { fetchMepRates(); fetchJacuzziSpaRecords(); fetchWaterbodyRecords(); fetchExcavationRates(); } message.success("Data refreshed!"); };
-  const handleDateChange = (dateStr) => { if (isDateLocked) return; setEffectiveDate(dateStr); setTimeout(() => { if (activeTab === "mep") fetchMepRates(); else if (activeTab === "jacuzzi") fetchJacuzziSpaRecords(); else if (activeTab === "waterbody") fetchWaterbodyRecords(); else if (activeTab === "database" && table !== "excavation_rates") fetchRecords(); }, 100); };
-  const resetDateLock = () => { setIsDateLocked(false); setQuotationId(null); setEffectiveDate(dayjs().format("YYYY-MM-DD")); message.info("Date unlocked."); };
-  const handleLogout = () => { 
+  // ✅ Updated handleRefresh
+  const handleRefresh = () => {
+    if (activeTab === "mep") fetchMepRates();
+    else if (activeTab === "jacuzzi") fetchJacuzziSpaRecords();
+    else if (activeTab === "waterbody") fetchWaterbodyRecords();
+    else if (activeTab === "database") {
+      fetchTableSchema(table);
+      if (table === "excavation_rates") {
+        fetchExcavationRates();
+      } else if (table === "water_nozzles") {
+        fetchWaterNozzles();
+      } else {
+        fetchRecords();
+      }
+    }
+    else if (activeTab === "excavation") fetchExcavationRates();
+    else if (activeTab === "tenant_profile") fetchTenantProfile();
+    else if (activeTab === "projects") fetchProjects();
+    else if (activeTab === "payments") fetchPayments();
+    else if (activeTab === "overview") {
+      fetchMepRates();
+      fetchJacuzziSpaRecords();
+      fetchWaterbodyRecords();
+      fetchExcavationRates();
+      fetchWaterNozzles();
+    }
+    message.success("Data refreshed!");
+  };
+
+  const handleDateChange = (dateStr) => {
+    if (isDateLocked) return;
+    setEffectiveDate(dateStr);
+    setTimeout(() => {
+      if (activeTab === "mep") fetchMepRates();
+      else if (activeTab === "jacuzzi") fetchJacuzziSpaRecords();
+      else if (activeTab === "waterbody") fetchWaterbodyRecords();
+      else if (activeTab === "database" && table !== "excavation_rates" && table !== "water_nozzles") fetchRecords();
+    }, 100);
+  };
+
+  const resetDateLock = () => {
+    setIsDateLocked(false); setQuotationId(null);
+    setEffectiveDate(dayjs().format("YYYY-MM-DD"));
+    message.info("Date unlocked.");
+  };
+
+  const handleLogout = () => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(USER_DATA_KEY);
     localStorage.removeItem(TENANT_INFO_KEY);
     window.location.href = "/admin";
   };
-  const handleProfileUpdateSuccess = (p) => { setTenantProfile(p); localStorage.setItem(TENANT_INFO_KEY, JSON.stringify(p)); };
+
+  const handleProfileUpdateSuccess = (p) => {
+    setTenantProfile(p);
+    localStorage.setItem(TENANT_INFO_KEY, JSON.stringify(p));
+  };
+
   const toggleCollapse = () => setCollapsed(!collapsed);
 
   const renderSidebarMenu = () => (
-    <Menu 
-      theme="dark" 
-      mode="inline" 
-      selectedKeys={[activeTab]} 
-      onClick={({ key }) => setActiveTab(key)} 
-      style={{ background: "transparent" }} 
+    <Menu
+      theme="dark"
+      mode="inline"
+      selectedKeys={[activeTab]}
+      onClick={({ key }) => setActiveTab(key)}
+      style={{ background: "transparent" }}
       items={[
         { key: "overview", icon: <DashboardOutlined />, label: "Dashboard" },
         { key: "database", icon: <DatabaseOutlined />, label: "Database" },
@@ -1834,32 +2528,197 @@ export default function AdminDashboard() {
         { key: "tenant_profile", icon: <HomeOutlined />, label: "Profile" },
         { key: "projects", icon: <FolderOpenOutlined />, label: "Projects" },
         { key: "payments", icon: <CreditCardOutlined />, label: "Payments" },
-      ]} 
+      ]}
     />
   );
 
-  const renderContent = () => { 
+  // ✅ Updated renderContent
+  const renderContent = () => {
     switch (activeTab) {
-      case "overview": 
-        return <DashboardOverview stats={dashboardStats} availableTables={availableTables} mepRates={mepRates} jacuzziSpaRecords={jacuzziSpaRecords} waterbodyRecords={waterbodyRecords} excavationRates={excavationRates} loading={loading || mepLoading} />;
-      case "database": 
-        return <DatabaseManager table={table} tables={availableTables} tableSchema={tableSchema} records={records} loading={loading} editingId={editingId} searchTerm={searchTerm} selectedRecords={selectedRecords} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} dashboardStats={dashboardStats} onTableChange={setTable} onStartEdit={(r) => { if (r) { setEditingId(r.SlNo); if (MASTER_TABLES.includes(table) || table === "excavation_rates") setForm({ Code: r.Code, Rate: r.Rate, Description: r.Description }); } else { setEditingId(null); setForm({}); } }} onSaveRecord={(id, cd) => id ? handleUpdateRecord(id, cd) : handleAddRecord(cd)} onDeleteRecord={handleDeleteRecord} onBulkDelete={handleBulkDelete} onSearch={setSearchTerm} onSelectRecords={setSelectedRecords} onExport={handleExport} onCreateTable={handleCreateTable} onAddColumn={handleAddColumn} onDeleteColumn={handleDeleteColumn} onDeleteTable={handleDeleteTable} onApplyBulkDiscount={handleApplyBulkDiscount} bulkDiscountLoading={bulkDiscountLoading} />;
-      case "mep": 
-        return <MEPRatesManager data={mepRates} loading={mepLoading} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} onRefresh={fetchMepRates} onCreate={createMepRate} onUpdate={updateMepRate} onDelete={deleteMepRate} searchTerm={mepSearchTerm} onSearch={setMepSearchTerm} onApplyBulkDiscount={handleApplyBulkDiscount} bulkDiscountLoading={bulkDiscountLoading} />;
-      case "jacuzzi": 
-        return <JacuzziManager data={jacuzziSpaRecords} loading={jacuzziLoading} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} onRefresh={fetchJacuzziSpaRecords} onCreate={createJacuzziRecord} onUpdate={updateJacuzziRecord} onDelete={deleteJacuzziRecord} searchTerm={jacuzziSearchTerm} onSearch={setJacuzziSearchTerm} onApplyBulkDiscount={handleApplyBulkDiscount} bulkDiscountLoading={bulkDiscountLoading} />;
-      case "waterbody": 
-        return <WaterbodyManager data={waterbodyRecords} loading={waterbodyLoading} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} onRefresh={fetchWaterbodyRecords} onCreate={createWaterbodyRecord} onUpdate={updateWaterbodyRecord} onDelete={deleteWaterbodyRecord} searchTerm={waterbodySearchTerm} onSearch={setWaterbodySearchTerm} onApplyBulkDiscount={handleApplyBulkDiscount} bulkDiscountLoading={bulkDiscountLoading} />;
-      case "excavation": 
-        return <ExcavationManager data={excavationRates} loading={excavationLoading} onRefresh={fetchExcavationRates} onCreate={createExcavationRate} onUpdate={updateExcavationRate} onDelete={deleteExcavationRate} onApplyBulkDiscount={handleApplyBulkDiscount} bulkDiscountLoading={bulkDiscountLoading} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} />;
-      case "tenant_profile": 
-        return <TenantProfileManager tenantProfile={tenantProfile} loading={tenantProfileLoading} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} onProfileUpdateSuccess={handleProfileUpdateSuccess} />;
-      case "projects": 
-        return <ProjectsManager projects={projects} loading={projectsLoading} onDeleteProject={handleDeleteProject} onRefresh={fetchProjects} />;
-      case "payments": 
-        return <PaymentsManager payments={payments} loading={paymentsLoading} onRefresh={fetchPayments} />;
-      default: 
-        return <DashboardOverview stats={dashboardStats} availableTables={availableTables} mepRates={mepRates} jacuzziSpaRecords={jacuzziSpaRecords} waterbodyRecords={waterbodyRecords} excavationRates={excavationRates} loading={loading} />;
+      case "overview":
+        return (
+          <DashboardOverview
+            stats={dashboardStats}
+            availableTables={availableTables}
+            mepRates={mepRates}
+            jacuzziSpaRecords={jacuzziSpaRecords}
+            waterbodyRecords={waterbodyRecords}
+            excavationRates={excavationRates}
+            waterNozzles={waterNozzles}
+            loading={loading || mepLoading}
+          />
+        );
+
+      case "database": {
+        const databaseRecords = table === "excavation_rates" ? excavationRates : table === "water_nozzles" ? waterNozzles : records;
+        const databaseLoading = table === "excavation_rates" ? excavationLoading : table === "water_nozzles" ? waterNozzlesLoading : loading;
+
+        return (
+          <DatabaseManager
+            table={table}
+            tables={availableTables}
+            tableSchema={tableSchema}
+            records={databaseRecords}
+            loading={databaseLoading}
+            editingId={editingId}
+            searchTerm={searchTerm}
+            selectedRecords={selectedRecords}
+            isHistoricalView={isHistoricalView}
+            isDateLocked={isDateLocked}
+            dashboardStats={dashboardStats}
+            onTableChange={setTable}
+            onStartEdit={(r) => {
+              if (r) {
+                setEditingId(r.SlNo || r.id);
+                if (table === "water_nozzles") {
+                  setForm({ nozzle_type: r.nozzle_type, description: r.description, rate: r.rate });
+                } else if (table === "excavation_rates") {
+                  setForm({ Code: r.Code, Rate: r.Rate, Description: r.Description });
+                } else if (MASTER_TABLES.includes(table)) {
+                  setForm({ Code: r.Code, Rate: r.Rate, Description: r.Description });
+                }
+              } else {
+                setEditingId(null);
+                setForm({});
+              }
+            }}
+            onSaveRecord={(id, cd) => {
+              if (table === "water_nozzles") return id ? updateWaterNozzle(id, cd) : createWaterNozzle(cd);
+              if (table === "excavation_rates") return id ? updateExcavationRate(id, cd) : createExcavationRate(cd);
+              return id ? handleUpdateRecord(id, cd) : handleAddRecord(cd);
+            }}
+            onDeleteRecord={(id) => {
+              if (table === "water_nozzles") return deleteWaterNozzle(id);
+              if (table === "excavation_rates") return deleteExcavationRate(id);
+              return handleDeleteRecord(id);
+            }}
+            onBulkDelete={handleBulkDelete}
+            onSearch={setSearchTerm}
+            onSelectRecords={setSelectedRecords}
+            onExport={handleExport}
+            onCreateTable={handleCreateTable}
+            onAddColumn={handleAddColumn}
+            onDeleteColumn={handleDeleteColumn}
+            onDeleteTable={handleDeleteTable}
+            onApplyBulkDiscount={handleApplyBulkDiscount}
+            bulkDiscountLoading={bulkDiscountLoading}
+          />
+        );
+      }
+
+      case "mep":
+        return (
+          <MEPRatesManager
+            data={mepRates}
+            loading={mepLoading}
+            isHistoricalView={isHistoricalView}
+            isDateLocked={isDateLocked}
+            onRefresh={fetchMepRates}
+            onCreate={createMepRate}
+            onUpdate={updateMepRate}
+            onDelete={deleteMepRate}
+            searchTerm={mepSearchTerm}
+            onSearch={setMepSearchTerm}
+            onApplyBulkDiscount={handleApplyBulkDiscount}
+            bulkDiscountLoading={bulkDiscountLoading}
+          />
+        );
+
+      case "jacuzzi":
+        return (
+          <JacuzziManager
+            data={jacuzziSpaRecords}
+            loading={jacuzziLoading}
+            isHistoricalView={isHistoricalView}
+            isDateLocked={isDateLocked}
+            onRefresh={fetchJacuzziSpaRecords}
+            onCreate={createJacuzziRecord}
+            onUpdate={updateJacuzziRecord}
+            onDelete={deleteJacuzziRecord}
+            searchTerm={jacuzziSearchTerm}
+            onSearch={setJacuzziSearchTerm}
+            onApplyBulkDiscount={handleApplyBulkDiscount}
+            bulkDiscountLoading={bulkDiscountLoading}
+          />
+        );
+
+      case "waterbody":
+        return (
+          <WaterbodyManager
+            data={waterbodyRecords}
+            loading={waterbodyLoading}
+            isHistoricalView={isHistoricalView}
+            isDateLocked={isDateLocked}
+            onRefresh={fetchWaterbodyRecords}
+            onCreate={createWaterbodyRecord}
+            onUpdate={updateWaterbodyRecord}
+            onDelete={deleteWaterbodyRecord}
+            searchTerm={waterbodySearchTerm}
+            onSearch={setWaterbodySearchTerm}
+            onApplyBulkDiscount={handleApplyBulkDiscount}
+            bulkDiscountLoading={bulkDiscountLoading}
+          />
+        );
+
+      case "excavation":
+        return (
+          <ExcavationManager
+            data={excavationRates}
+            loading={excavationLoading}
+            onRefresh={fetchExcavationRates}
+            onCreate={createExcavationRate}
+            onUpdate={updateExcavationRate}
+            onDelete={deleteExcavationRate}
+            onApplyBulkDiscount={handleApplyBulkDiscount}
+            bulkDiscountLoading={bulkDiscountLoading}
+            isHistoricalView={isHistoricalView}
+            isDateLocked={isDateLocked}
+          />
+        );
+
+      case "tenant_profile":
+        return (
+          <TenantProfileManager
+            tenantProfile={tenantProfile}
+            loading={tenantProfileLoading}
+            isHistoricalView={isHistoricalView}
+            isDateLocked={isDateLocked}
+            onProfileUpdateSuccess={handleProfileUpdateSuccess}
+          />
+        );
+
+      case "projects":
+        return (
+          <ProjectsManager
+            projects={projects}
+            loading={projectsLoading}
+            onDeleteProject={handleDeleteProject}
+            onRefresh={fetchProjects}
+          />
+        );
+
+      case "payments":
+        return (
+          <PaymentsManager
+            payments={payments}
+            loading={paymentsLoading}
+            onRefresh={fetchPayments}
+          />
+        );
+
+      default:
+        return (
+          <DashboardOverview
+            stats={dashboardStats}
+            availableTables={availableTables}
+            mepRates={mepRates}
+            jacuzziSpaRecords={jacuzziSpaRecords}
+            waterbodyRecords={waterbodyRecords}
+            excavationRates={excavationRates}
+            waterNozzles={waterNozzles}
+            loading={loading}
+          />
+        );
     }
   };
 
@@ -1873,14 +2732,45 @@ export default function AdminDashboard() {
       }}
     >
       <Watermark content={tenantProfile?.company_name || "Intelithon"} gap={[100, 100]} zIndex={0}>
-        <AdminLayout collapsed={collapsed} onCollapse={setCollapsed} user={user} onLogout={handleLogout} menuContent={renderSidebarMenu()} companyData={tenantProfile}>
+        <AdminLayout
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
+          user={user}
+          onLogout={handleLogout}
+          menuContent={renderSidebarMenu()}
+          companyData={tenantProfile}
+        >
           <Layout>
-            <HeaderBar user={user} onLogout={handleLogout} connectionStatus={connectionStatus} onRefresh={handleRefresh} effectiveDate={effectiveDate} isHistoricalView={isHistoricalView} isDateLocked={isDateLocked} quotationId={quotationId} onDateChange={handleDateChange} onExitQuotation={resetDateLock} collapsed={collapsed} onToggleCollapse={toggleCollapse} />
-            <Content style={{ margin: screens.md ? 24 : 12, padding: screens.md ? 24 : 12, background: "#fff", minHeight: "calc(100vh - 112px)", borderRadius: "24px" }}>
+            <HeaderBar
+              user={user}
+              onLogout={handleLogout}
+              connectionStatus={connectionStatus}
+              onRefresh={handleRefresh}
+              effectiveDate={effectiveDate}
+              isHistoricalView={isHistoricalView}
+              isDateLocked={isDateLocked}
+              quotationId={quotationId}
+              onDateChange={handleDateChange}
+              onExitQuotation={resetDateLock}
+              collapsed={collapsed}
+              onToggleCollapse={toggleCollapse}
+            />
+            <Content style={{
+              margin: screens.md ? 24 : 12,
+              padding: screens.md ? 24 : 12,
+              background: "#fff",
+              minHeight: "calc(100vh - 112px)",
+              borderRadius: "24px"
+            }}>
               <AnimatePresence mode="wait">
                 {connectionStatus === "error" && (
                   <motion.div key="error" {...fadeIn}>
-                    <Result status="error" title="Connection Error" subTitle="Cannot connect to server. Please check if the backend is running." extra={<Button type="primary" onClick={handleRefresh}>Retry</Button>} />
+                    <Result
+                      status="error"
+                      title="Connection Error"
+                      subTitle="Cannot connect to server. Please check if the backend is running."
+                      extra={<Button type="primary" onClick={handleRefresh}>Retry</Button>}
+                    />
                   </motion.div>
                 )}
                 {connectionStatus === "checking" && (

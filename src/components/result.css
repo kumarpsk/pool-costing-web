@@ -1,11 +1,4 @@
-/* ============================================================
-   POOL CALCULATION RESULTS — PREMIUM REDESIGN v3
-   Design: Bright, airy, professional — white cards on soft gradient bg
-   Fonts: Plus Jakarta Sans (headings) + Inter (body)
-   Fully mobile-first, every breakpoint covered
-   INTERACTIVE DASHBOARD UI — SaaS Style
-   ENGINEERING BOQ / QUOTATION TABLE DESIGN
-   ============================================================ */
+
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -66,9 +59,9 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   --table-row-hover: #f8fbff;
   --table-row-even: #fcfdff;
   --table-row-odd: #ffffff;
- --table-cell-border: #5c5e60;
---table-row-border: #5c5e60;
---table-outer-border: #5c5e60;
+  --table-cell-border: #5c5e60;
+  --table-row-border: #5c5e60;
+  --table-outer-border: #5c5e60;
   --table-textarea-bg: #f9fbff;
   --table-textarea-border: #cfd9e8;
   --table-textarea-focus: #3b82f6;
@@ -118,8 +111,6 @@ body {
     radial-gradient(ellipse 70% 35% at 10% 0%, rgba(14,165,233,0.07) 0%, transparent 55%),
     radial-gradient(ellipse 50% 25% at 90% 100%, rgba(99,102,241,0.05) 0%, transparent 50%),
     #f0f4fa;
-  
-  margin-top: 60px;
   max-width: 1480px;
   margin-left: auto;
   margin-right: auto;
@@ -133,15 +124,11 @@ body {
    ============================================================ */
 .header-section {
   background: #0f172a;
-  
   box-shadow: var(--s-md);
-  margin-bottom: 1.25rem;
   border: 1px solid var(--border);
   overflow: hidden;
   transition: all 0.25s ease;
   cursor: pointer;
-  margin-top: 6.2%
- 
 }
 
 .header-section:hover {
@@ -500,9 +487,7 @@ body {
    ============================================================ */
 .column-visibility-controls_1 {
   background: #dbeafe;
-
   padding: 1rem 1.25rem;
-  
   box-shadow: var(--s-xs);
   transition: all 0.25s ease;
   cursor: pointer;
@@ -738,85 +723,10 @@ body {
 }
 
 /* ============================================================
-   8. TAB NAVIGATION - WITH SMOOTH SCROLL
+   8. TAB NAVIGATION (hidden when sidebar is used)
    ============================================================ */
 .tab-navigation {
-  margin: .875rem 0;
-  position: sticky;
-  top: 56px;
-  z-index: 80;
-  background: transparent;
-  padding: .25rem 0;
-}
-
-.tab-buttons {
-  display: flex;
-  gap: .375rem;
-  overflow-x: auto;
-  padding: .125rem .125rem .375rem;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
-}
-
-.tab-buttons::-webkit-scrollbar { display:none; }
-
-.tab-button {
-  display: inline-flex;
-  align-items: center;
-  gap: .375rem;
-  padding: .6rem 1.1rem;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--r-lg);
-  color: var(--text-3);
-  font-family: var(--font-body);
-  font-weight: 500;
-  font-size: .8rem;
-  cursor: pointer;
-  transition: all var(--t2);
-  white-space: nowrap;
-  flex-shrink: 0;
-  box-shadow: var(--s-xs);
-  letter-spacing: -.01em;
-  position: relative;
-  overflow: hidden;
-}
-
-.tab-button:hover {
-  background: var(--teal-soft);
-  color: var(--teal-deeper);
-  border-color: var(--teal-border);
-  box-shadow: var(--s-sm);
-  transform: translateY(-1px);
-}
-
-.tab-button:active {
-  transform: var(--press);
-}
-
-.tab-button.active {
-  background: var(--teal);
-  color: white;
-  border-color: var(--teal);
-  box-shadow: 0 0 0 2px rgba(14,165,233,0.2), 0 8px 25px rgba(14,165,233,0.35);
-  font-weight: 600;
-  transform: translateY(-1px);
-}
-
-.tab-icon { font-size:.9375rem; line-height:1; flex-shrink:0; }
-.tab-label { line-height:1; }
-
-@media (max-width:640px) {
-  .tab-navigation { top:52px; }
-  .tab-button { padding:.5rem .75rem; font-size:.75rem; }
-  .tab-icon { font-size:.875rem; }
-}
-
-@media (max-width:400px) {
-  .tab-button .tab-label { display:none; }
-  .tab-button { padding:.6rem; }
-  .tab-icon { font-size:1rem; }
+  display: none !important;
 }
 
 /* ============================================================
@@ -849,14 +759,8 @@ body {
 }
 
 @keyframes floatIn {
-  from {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(15px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width:768px) { .tab-content { padding:1.375rem; border-radius:var(--r-xl); } }
@@ -1126,8 +1030,6 @@ body {
 /* ============================================================
    15. ENGINEERING BOQ / QUOTATION TABLES — PROFESSIONAL DESIGN
    ============================================================ */
-
-/* --- MAIN TABLE CONTAINER --- */
 .table-container {
   overflow-x: auto;
   border-radius: var(--r-xl);
@@ -1142,7 +1044,6 @@ body {
 .table-container::-webkit-scrollbar-track { background: var(--bg); border-radius: 4px; }
 .table-container::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
 
-/* --- PRIMARY TABLE --- */
 .excel-preview-table,
 .results-table,
 .cost-table,
@@ -1159,15 +1060,10 @@ table:not(.specs-table-wrapper table):not(.excel-preview-table tfoot table) {
   min-width: 860px;
 }
 
-/* --- TABLE HEADER --- */
 .excel-preview-table thead,
 .results-table thead,
 .cost-table thead {
-  background: linear-gradient(
-    135deg,
-    var(--table-header-bg-start) 0%,
-    var(--table-header-bg-end) 100%
-  );
+  background: linear-gradient(135deg, var(--table-header-bg-start) 0%, var(--table-header-bg-end) 100%);
 }
 
 .excel-preview-table thead th,
@@ -1195,7 +1091,6 @@ table:not(.specs-table-wrapper table):not(.excel-preview-table tfoot table) {
   border-right: none;
 }
 
-/* --- SUB HEADER ROWS --- */
 .excel-preview-table thead tr:nth-child(2) th,
 .sub-header-row th {
   background: #12213d;
@@ -1205,14 +1100,11 @@ table:not(.specs-table-wrapper table):not(.excel-preview-table tfoot table) {
   border-bottom: 2px solid var(--table-header-bottom);
 }
 
-/* --- TABLE BODY ROWS --- */
 .excel-preview-table tbody tr,
 .results-table tbody tr,
 .cost-table tbody tr {
   border-bottom: 1px solid var(--table-row-border);
-  transition:
-    background 0.25s ease,
-    transform 0.2s ease;
+  transition: background 0.25s ease, transform 0.2s ease;
 }
 
 .excel-preview-table tbody tr:hover,
@@ -1228,7 +1120,6 @@ table:not(.specs-table-wrapper table):not(.excel-preview-table tfoot table) {
   border-bottom: none;
 }
 
-/* --- ALTERNATE ROW COLORS --- */
 .excel-preview-table tbody tr:nth-child(even),
 .results-table tbody tr:nth-child(even),
 .cost-table tbody tr:nth-child(even) {
@@ -1241,7 +1132,6 @@ table:not(.specs-table-wrapper table):not(.excel-preview-table tfoot table) {
   background: var(--table-row-odd);
 }
 
-/* --- TABLE CELLS --- */
 .excel-preview-table tbody td,
 .results-table tbody td,
 .cost-table tbody td {
@@ -1259,7 +1149,6 @@ table:not(.specs-table-wrapper table):not(.excel-preview-table tfoot table) {
   border-right: none;
 }
 
-/* --- DESCRIPTION COLUMN --- */
 .description-column,
 td.description-cell {
   min-width: 420px;
@@ -1271,7 +1160,6 @@ td.description-cell {
   word-break: break-word;
 }
 
-/* --- IMAGE COLUMN --- */
 .image-cell {
   text-align: center;
   vertical-align: middle;
@@ -1302,7 +1190,6 @@ td img:hover {
   border-radius: var(--r-sm);
 }
 
-/* --- RATE + AMOUNT COLUMNS --- */
 .rate-column,
 .amount-column {
   text-align: right;
@@ -1333,7 +1220,6 @@ td img:hover {
   font-weight: 800;
 }
 
-/* --- QTY + UNIT COLUMNS --- */
 .qty-column,
 .unit-column {
   text-align: center;
@@ -1351,7 +1237,6 @@ td img:hover {
   text-align: center;
 }
 
-/* --- REMARKS COLUMN --- */
 .remarks-cell { 
   min-width: 130px;
   max-width: 190px;
@@ -1379,8 +1264,7 @@ textarea {
 textarea:focus {
   outline: none;
   border-color: var(--table-textarea-focus);
-  box-shadow:
-    0 0 0 4px var(--table-textarea-shadow);
+  box-shadow: 0 0 0 4px var(--table-textarea-shadow);
   background: white;
 }
 
@@ -1396,7 +1280,6 @@ textarea::placeholder {
   color: var(--text-4);
 }
 
-/* --- TABLE FOOTER --- */
 .excel-preview-table tfoot td,
 .results-table tfoot td,
 .cost-table tfoot td {
@@ -1415,7 +1298,6 @@ textarea::placeholder {
   border-right: none;
 }
 
-/* --- ZERO QUANTITY ROW --- */
 .zero-quantity-row td { 
   opacity: .5;
 }
@@ -2523,150 +2405,654 @@ textarea:focus-visible {
 /* =========================================
    SHARE MODAL OVERLAY
 ========================================= */
-
 .share-modal-overlay {
   position: fixed;
   inset: 0;
-
   width: 100vw;
   height: 100vh;
-
   background: rgba(15, 23, 42, 0.72);
-
   backdrop-filter: blur(8px);
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   padding: 24px;
-
   z-index: 99999;
-
   overflow-y: auto;
 }
-
-/* =========================================
-   MODAL CONTAINER
-========================================= */
 
 .share-modal-content {
   position: relative;
-
   width: min(920px, 95vw);
-
   max-height: 92vh;
-
   overflow-y: auto;
-
   background: #0f172a;
-
   border: 1px solid #1e293b;
-
   border-radius: 28px;
-
   padding: 32px;
-
-  box-shadow:
-    0 25px 80px rgba(0,0,0,0.45);
-
+  box-shadow: 0 25px 80px rgba(0,0,0,0.45);
   animation: shareModalEnter 0.25s ease;
 }
 
-/* =========================================
-   SCROLLBAR
-========================================= */
-
-.share-modal-content::-webkit-scrollbar {
-  width: 10px;
-}
-
-.share-modal-content::-webkit-scrollbar-track {
-  background: #111827;
-  border-radius: 20px;
-}
-
-.share-modal-content::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 20px;
-}
-
-/* =========================================
-   CLOSE BUTTON
-========================================= */
+.share-modal-content::-webkit-scrollbar { width: 10px; }
+.share-modal-content::-webkit-scrollbar-track { background: #111827; border-radius: 20px; }
+.share-modal-content::-webkit-scrollbar-thumb { background: #334155; border-radius: 20px; }
 
 .share-modal-close {
   position: absolute;
-
-  top: 18px;
-  right: 18px;
-
-  width: 42px;
-  height: 42px;
-
+  top: 18px; right: 18px;
+  width: 42px; height: 42px;
   border: none;
-
   border-radius: 50%;
-
   background: #1e293b;
-
   color: white;
-
   font-size: 1.1rem;
-
   cursor: pointer;
-
   transition: all 0.25s ease;
-
   z-index: 10;
 }
 
-.share-modal-close:hover {
-  background: #ef4444;
-  transform: rotate(90deg);
-}
+.share-modal-close:hover { background: #ef4444; transform: rotate(90deg); }
 
-/* =========================================
-   SHARE RESULTS CONTAINER
-========================================= */
-
-.share-results-container {
-  width: 100%;
-}
-
-/* =========================================
-   RESPONSIVE
-========================================= */
+.share-results-container { width: 100%; }
 
 @media (max-width: 768px) {
-
-  .share-modal-content {
-    width: 100%;
-    max-height: 95vh;
-
-    padding: 22px;
-
-    border-radius: 22px;
-  }
-
-  .share-checkbox-grid {
-    grid-template-columns: 1fr;
-  }
+  .share-modal-content { width: 100%; max-height: 95vh; padding: 22px; border-radius: 22px; }
+  .share-checkbox-grid { grid-template-columns: 1fr; }
 }
-
-/* =========================================
-   ANIMATION
-========================================= */
 
 @keyframes shareModalEnter {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.96);
-  }
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
-  to {
+/* ============================================================
+   EXCEL EXPORT MODAL
+============================================================ */
+.excel-export-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.excel-export-modal {
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #111827;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+}
+
+.excel-export-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.excel-export-header h2 { color: white; margin: 0; font-size: 20px; }
+
+.close-modal-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.close-modal-btn:hover { background: rgba(255,255,255,0.1); }
+
+.export-section {
+  margin-bottom: 28px;
+  padding: 18px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.excel-export-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.cancel-export-btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: #374151;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.cancel-export-btn:hover { background: #4b5563; }
+
+.excel-export-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  transition: opacity 0.2s;
+}
+
+.excel-export-btn:hover { opacity: 0.9; }
+
+/* ============================================================
+   RESULTS DASHBOARD LAYOUT (Sidebar & Main Content)
+============================================================ */
+.results-dashboard-layout {
+  display: flex;
+  gap: 0;                     /* tight sidebar */
+  align-items: flex-start;
+  margin-top: 0;
+}
+
+/* ============================================================
+   LEFT SIDEBAR (with collapsed functionality)
+============================================================ */
+.results-sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: linear-gradient(180deg, #0a1628 0%, #0f1f3d 100%);
+  border-right: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.results-sidebar.collapsed {
+  width: 72px;
+  min-width: 72px;
+}
+
+.sidebar-inner {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-inner::-webkit-scrollbar { width: 4px; }
+.sidebar-inner::-webkit-scrollbar-track { background: transparent; }
+.sidebar-inner::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+.sidebar-toggle-btn {
+  position: sticky;
+  top: 12px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  z-index: 10;
+  margin-left: 20px;
+ 
+}
+
+.sidebar-toggle-btn:hover {
+  background: rgba(14,165,233,0.25);
+  border-color: rgba(14,165,233,0.4);
+  color: #63b3ed;
+  transform: scale(1.05);
+}
+
+.toggle-arrow {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.results-sidebar.collapsed .toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  padding: 8px 8px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.3s, height 0.3s, padding 0.3s;
+ 
+}
+
+.results-sidebar.collapsed .sidebar-section-label {
+  opacity: 0;
+  height: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.back-to-calculator-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(14,165,233,0.2), rgba(37,99,235,0.15));
+  border: 1px solid rgba(14,165,233,0.35);
+  border-radius: 10px;
+  color: #63b3ed;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.back-to-calculator-btn:hover {
+  background: linear-gradient(135deg, rgba(14,165,233,0.3), rgba(37,99,235,0.25));
+  border-color: rgba(14,165,233,0.6);
+  transform: translateX(3px);
+}
+
+.btn-icon { font-size: 16px; flex-shrink: 0; }
+
+.btn-label {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.3s, max-width 0.3s;
+  max-width: 200px;
+}
+
+.results-sidebar.collapsed .btn-label {
+  opacity: 0;
+  max-width: 0;
+}
+
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.sidebar-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar-action-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  background: #0ea5e9;
+  border-radius: 0 3px 3px 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.sidebar-action-btn:hover {
+  background: rgba(14,165,233,0.12);
+  border-color: rgba(14,165,233,0.25);
+  color: white;
+  transform: translateX(3px);
+}
+
+.sidebar-action-btn:hover::before { opacity: 1; }
+
+.sidebar-action-btn:active { transform: scale(0.97) translateX(2px); }
+
+.sidebar-action-btn.primary-btn {
+  background: linear-gradient(135deg, rgba(14,165,233,0.25), rgba(37,99,235,0.2));
+  border-color: rgba(14,165,233,0.4);
+  color: #93d5f8;
+  font-weight: 600;
+}
+
+.sidebar-action-btn.proforma-btn {
+  background: rgba(124,58,237,0.1);
+  border-color: rgba(124,58,237,0.25);
+  color: #c4b5fd;
+}
+
+.sidebar-action-btn.save-project-btn {
+  background: rgba(16,185,129,0.1);
+  border-color: rgba(16,185,129,0.25);
+  color: #6ee7b7;
+  font-weight: 600;
+}
+
+.sidebar-tab-icon {
+  font-size: 16px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.sidebar-action-btn:hover .sidebar-tab-icon { transform: scale(1.15); }
+
+.btn-text {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.3s, max-width 0.3s;
+  max-width: 200px;
+}
+
+.results-sidebar.collapsed .btn-text {
+  opacity: 0;
+  max-width: 0;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.07);
+  margin: 6px 0;
+  flex-shrink: 0;
+}
+
+.sidebar-tab-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar-tab-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  background: #0ea5e9;
+  border-radius: 0 3px 3px 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.sidebar-tab-btn:hover {
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.9);
+  transform: translateX(3px);
+}
+
+.sidebar-tab-btn.active {
+  background: linear-gradient(135deg, rgba(14,165,233,0.22), rgba(37,99,235,0.15));
+  border-color: rgba(14,165,233,0.35);
+  color: #7dd3fc;
+  font-weight: 600;
+}
+
+.sidebar-tab-btn.active::before { opacity: 1; }
+
+.sidebar-tab-btn:active { transform: scale(0.97); }
+
+.tab-label-text {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.3s, max-width 0.3s;
+  max-width: 200px;
+}
+
+.results-sidebar.collapsed .sidebar-tab-btn {
+  justify-content: center;
+  padding: 9px 0;
+}
+
+.results-sidebar.collapsed .tab-label-text {
+  opacity: 0;
+  max-width: 0;
+}
+
+.sidebar-footer {
+  flex-shrink: 0;
+  padding: 12px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  background: rgba(0,0,0,0.2);
+}
+
+.back-to-top-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.5);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.back-to-top-btn:hover {
+  background: rgba(14,165,233,0.15);
+  border-color: rgba(14,165,233,0.3);
+  color: #63b3ed;
+  transform: translateY(-2px);
+}
+
+.top-icon { font-size: 14px; flex-shrink: 0; transition: transform 0.2s; }
+.back-to-top-btn:hover .top-icon { transform: translateY(-2px); }
+
+.top-text {
+  transition: opacity 0.3s, max-width 0.3s;
+  max-width: 100px;
+}
+
+.results-sidebar.collapsed .back-to-top-btn {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.results-sidebar.collapsed .top-text {
+  opacity: 0;
+  max-width: 0;
+}
+
+/* Tooltips in collapsed mode */
+.results-sidebar.collapsed .sidebar-action-btn,
+.results-sidebar.collapsed .back-to-calculator-btn,
+.results-sidebar.collapsed .sidebar-tab-btn,
+.results-sidebar.collapsed .back-to-top-btn {
+  position: relative;
+}
+
+.results-sidebar.collapsed .sidebar-action-btn:hover::after,
+.results-sidebar.collapsed .back-to-calculator-btn:hover::after,
+.results-sidebar.collapsed .sidebar-tab-btn:hover::after,
+.results-sidebar.collapsed .back-to-top-btn:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1e293b;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  z-index: 1000;
+  border: 1px solid rgba(255,255,255,0.1);
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+/* Right Content Area */
+.results-main-content {
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
+  background: transparent;
+}
+
+/* ============================================================
+   MOBILE RESPONSIVE (Sidebar overrides)
+============================================================ */
+@media (max-width: 1100px) {
+  .results-dashboard-layout { flex-direction: column; }
+  .results-sidebar,
+  .results-sidebar.collapsed {
+    width: 100% !important;
+    min-width: 100% !important;
+    height: auto;
+    position: relative;
+    top: 0;
+  }
+  .sidebar-inner {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 12px;
+    gap: 8px;
+  }
+  .sidebar-tab-buttons { flex-direction: row; gap: 6px; }
+  .sidebar-tab-btn { min-width: max-content; }
+  .results-main-content { padding: 16px; }
+  .sidebar-toggle-btn {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin-bottom: 8px;
+    align-self: flex-end;
+  }
+  .results-sidebar.collapsed .sidebar-inner { flex-direction: row; }
+  .results-sidebar.collapsed .btn-label,
+  .results-sidebar.collapsed .tab-label-text,
+  .results-sidebar.collapsed .top-text {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    max-width: 200px;
+  }
+  .results-sidebar.collapsed .sidebar-action-btn,
+  .results-sidebar.collapsed .back-to-calculator-btn,
+  .results-sidebar.collapsed .sidebar-tab-btn,
+  .results-sidebar.collapsed .back-to-top-btn {
+    justify-content: flex-start;
+    padding: 9px 12px;
+  }
+  .results-sidebar.collapsed .sidebar-action-btn:hover::after,
+  .results-sidebar.collapsed .back-to-calculator-btn:hover::after,
+  .results-sidebar.collapsed .sidebar-tab-btn:hover::after,
+  .results-sidebar.collapsed .back-to-top-btn:hover::after {
+    display: none;
   }
 }
 
+@media (max-width: 640px) {
+  .results-sidebar {
+    padding: 16px;
+    border-radius: 18px;
+  }
+  .sidebar-action-btn,
+  .sidebar-tab-btn {
+    font-size: 13px;
+    padding: 12px 14px;
+  }
+  .back-to-calculator-btn { font-size: 14px; }
+}
+
+/* ============================================================
+   TABLE SUB-ROW & MAIN ROW STYLES
+============================================================ */
+.sub-row { background-color: #f9f9f9; font-size: 13px; }
+.sub-row:hover { background-color: #f0f0f0; }
+.sub-row td:first-child { padding-left: 20px; }
+.sub-row td:nth-child(3) { padding-left: 40px; }
+.main-row { font-weight: bold; background-color: #e8eef5; }
+
+.qty-input {
+  width: 90px;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  background: #fff;
+}
+.qty-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 4px rgba(0,123,255,0.4);
+}
+.subrow-input { background: #f8f9fa; }

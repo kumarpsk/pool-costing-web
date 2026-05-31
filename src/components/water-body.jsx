@@ -42,7 +42,6 @@ function WaterBody() {
   const [includePumpRoom_6, setIncludePumpRoom_6] = useState(true);
   const [filtration_6, setFiltration_6] = useState("standard");
   const [circulation_6, setCirculation_6] = useState("standard");
-  const [hasWaterfall_6, setHasWaterfall_6] = useState(false);
 
   const navigate = useNavigate();
 
@@ -190,7 +189,7 @@ function WaterBody() {
       includePumpRoom: includePumpRoom_6,
       filtration: filtration_6,
       circulation: circulation_6,
-      hasWaterfall: hasWaterfall_6,
+      nozzle_type: form_6.nozzle_type,
       turnover: form_6.turnover,
       timestamp: new Date().toLocaleString()
     };
@@ -278,12 +277,34 @@ function WaterBody() {
     setConstructionType_6(type);
   };
 
-  const handleWaterfallToggle_6 = () => {
-    setHasWaterfall_6(!hasWaterfall_6);
+  // ✅ UPDATED: No automatic waterfall enable, just logs selection
+  const handleNozzleChange_6 = (e) => {
+    const selectedNozzle = e.target.value;
+
+    console.log(
+      "🌊 Selected nozzle:",
+      selectedNozzle
+    );
+
+    setForm_6(prev => ({
+      ...prev,
+      nozzle_type: selectedNozzle
+    }));
   };
 
   const calculateAndShowResults_6 = async (dimensions) => {
     setLoading_6(true);
+
+    // ✅ CAPTURE NOZZLE VALUE SYNCHRONOUSLY BEFORE API CALL
+    const selectedNozzle =
+      dimensions?.nozzle_type ||
+      form_6.nozzle_type ||
+      "";
+
+    console.log(
+      "🔥 FINAL selectedNozzle:",
+      selectedNozzle
+    );
 
     try {
       const headers = getTenantAuthHeaders_6();
@@ -298,15 +319,24 @@ function WaterBody() {
         width: parseFloat(dimensions.width),
         depth: parseFloat(dimensions.depth),
         shape: dimensions.shape || "rectangular",
+
         construction_type: constructionType_6,
+
         include_pump_room: includePumpRoom_6,
+
         filtration: filtration_6,
+
         circulation: circulation_6,
-        hasWaterfall: hasWaterfall_6,
+
+        hasWaterfall: !!selectedNozzle,
+
+        nozzle_type: selectedNozzle || "",
+
         turnover: parseFloat(form_6.turnover)
       };
 
       console.log("📤 Sending Water Body calculation request:", requestData);
+      console.log("🌊 Selected nozzle:", selectedNozzle);
       console.log("🔐 Headers:", headers);
 
       const response = await fetch(`${API_BASE_URL}/waterbody/calculate`, {
@@ -342,7 +372,11 @@ function WaterBody() {
             include_pump_room: includePumpRoom_6,
             filtration: filtration_6,
             circulation: circulation_6,
-            hasWaterfall: hasWaterfall_6,
+            
+            hasWaterfall: !!selectedNozzle,
+            
+            nozzle_type: selectedNozzle || "",
+            
             turnover: parseFloat(form_6.turnover)
           },
           construction_type: constructionType_6,
@@ -356,7 +390,7 @@ function WaterBody() {
         depth: "",
         shape: "rectangular",
         standardSize: "",
-        nozzle_type: form_6.nozzle_type,
+        nozzle_type: selectedNozzle,
         turnover: form_6.turnover
       });
     } catch (error) {
@@ -371,10 +405,11 @@ function WaterBody() {
     setForm_6({
       length: dimension.length,
       width: dimension.width,
+      height: dimension.height,
       depth: dimension.depth,
       shape: dimension.shape || "rectangular",
       standardSize: "",
-      nozzle_type: form_6.nozzle_type,
+      nozzle_type: dimension.nozzle_type || form_6.nozzle_type,
       turnover: dimension.turnover || "4.0"
     });
     
@@ -382,7 +417,6 @@ function WaterBody() {
     setIncludePumpRoom_6(dimension.includePumpRoom !== undefined ? dimension.includePumpRoom : true);
     setFiltration_6(dimension.filtration || "standard");
     setCirculation_6(dimension.circulation || "standard");
-    setHasWaterfall_6(dimension.hasWaterfall || false);
     
     setShowStandardSizes_6(false);
     
@@ -417,7 +451,11 @@ function WaterBody() {
           include_pump_room: includePumpRoom_6,
           filtration: filtration_6,
           circulation: circulation_6,
-          hasWaterfall: hasWaterfall_6,
+          
+          hasWaterfall: !!form_6.nozzle_type,
+          
+          nozzle_type: form_6.nozzle_type || "",
+          
           turnover: parseFloat(form_6.turnover)
         };
       } else {
@@ -430,7 +468,11 @@ function WaterBody() {
           include_pump_room: includePumpRoom_6,
           filtration: filtration_6,
           circulation: circulation_6,
-          hasWaterfall: hasWaterfall_6,
+          
+          hasWaterfall: !!form_6.nozzle_type,
+          
+          nozzle_type: form_6.nozzle_type || "",
+          
           turnover: parseFloat(form_6.turnover)
         };
       }
@@ -441,7 +483,8 @@ function WaterBody() {
       console.log("  Include Pump Room:", includePumpRoom_6);
       console.log("  Filtration:", filtration_6);
       console.log("  Circulation:", circulation_6);
-      console.log("  Waterfall:", hasWaterfall_6);
+      console.log("  Waterfall:", dimensions.hasWaterfall);
+      console.log("  Nozzle Type:", form_6.nozzle_type);
       console.log("  Lighting: STANDARD (always included - SlNo 10 & 11)");
       console.log("  Turnover:", form_6.turnover, "hours");
 
@@ -499,8 +542,9 @@ function WaterBody() {
     const constructionTypeIcon = dimension.constructionType === 'terrace' ? '🏢' : '🏞️';
     const pumpRoom = dimension.includePumpRoom ? '🏗️' : '';
     const turnoverInfo = dimension.turnover ? ` ⏱️${dimension.turnover}h` : '';
+    const nozzleInfo = dimension.nozzle_type ? ` 🌊${dimension.nozzle_type}` : '';
     
-    return `${constructionTypeIcon} ${symbol} ${dimension.length}×${dimension.width}×${dimension.depth}m${pumpRoom}${turnoverInfo}`;
+    return `${constructionTypeIcon} ${symbol} ${dimension.length}×${dimension.width}×${dimension.depth}m${pumpRoom}${turnoverInfo}${nozzleInfo}`;
   };
 
   return (
@@ -691,6 +735,15 @@ function WaterBody() {
               <span className="badge-icon_6">💡</span>
               <span className="badge-text_6">Lighting Included (Standard)</span>
             </div>
+            {/* ✅ WATERFALL BADGE - now only shows when nozzle is selected */}
+            {form_6.nozzle_type && (
+              <div className="waterfall-badge_6">
+                <span className="badge-icon_6">🌊</span>
+                <span className="badge-text_6">
+                  Waterfall: {form_6.nozzle_type.toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
         </div>
         
@@ -722,12 +775,12 @@ function WaterBody() {
 
         {/* Nozzle Type Selection */}
         <div className="nozzle-type-section_6">
-          <h3 style={{color:"white"}}>Water Feature Nozzle</h3>
+          <h3 style={{color:"white"}}>🌊 Water Feature Nozzle</h3>
           <div className="nozzle-type-select-container_6">
             <select
               name="nozzle_type"
               value={form_6.nozzle_type}
-              onChange={handleChange_6}
+              onChange={handleNozzleChange_6}
               className="nozzle-type-select_6"
             >
               {nozzleTypeOptions_6.map(option => (
@@ -747,6 +800,17 @@ function WaterBody() {
                   </div>
                   <div className="nozzle-description-text_6">
                     {nozzleTypeOptions_6.find(n => n.value === form_6.nozzle_type)?.description}
+                  </div>
+                  {/* ✅ SHOW WATERFALL AUTO-ENABLED MESSAGE */}
+                  <div className="waterfall-auto-enabled_6" style={{
+                    marginTop: "8px",
+                    padding: "4px 10px",
+                    background: "rgba(0,188,212,0.15)",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    color: "#00bcd4"
+                  }}>
+                    🌊 Waterfall system automatically enabled
                   </div>
                 </div>
               </div>
@@ -965,6 +1029,11 @@ function WaterBody() {
         <div className="app-footer_6">
           <p>Need help with water body construction? Contact our civil engineering specialists</p>
           <p className="footer-note_6">💡 Lighting system (underwater lights & transformer) is a standard MEP item and always included in calculation.</p>
+          {form_6.nozzle_type && (
+            <p className="footer-note_6" style={{ color: "#00bcd4" }}>
+              🌊 Waterfall system with {form_6.nozzle_type.toUpperCase()} nozzle will be included in MEP calculation
+            </p>
+          )}
         </div>
       </main>
     </div>

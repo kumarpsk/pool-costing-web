@@ -177,6 +177,173 @@ function JacuzziSpaResultPage() {
   const [heaterKW, setHeaterKW] = useState(6);
 
   // ================================
+  // ✅ ADD EDITABLE STATES
+  // ================================
+  const [editableCivilQty, setEditableCivilQty] = useState({});
+  const [editableMepQty, setEditableMepQty] = useState({});
+  const [editablePumpRoomQty, setEditablePumpRoomQty] = useState({});
+  const [editablePipingQty, setEditablePipingQty] = useState({});
+  const [editableSubRowQty, setEditableSubRowQty] = useState({});
+
+  // ================================
+  // ✅ ADD COMMON QTY HANDLER
+  // ================================
+  const handleQtyChange = (type, key, value) => {
+    const qty = Number(value) || 0;
+
+    switch (type) {
+      case "civil":
+        setEditableCivilQty(prev => ({
+          ...prev,
+          [key]: qty
+        }));
+        break;
+
+      case "mep":
+        setEditableMepQty(prev => ({
+          ...prev,
+          [key]: qty
+        }));
+        break;
+
+      case "pump":
+        setEditablePumpRoomQty(prev => ({
+          ...prev,
+          [key]: qty
+        }));
+        break;
+
+      case "piping":
+        setEditablePipingQty(prev => ({
+          ...prev,
+          [key]: qty
+        }));
+        break;
+
+      case "subrow":
+        setEditableSubRowQty(prev => ({
+          ...prev,
+          [key]: qty
+        }));
+        break;
+
+      default:
+        break;
+    }
+  };
+
+  // ================================
+  // ✅ FIXED — resolveTemplateDescription helper
+  // Replaces {{placeholders}} with actual values from dynamicRates
+  // ================================
+  const resolveTemplateDescription = (desc) => {
+    if (!desc || typeof desc !== 'string') return desc;
+    if (!desc.includes('{{')) return desc;
+
+    let resolved = desc;
+
+    // Replace all known placeholders
+    const replacements = {
+      '{{filter_dia_mm}}': dynamicRates.filter_dia || 'N/A',
+      '{{mpv_size}}': getMpvSizeFromDia(dynamicRates.filter_dia),
+      '{{flowrate_m3}}': safeToFixed(dynamicRates.flowrate_m3 || 0, 2),
+      '{{hp}}': dynamicRates.hp || 'N/A',
+    };
+
+    for (const [placeholder, value] of Object.entries(replacements)) {
+      if (resolved.includes(placeholder)) {
+        resolved = resolved.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), String(value));
+      }
+    }
+
+    return resolved;
+  };
+
+  // Helper to get MPV size from filter diameter
+  const getMpvSizeFromDia = (dia) => {
+    if (!dia) return 'N/A';
+    const d = Number(dia);
+    if (d >= 400 && d <= 650) return '1.5';
+    if (d >= 700 && d <= 900) return '2';
+    if (d >= 1000 && d <= 1200) return '2.5';
+    if (d >= 1400 && d <= 1600) return '3';
+    return 'N/A';
+  };
+
+  // ================================
+  // ✅ FIXED — Centralized MEP description resolution helper
+  // Uses resolveTemplateDescription to fix {{placeholders}}
+  // ================================
+  const getResolvedMepDescription = (slNo, fallbackItem) => {
+    const numericSlNo = Number(slNo);
+    const GENERIC = ["filter", "pump", "n/a", ""];
+
+    const isUsable = (desc) =>
+      desc &&
+      typeof desc === 'string' &&
+      !GENERIC.includes(desc.toLowerCase().trim()) &&
+      desc.length > 10;
+
+    // Priority 1: Check resultData.mep_items (from calculate-mep endpoint)
+    const calcItem = resultData?.mep_items?.find(
+      m => Number(m.SlNo ?? m.sl_no) === numericSlNo
+    );
+    const apiDesc = calcItem?.Description || "";
+    const resolvedApiDesc = resolveTemplateDescription(apiDesc);
+    if (isUsable(resolvedApiDesc) && !resolvedApiDesc.includes('{{')) {
+      return resolvedApiDesc;
+    }
+
+    // Priority 2: Check mepItems (from admin endpoint) - these have the full templates
+    const adminItem = mepItems?.find(m => Number(m.SlNo) === numericSlNo);
+    const adminDesc = adminItem?.Description || "";
+    const resolvedAdminDesc = resolveTemplateDescription(adminDesc);
+    if (isUsable(resolvedAdminDesc) && !resolvedAdminDesc.includes('{{')) {
+      return resolvedAdminDesc;
+    }
+
+    // Priority 3: Check dynamicRates descriptions
+    if (numericSlNo === 1 && dynamicRates.filter_description) {
+      const resolved = resolveTemplateDescription(dynamicRates.filter_description);
+      if (isUsable(resolved) && !resolved.includes('{{')) return resolved;
+    }
+    if (numericSlNo === 7 && dynamicRates.pump_description) {
+      const resolved = resolveTemplateDescription(dynamicRates.pump_description);
+      if (isUsable(resolved) && !resolved.includes('{{')) return resolved;
+    }
+
+    // Priority 4: Check root-level resultData
+    if (numericSlNo === 1 && resultData?.filter_description) {
+      const resolved = resolveTemplateDescription(resultData.filter_description);
+      if (isUsable(resolved) && !resolved.includes('{{')) return resolved;
+    }
+    if (numericSlNo === 7 && resultData?.pump_description) {
+      const resolved = resolveTemplateDescription(resultData.pump_description);
+      if (isUsable(resolved) && !resolved.includes('{{')) return resolved;
+    }
+
+    // Priority 5: Fallback to fallbackItem description
+    const fallbackDesc = fallbackItem?.Description || "";
+    const resolvedFallback = resolveTemplateDescription(fallbackDesc);
+    if (isUsable(resolvedFallback) && !resolvedFallback.includes('{{')) {
+      return resolvedFallback;
+    }
+
+    // Last resort: Build description from available data
+    if (numericSlNo === 1) {
+      const dia = dynamicRates.filter_dia || 'N/A';
+      const mpv = getMpvSizeFromDia(dynamicRates.filter_dia);
+      return `Filter – Dia ${dia} mm with clamp lid and ${mpv} inches connections, flow rate ${safeToFixed(dynamicRates.flowrate_m3 || 0, 2)} m³/hr`;
+    }
+    if (numericSlNo === 7) {
+      const hp = dynamicRates.hp || 'N/A';
+      return `Pump – ${hp} HP centrifugal pump with thermoplastic corrosion-resistant body, flow rate ${safeToFixed(dynamicRates.flowrate_m3 || 0, 2)} m³/hr`;
+    }
+
+    return fallbackItem?.Description || `Item ${numericSlNo}`;
+  };
+
+  // ================================
   // INSTALLATION RATE HELPER FUNCTIONS
   // ================================
   const getSupplyRate = (item) => {
@@ -290,12 +457,17 @@ function JacuzziSpaResultPage() {
   }, [civilQuantities, resultData]);
 
   // ================================
-  // GET QUANTITY FOR MEP ITEM - USING BACKEND DATA ONLY
+  // ✅ GET QUANTITY FOR MEP ITEM - WITH EDITABLE STATE
   // ================================
   const getMepQuantity = (item) => {
     const slNo = item.SlNo;
-    const qtyField = MEP_QTY_FIELDS[slNo];
+    
+    // ✅ Check editable state first
+    if (editableMepQty[slNo] !== undefined) {
+      return Number(editableMepQty[slNo]);
+    }
 
+    const qtyField = MEP_QTY_FIELDS[slNo];
     let qty = 0;
 
     if (qtyField && mepQuantities && mepQuantities[qtyField] !== undefined) {
@@ -337,20 +509,23 @@ function JacuzziSpaResultPage() {
   }, [resultData]);
 
   // ================================
-  // PIPING TOTALS
+  // ✅ PIPING TOTALS WITH EDITABLE QTY
   // ================================
   const pipingTotals = useMemo(() => {
     if (!pipingItemsFromResult || pipingItemsFromResult.length === 0) return 0;
     let total = 0;
     pipingItemsFromResult.forEach(item => {
-      const qty = Number(item.Quantity || item.quantity || 0);
+      const slNo = item.SlNo || item.sl_no;
+      const qty = editablePipingQty[slNo] !== undefined
+        ? editablePipingQty[slNo]
+        : Number(item.Quantity || item.quantity || 0);
       const rate = Number(item.Rate || item.rate || 0);
       const supply = qty * rate;
       const installation = supply * INSTALLATION_PERCENT;
       total += (supply + installation);
     });
     return total;
-  }, [pipingItemsFromResult]);
+  }, [pipingItemsFromResult, editablePipingQty]);
 
   // ================================
   // LOAD SAVED SETTINGS
@@ -662,14 +837,9 @@ function JacuzziSpaResultPage() {
         return;
       }
 
-      // ================================
-      // STORE CIVIL QUANTITIES (contains excavation_split, shuttering_split, shotcreting_split)
-      // ================================
+      // STORE CIVIL QUANTITIES
       if (data.civil_quantities) {
         console.log("✅ Setting Civil quantities from data.civil_quantities:", data.civil_quantities);
-        console.log("✅ Excavation Split from backend:", data.civil_quantities.excavation_split);
-        console.log("✅ Shuttering Split from backend:", data.civil_quantities.shuttering_split);
-        console.log("✅ Shotcreting Split from backend:", data.civil_quantities.shotcreting_split);
         setCivilQuantities(data.civil_quantities);
       }
 
@@ -684,6 +854,10 @@ function JacuzziSpaResultPage() {
       }
 
       if (data.system_parameters) {
+        // Calculate flowrate for template resolution
+        const volume = dimensions.length * dimensions.width * dimensions.depth;
+        const flowrate_m3 = volume / 1.5;
+
         setDynamicRates({
           filter_rate: data.system_parameters.filter_rate ?? 0,
           pump_rate: data.system_parameters.pump_rate ?? 0,
@@ -696,6 +870,7 @@ function JacuzziSpaResultPage() {
           hp_from_db: null,
           hp: data.system_parameters.pump_hp || data.system_parameters.hp,
           filter_dia: data.system_parameters.filter_dia_mm,
+          flowrate_m3: flowrate_m3,
           database_updated: data.system_parameters.database_updated || false,
           rate_source_note: data.system_parameters.rate_source === "mep_rates_exact"
             ? "Rates from mep_rates table - saved"
@@ -718,7 +893,6 @@ function JacuzziSpaResultPage() {
         });
       }
 
-      // Also check for pump_room_quantities key
       if (data.pump_room_quantities) {
         console.log("✅ Setting pump room quantities from data.pump_room_quantities:", data.pump_room_quantities);
         setPumpRoomQuantities(data.pump_room_quantities);
@@ -777,6 +951,40 @@ function JacuzziSpaResultPage() {
     fetchTemplateDescriptions();
   }, [dimensions, navigate]);
 
+  // ================================
+  // EFFECT TO UPDATE DYNAMIC RATES FROM RESULTDATA (Initial Load)
+  // ================================
+  useEffect(() => {
+    if (resultData && resultData.system_parameters) {
+      const volume = dimensions.length * dimensions.width * dimensions.depth;
+      const flowrate_m3 = volume / 1.5;
+
+      setDynamicRates({
+        filter_rate: resultData.system_parameters.filter_rate ?? 0,
+        pump_rate: resultData.system_parameters.pump_rate ?? 0,
+        filter_description: resultData.system_parameters.filter_description || "",
+        pump_description: resultData.system_parameters.pump_description || "",
+        source: resultData.system_parameters.rate_source || "no_match",
+        exact_match: resultData.system_parameters.rate_source === "mep_rates_exact",
+        hp_overridden: false,
+        original_hp: null,
+        hp_from_db: null,
+        hp: resultData.system_parameters.pump_hp || resultData.system_parameters.hp,
+        filter_dia: resultData.system_parameters.filter_dia_mm,
+        flowrate_m3: flowrate_m3,
+        database_updated: resultData.system_parameters.database_updated || false,
+        rate_source_note: resultData.system_parameters.rate_source === "mep_rates_exact"
+          ? "Rates from mep_rates table - saved"
+          : resultData.system_parameters.rate_source === "mep_rates_closest"
+            ? "Using closest match from mep_rates table"
+            : "No match found - rates set to 0",
+        jet_pump_rate: 52500,
+        heater_rate: resultData.mep_quantities?.heater_rate || 0,
+        last_updated: new Date().toISOString()
+      });
+    }
+  }, [resultData]);
+
   useEffect(() => {
     if (dimensions?.length && dimensions?.width && dimensions?.depth) {
       fetchMepCalculation();
@@ -824,9 +1032,14 @@ function JacuzziSpaResultPage() {
   }, [pumpRoomQuantities]);
 
   // ================================
-  // QUANTITY GETTER FUNCTIONS
+  // ✅ QUANTITY GETTER FUNCTIONS WITH EDITABLE STATE
   // ================================
   const getCivilQuantity = (slNo) => {
+    // ✅ Check editable state first
+    if (editableCivilQty[slNo] !== undefined) {
+      return Number(editableCivilQty[slNo]);
+    }
+
     const fieldName = MAIN_POOL_QTY_FIELDS[slNo];
     if (!fieldName) return 0;
     return Number(
@@ -837,6 +1050,11 @@ function JacuzziSpaResultPage() {
   };
 
   const getPumpRoomQuantity = (slNo) => {
+    // ✅ Check editable state first
+    if (editablePumpRoomQty[slNo] !== undefined) {
+      return Number(editablePumpRoomQty[slNo]);
+    }
+
     if (slNo > 12) return 0;
     const fieldName = PUMP_ROOM_QTY_FIELDS[slNo];
     if (!fieldName) return 0;
@@ -848,7 +1066,7 @@ function JacuzziSpaResultPage() {
   };
 
   // ================================
-  // MEMOIZED TOTALS
+  // ✅ MEMOIZED TOTALS WITH EDITABLE STATE DEPENDENCIES
   // ================================
 
   // mainPoolTotal - uses sub-rows to avoid double counting
@@ -870,44 +1088,53 @@ function JacuzziSpaResultPage() {
     // Excavation subrow amounts
     const backendSubRow11 = civilItemsFromBackend.find(ci => String(ci.SlNo) === "1.1");
     const backendSubRow12 = civilItemsFromBackend.find(ci => String(ci.SlNo) === "1.2");
-    const qty_1_1 = Number(backendSubRow11?.Quantity ?? excavationSplit["1.1"] ?? 0);
+    const qty_1_1 = editableSubRowQty["1.1"] !== undefined 
+      ? editableSubRowQty["1.1"]
+      : Number(backendSubRow11?.Quantity ?? excavationSplit["1.1"] ?? 0);
     const rate_1_1 = Number(backendSubRow11?.Rate ?? excavationRates["1.1"] ?? 0);
-    const qty_1_2 = Number(backendSubRow12?.Quantity ?? excavationSplit["1.2"] ?? 0);
+    const qty_1_2 = editableSubRowQty["1.2"] !== undefined
+      ? editableSubRowQty["1.2"]
+      : Number(backendSubRow12?.Quantity ?? excavationSplit["1.2"] ?? 0);
     const rate_1_2 = Number(backendSubRow12?.Rate ?? excavationRates["1.2"] ?? 0);
-    const amount_1_1 = backendSubRow11?.Amount ?? (qty_1_1 * rate_1_1);
-    const amount_1_2 = backendSubRow12?.Amount ?? (qty_1_2 * rate_1_2);
+    const amount_1_1 = qty_1_1 * rate_1_1;
+    const amount_1_2 = qty_1_2 * rate_1_2;
 
     // Shuttering subrow amounts
     const backendSubRow91 = civilItemsFromBackend.find(ci => String(ci.SlNo) === "9.1");
     const backendSubRow92 = civilItemsFromBackend.find(ci => String(ci.SlNo) === "9.2");
-    const qty_9_1 = Number(backendSubRow91?.Quantity ?? shutteringSplit["9.1"] ?? 0);
+    const qty_9_1 = editableSubRowQty["9.1"] !== undefined
+      ? editableSubRowQty["9.1"]
+      : Number(backendSubRow91?.Quantity ?? shutteringSplit["9.1"] ?? 0);
     const rate_9_1 = Number(backendSubRow91?.Rate ?? 0);
-    const qty_9_2 = Number(backendSubRow92?.Quantity ?? shutteringSplit["9.2"] ?? 0);
+    const qty_9_2 = editableSubRowQty["9.2"] !== undefined
+      ? editableSubRowQty["9.2"]
+      : Number(backendSubRow92?.Quantity ?? shutteringSplit["9.2"] ?? 0);
     const rate_9_2 = Number(backendSubRow92?.Rate ?? 0);
-    const amount_9_1 = backendSubRow91?.Amount ?? (qty_9_1 * rate_9_1);
-    const amount_9_2 = backendSubRow92?.Amount ?? (qty_9_2 * rate_9_2);
+    const amount_9_1 = qty_9_1 * rate_9_1;
+    const amount_9_2 = qty_9_2 * rate_9_2;
 
     // Shotcreting subrow amounts
     const backendSubRow101 = civilItemsFromBackend.find(ci => String(ci.SlNo) === "10.1");
     const backendSubRow102 = civilItemsFromBackend.find(ci => String(ci.SlNo) === "10.2");
-    const qty_10_1 = Number(backendSubRow101?.Quantity ?? shotcretingSplit["10.1"] ?? 0);
+    const qty_10_1 = editableSubRowQty["10.1"] !== undefined
+      ? editableSubRowQty["10.1"]
+      : Number(backendSubRow101?.Quantity ?? shotcretingSplit["10.1"] ?? 0);
     const rate_10_1 = Number(backendSubRow101?.Rate ?? 0);
-    const qty_10_2 = Number(backendSubRow102?.Quantity ?? shotcretingSplit["10.2"] ?? 0);
+    const qty_10_2 = editableSubRowQty["10.2"] !== undefined
+      ? editableSubRowQty["10.2"]
+      : Number(backendSubRow102?.Quantity ?? shotcretingSplit["10.2"] ?? 0);
     const rate_10_2 = Number(backendSubRow102?.Rate ?? 0);
-    const amount_10_1 = backendSubRow101?.Amount ?? (qty_10_1 * rate_10_1);
-    const amount_10_2 = backendSubRow102?.Amount ?? (qty_10_2 * rate_10_2);
+    const amount_10_1 = qty_10_1 * rate_10_1;
+    const amount_10_2 = qty_10_2 * rate_10_2;
 
     mainPoolItems.forEach(item => {
       const slNo = item.SlNo;
 
       if (slNo === 1) {
-        // Use direct excavation amounts from subrows
         total += amount_1_1 + amount_1_2;
       } else if (slNo === 9) {
-        // Use shuttering subrow amounts only
         total += amount_9_1 + amount_9_2;
       } else if (slNo === 10) {
-        // Use shotcreting subrow amounts only
         total += amount_10_1 + amount_10_2;
       } else if (MAIN_POOL_QTY_FIELDS[slNo]) {
         const quantity = getCivilQuantity(slNo);
@@ -916,7 +1143,7 @@ function JacuzziSpaResultPage() {
     });
 
     return total;
-  }, [mainPoolItems, civilQuantities, resultData]);
+  }, [mainPoolItems, civilQuantities, resultData, editableCivilQty, editableSubRowQty]);
 
   const pumpRoomTotal = useMemo(() => {
     if (!includePumpRoom || !mainPoolItems.length) return 0;
@@ -928,7 +1155,7 @@ function JacuzziSpaResultPage() {
       }
     });
     return total;
-  }, [mainPoolItems, pumpRoomQuantities, includePumpRoom, resultData]);
+  }, [mainPoolItems, pumpRoomQuantities, includePumpRoom, resultData, editablePumpRoomQty]);
 
   const baseMepTotals = useMemo(() => {
     let totalSupply = 0;
@@ -941,7 +1168,7 @@ function JacuzziSpaResultPage() {
       totalInstallation += quantity * getInstallationRate(item);
     });
     return { totalSupply, totalInstallation, grand: totalSupply + totalInstallation };
-  }, [filteredMepItems, mepQuantities, resultData, dynamicRates]);
+  }, [filteredMepItems, mepQuantities, resultData, dynamicRates, editableMepQty]);
 
   const baseMepTotal = baseMepTotals.grand;
 
@@ -1227,7 +1454,7 @@ function JacuzziSpaResultPage() {
   };
 
   // ================================
-  // RENDER MAIN POOL TABLE - WITH ALL SUBROWS
+  // ✅ RENDER MAIN POOL TABLE - WITH EDITABLE QTY + SUBROWS
   // ================================
   const renderMainPoolTable = () => {
     if (!mainPoolItems.length) {
@@ -1255,30 +1482,42 @@ function JacuzziSpaResultPage() {
     // Excavation values
     const rate_1_1 = backendSubRow11?.Rate ?? excavationSplit["1.1"]?.rate ?? 0;
     const rate_1_2 = backendSubRow12?.Rate ?? excavationSplit["1.2"]?.rate ?? 0;
-    const qty_1_1 = backendSubRow11?.Quantity ?? excavationSplit["1.1"]?.qty ?? excavationSplit["1.1"] ?? 0;
-    const qty_1_2 = backendSubRow12?.Quantity ?? excavationSplit["1.2"]?.qty ?? excavationSplit["1.2"] ?? 0;
-    const amount_1_1 = backendSubRow11?.Amount ?? (Number(qty_1_1) * Number(rate_1_1));
-    const amount_1_2 = backendSubRow12?.Amount ?? (Number(qty_1_2) * Number(rate_1_2));
+    const qty_1_1 = editableSubRowQty["1.1"] !== undefined 
+      ? editableSubRowQty["1.1"]
+      : (backendSubRow11?.Quantity ?? excavationSplit["1.1"]?.qty ?? excavationSplit["1.1"] ?? 0);
+    const qty_1_2 = editableSubRowQty["1.2"] !== undefined
+      ? editableSubRowQty["1.2"]
+      : (backendSubRow12?.Quantity ?? excavationSplit["1.2"]?.qty ?? excavationSplit["1.2"] ?? 0);
+    const amount_1_1 = Number(qty_1_1) * Number(rate_1_1);
+    const amount_1_2 = Number(qty_1_2) * Number(rate_1_2);
     const desc_1_1 = backendSubRow11?.Description ?? "Earth Excavation up to 1.5m depth";
     const desc_1_2 = backendSubRow12?.Description ?? "Earth Excavation beyond 1.5m depth";
 
     // Shuttering values
-    const qty_9_1 = backendSubRow91?.Quantity ?? shutteringSplit["9.1"] ?? 0;
-    const qty_9_2 = backendSubRow92?.Quantity ?? shutteringSplit["9.2"] ?? 0;
+    const qty_9_1 = editableSubRowQty["9.1"] !== undefined
+      ? editableSubRowQty["9.1"]
+      : (backendSubRow91?.Quantity ?? shutteringSplit["9.1"] ?? 0);
+    const qty_9_2 = editableSubRowQty["9.2"] !== undefined
+      ? editableSubRowQty["9.2"]
+      : (backendSubRow92?.Quantity ?? shutteringSplit["9.2"] ?? 0);
     const rate_9_1 = backendSubRow91?.Rate ?? 0;
     const rate_9_2 = backendSubRow92?.Rate ?? 0;
-    const amount_9_1 = backendSubRow91?.Amount ?? (Number(qty_9_1) * Number(rate_9_1));
-    const amount_9_2 = backendSubRow92?.Amount ?? (Number(qty_9_2) * Number(rate_9_2));
+    const amount_9_1 = Number(qty_9_1) * Number(rate_9_1);
+    const amount_9_2 = Number(qty_9_2) * Number(rate_9_2);
     const desc_9_1 = backendSubRow91?.Description ?? "Retaining wall";
     const desc_9_2 = backendSubRow92?.Description ?? "raft";
 
     // Shotcreting values
-    const qty_10_1 = backendSubRow101?.Quantity ?? shotcretingSplit["10.1"] ?? 0;
-    const qty_10_2 = backendSubRow102?.Quantity ?? shotcretingSplit["10.2"] ?? 0;
+    const qty_10_1 = editableSubRowQty["10.1"] !== undefined
+      ? editableSubRowQty["10.1"]
+      : (backendSubRow101?.Quantity ?? shotcretingSplit["10.1"] ?? 0);
+    const qty_10_2 = editableSubRowQty["10.2"] !== undefined
+      ? editableSubRowQty["10.2"]
+      : (backendSubRow102?.Quantity ?? shotcretingSplit["10.2"] ?? 0);
     const rate_10_1 = backendSubRow101?.Rate ?? 0;
     const rate_10_2 = backendSubRow102?.Rate ?? 0;
-    const amount_10_1 = backendSubRow101?.Amount ?? (Number(qty_10_1) * Number(rate_10_1));
-    const amount_10_2 = backendSubRow102?.Amount ?? (Number(qty_10_2) * Number(rate_10_2));
+    const amount_10_1 = Number(qty_10_1) * Number(rate_10_1);
+    const amount_10_2 = Number(qty_10_2) * Number(rate_10_2);
     const desc_10_1 = backendSubRow101?.Description ?? "Retaining wall";
     const desc_10_2 = backendSubRow102?.Description ?? "Raft";
 
@@ -1351,7 +1590,13 @@ function JacuzziSpaResultPage() {
                       {columnVisibility.unit && <td data-label="Unit">{item.Unit || "CuM"}</td>}
                       {columnVisibility.qty && (
                         <td data-label="QTY" className={Number(qty_1_1) > 0 ? "quantity-filled" : "quantity-zero"}>
-                          {safeToFixed(qty_1_1, 3)}
+                          <input
+                            type="number"
+                            step="0.001"
+                            value={qty_1_1}
+                            onChange={(e) => handleQtyChange("subrow", "1.1", e.target.value)}
+                            className="qty-input subrow-input"
+                          />
                         </td>
                       )}
                       {columnVisibility.fixedRate && (
@@ -1371,7 +1616,13 @@ function JacuzziSpaResultPage() {
                       {columnVisibility.unit && <td data-label="Unit">{item.Unit || "CuM"}</td>}
                       {columnVisibility.qty && (
                         <td data-label="QTY" className={Number(qty_1_2) > 0 ? "quantity-filled" : "quantity-zero"}>
-                          {safeToFixed(qty_1_2, 3)}
+                          <input
+                            type="number"
+                            step="0.001"
+                            value={qty_1_2}
+                            onChange={(e) => handleQtyChange("subrow", "1.2", e.target.value)}
+                            className="qty-input subrow-input"
+                          />
                         </td>
                       )}
                       {columnVisibility.fixedRate && (
@@ -1427,7 +1678,13 @@ function JacuzziSpaResultPage() {
                       {columnVisibility.unit && <td data-label="Unit">{item.Unit || "SqM"}</td>}
                       {columnVisibility.qty && (
                         <td data-label="QTY" className={Number(qty_9_1) > 0 ? "quantity-filled" : "quantity-zero"}>
-                          {safeToFixed(qty_9_1, 3)}
+                          <input
+                            type="number"
+                            step="0.001"
+                            value={qty_9_1}
+                            onChange={(e) => handleQtyChange("subrow", "9.1", e.target.value)}
+                            className="qty-input subrow-input"
+                          />
                         </td>
                       )}
                       {columnVisibility.fixedRate && (
@@ -1447,7 +1704,13 @@ function JacuzziSpaResultPage() {
                       {columnVisibility.unit && <td data-label="Unit">{item.Unit || "SqM"}</td>}
                       {columnVisibility.qty && (
                         <td data-label="QTY" className={Number(qty_9_2) > 0 ? "quantity-filled" : "quantity-zero"}>
-                          {safeToFixed(qty_9_2, 3)}
+                          <input
+                            type="number"
+                            step="0.001"
+                            value={qty_9_2}
+                            onChange={(e) => handleQtyChange("subrow", "9.2", e.target.value)}
+                            className="qty-input subrow-input"
+                          />
                         </td>
                       )}
                       {columnVisibility.fixedRate && (
@@ -1503,7 +1766,13 @@ function JacuzziSpaResultPage() {
                       {columnVisibility.unit && <td data-label="Unit">{item.Unit || "CuM"}</td>}
                       {columnVisibility.qty && (
                         <td data-label="QTY" className={Number(qty_10_1) > 0 ? "quantity-filled" : "quantity-zero"}>
-                          {safeToFixed(qty_10_1, 3)}
+                          <input
+                            type="number"
+                            step="0.001"
+                            value={qty_10_1}
+                            onChange={(e) => handleQtyChange("subrow", "10.1", e.target.value)}
+                            className="qty-input subrow-input"
+                          />
                         </td>
                       )}
                       {columnVisibility.fixedRate && (
@@ -1523,7 +1792,13 @@ function JacuzziSpaResultPage() {
                       {columnVisibility.unit && <td data-label="Unit">{item.Unit || "CuM"}</td>}
                       {columnVisibility.qty && (
                         <td data-label="QTY" className={Number(qty_10_2) > 0 ? "quantity-filled" : "quantity-zero"}>
-                          {safeToFixed(qty_10_2, 3)}
+                          <input
+                            type="number"
+                            step="0.001"
+                            value={qty_10_2}
+                            onChange={(e) => handleQtyChange("subrow", "10.2", e.target.value)}
+                            className="qty-input subrow-input"
+                          />
                         </td>
                       )}
                       {columnVisibility.fixedRate && (
@@ -1563,7 +1838,13 @@ function JacuzziSpaResultPage() {
                   {columnVisibility.unit && <td data-label="Unit">{item.Unit || ""}</td>}
                   {columnVisibility.qty && (
                     <td data-label="QTY" className={quantity ? "quantity-filled" : "quantity-zero"}>
-                      {quantity ? safeToFixed(quantity, 3) : "0.000"}
+                      <input
+                        type="number"
+                        step="0.001"
+                        value={quantity}
+                        onChange={(e) => handleQtyChange("civil", slNo, e.target.value)}
+                        className="qty-input"
+                      />
                     </td>
                   )}
                   {columnVisibility.fixedRate && <td data-label="Fixed Rate">{formatCurrency(rate)}</td>}
@@ -1596,7 +1877,7 @@ function JacuzziSpaResultPage() {
   };
 
   // ================================
-  // RENDER PUMP ROOM TABLE (12 ITEMS)
+  // ✅ RENDER PUMP ROOM TABLE WITH EDITABLE QTY
   // ================================
   const renderPumpRoomTable = () => {
     if (!includePumpRoom) {
@@ -1664,7 +1945,13 @@ function JacuzziSpaResultPage() {
                   {columnVisibility.unit && <td data-label="Unit">{item.Unit || ""}</td>}
                   {columnVisibility.qty && (
                     <td data-label="QTY" className={quantity ? "quantity-filled" : "quantity-zero"}>
-                      {safeToFixed(quantity, 3)}
+                      <input
+                        type="number"
+                        step="0.001"
+                        value={quantity}
+                        onChange={(e) => handleQtyChange("pump", slNo, e.target.value)}
+                        className="qty-input"
+                      />
                     </td>
                   )}
                   {columnVisibility.fixedRate && <td data-label="Fixed Rate">{formatCurrency(rate)}</td>}
@@ -1697,7 +1984,7 @@ function JacuzziSpaResultPage() {
   };
 
   // ================================
-  // RENDER MEP TABLE
+  // ✅ RENDER MEP TABLE WITH EDITABLE QTY
   // ================================
   const renderMepTable = () => {
     if (!filteredMepItems.length) {
@@ -1758,24 +2045,22 @@ function JacuzziSpaResultPage() {
                   const isJetSystem = item.SlNo === 26;
                   const isAirController = item.SlNo === 27;
 
+                  // ✅ Use getResolvedMepDescription which now handles {{placeholders}}
+                  const resolvedDescription = getResolvedMepDescription(item.SlNo, item);
+
                   return (
                     <tr key={item.SlNo} className={isZeroQuantity ? 'zero-quantity-row' : ''}>
                       <td data-label="Sl.No">{item.SlNo}</td>
                       {columnVisibility.code && <td data-label="Code">{item.Code || "N/A"}</td>}
                       <td data-label="Description" className="description-cell">
-                        {item.Description || "N/A"}
+                        <div className="main-description">{resolvedDescription}</div>
                         {isJetPump && <div className="jet-pump-badge"><small>💧 Jet Pump (Fixed rate: ₹52,500)</small></div>}
                         {isJetSystem && <div className="jet-system-badge"><small>💦 Jet System ({quantity} jets)</small></div>}
                         {isAirController && <div className="air-controller-badge"><small>🌊 Air Controller ({quantity} units)</small></div>}
-                        {(item.SlNo === 1 || item.SlNo === 7) && (
-                          <div className="dynamic-rate-indicator">
-                            <small>
-                              {dynamicRates.source === "mep_rates_exact" ? "✅ Exact match from mep_rates table"
-                                : dynamicRates.source === "mep_rates_closest" ? "⚠️ Using closest match"
-                                  : dynamicRates.source === "no_match" ? "❌ No match - using 0" : ""}
-                            </small>
-                            <small className="rate-value-display">Rate: {formatCurrency(supplyRate)}</small>
-                          </div>
+                        {(Number(item.SlNo) === 1 || Number(item.SlNo) === 7) && dynamicRates.exact_match && (
+                          <small style={{ display: 'block', marginTop: '4px', color: '#4ade80', fontSize: '11px' }}>
+                            ✅ Exact match from mep_rates table
+                          </small>
                         )}
                       </td>
                       {columnVisibility.image && (
@@ -1784,7 +2069,13 @@ function JacuzziSpaResultPage() {
                       {columnVisibility.unit && <td data-label="Unit">{item.Unit || ""}</td>}
                       {columnVisibility.qty && (
                         <td data-label="QTY" className={quantity ? "quantity-filled" : "quantity-zero"}>
-                          {quantity ? safeToFixed(quantity, 2) : "0.00"}
+                          <input
+                            type="number"
+                            step="0.001"
+                            value={quantity}
+                            onChange={(e) => handleQtyChange("mep", item.SlNo, e.target.value)}
+                            className="qty-input"
+                          />
                         </td>
                       )}
                       {columnVisibility.fixedRate && (
@@ -1929,7 +2220,7 @@ function JacuzziSpaResultPage() {
   };
 
   // ================================
-  // RENDER PIPING TABLE
+  // ✅ RENDER PIPING TABLE WITH EDITABLE QTY
   // ================================
   const renderPipingTable = () => {
     if (!selectedTables.piping) {
@@ -1966,9 +2257,12 @@ function JacuzziSpaResultPage() {
     let totalGrand = 0;
 
     const processedItems = pipingItemsFromResult.map((item, idx) => {
-      const quantity = item.Quantity || item.quantity || 0;
+      const slNo = item.SlNo || idx + 1;
+      const qty = editablePipingQty[slNo] !== undefined
+        ? editablePipingQty[slNo]
+        : (item.Quantity || item.quantity || 0);
       const rate = item.Rate || item.rate || 0;
-      const supplyAmount = quantity * rate;
+      const supplyAmount = qty * rate;
       const installationAmount = supplyAmount * INSTALLATION_PERCENT;
       const totalAmount = supplyAmount + installationAmount;
       totalSupply += supplyAmount;
@@ -1976,10 +2270,10 @@ function JacuzziSpaResultPage() {
       totalGrand += totalAmount;
       return {
         ...item,
-        slNo: item.SlNo || idx + 1,
+        slNo: slNo,
         description: item.Description || item.description || "N/A",
         dia: item.Dia || item.dia || "-",
-        quantity: quantity,
+        quantity: qty,
         unit: item.Unit || item.unit || "Nos",
         rate: rate,
         supplyAmount,
@@ -2058,7 +2352,13 @@ function JacuzziSpaResultPage() {
                   {columnVisibility.unit && <td data-label="Unit">{item.unit}</td>}
                   {columnVisibility.qty && (
                     <td data-label="QTY" className={item.quantity ? "quantity-filled" : "quantity-zero"}>
-                      {safeToFixed(item.quantity, 2)}
+                      <input
+                        type="number"
+                        step="0.001"
+                        value={item.quantity}
+                        onChange={(e) => handleQtyChange("piping", item.slNo, e.target.value)}
+                        className="qty-input"
+                      />
                     </td>
                   )}
                   {columnVisibility.fixedRate && (
@@ -2181,305 +2481,90 @@ function JacuzziSpaResultPage() {
 
   // PDF download
   const downloadPDF = async () => {
-
-try {
-
-const selectedTableCount =
-  Object.values(selectedTables)
-    .filter(Boolean).length;
-
-if (selectedTableCount === 0) {
-
-  alert(
-    "⚠️ Please select at least one table to export!"
-  );
-
-  return;
-}
-
-// ================================
-// SAFE DATA
-// ================================
-const safeMainPoolItems =
-  Array.isArray(mainPoolItems)
-    ? mainPoolItems.filter(
-        item =>
-          MAIN_POOL_QTY_FIELDS[
-            Number(item.SlNo)
-          ]
-      )
-    : [];
-
-const safeMepItems =
-  Array.isArray(filteredMepItems)
-    ? filteredMepItems.filter(
-        item =>
-          Number(item.SlNo) >= 1 &&
-          Number(item.SlNo) <= 28
-      )
-    : [];
-
-const safePumpRoomItems =
-  Array.isArray(mainPoolItems)
-    ? mainPoolItems.filter(
-        item =>
-          PUMP_ROOM_QTY_FIELDS[
-            Number(item.SlNo)
-          ]
-      )
-    : [];
-
-const safePipingItems =
-  Array.isArray(pipingItemsFromResult)
-    ? pipingItemsFromResult
-    : [];
-
-const safeCivilQuantities =
-  civilQuantities || {};
-
-const safeMepQuantities =
-  mepQuantities || {};
-
-const safePumpRoomQuantities =
-  pumpRoomQuantities || {};
-
-const safeDynamicRates =
-  dynamicRates || {};
-
-const safeCompanyProfile =
-  companyProfile || {};
-
-// ================================
-// SAFE PIPING TOTAL
-// ================================
-let pipingTotalValue = 0;
-
-if (typeof pipingTotals !== "undefined") {
-
-  if (typeof pipingTotals === "object") {
-
-    pipingTotalValue =
-      pipingTotals?.grandTotal ||
-      pipingTotals?.total ||
-      0;
-
-  } else {
-
-    pipingTotalValue =
-      Number(pipingTotals) || 0;
-  }
-}
-
-// ================================
-// DISTANCE
-// ================================
-const distance =
-  pumpRoomDistance || 15;
-
-// ================================
-// DETECT POOL TYPE
-// ================================
-const detectedPoolType =
-  resultData?.pool_type ||
-  resultData?.system_parameters?.pool_type ||
-  poolType ||
-  "jacuzzi";
-
-// ================================
-// GENERATE PDF
-// ================================
-await generatePDF({
-
-  // ================================
-  // CORE
-  // ================================
-  resultData:
-    resultData || {},
-
-  poolType:
-    detectedPoolType,
-
-  constructionType:
-    constructionType || "in-ground",
-
-  // ================================
-  // DIMENSIONS
-  // ================================
-  dimensions:
-    dimensions || {},
-
-  pumpRoomDimensions:
-    pumpRoomDimensions || {},
-
-  // ================================
-  // MAIN POOL
-  // ================================
-  mainPoolItems:
-    selectedTables.mainPool
-      ? safeMainPoolItems
-      : [],
-
-  mainPoolTotal:
-    Number(mainPoolTotal || 0),
-
-  civilQuantities:
-    safeCivilQuantities,
-
-  mainPoolRemarks:
-    mainPoolRemarks || {},
-
-  // ================================
-  // MEP
-  // ================================
-  mepItems:
-    selectedTables.mep
-      ? safeMepItems
-      : [],
-
-  mepQuantities:
-    safeMepQuantities,
-
-  mepTotal:
-    Number(totalMepCost || 0),
-
-  mepRemarks:
-    mepRemarks || {},
-
-  // ================================
-  // PUMP ROOM
-  // ================================
-  includePumpRoom:
-    selectedTables.pumpRoom
-      ? (includePumpRoom || false)
-      : false,
-
-  pumpRoomItems:
-    selectedTables.pumpRoom
-      ? safePumpRoomItems
-      : [],
-
-  pumpRoomQuantities:
-    safePumpRoomQuantities,
-
-  pumpRoomTotal:
-    selectedTables.pumpRoom
-      ? Number(pumpRoomTotal || 0)
-      : 0,
-
-  pumpRoomRemarks:
-    pumpRoomRemarks || {},
-
-  // ================================
-  // PIPING
-  // ================================
-  pipingItems:
-    selectedTables.piping
-      ? safePipingItems
-      : [],
-
-  pipingTotal:
-    Number(pipingTotalValue || 0),
-
-  pumpRoomDistance:
-    distance,
-
-  // ================================
-  // RATES
-  // ================================
-  dynamicRates:
-    safeDynamicRates,
-
-  // ================================
-  // TEMPLATE DATA
-  // ================================
-  templateDescriptions:
-    templateDescriptions || {},
-
-  // ================================
-  // UI SETTINGS
-  // ================================
-  selectedTables:
-    selectedTables || {},
-
-  columnVisibility:
-    columnVisibility || {
-      image: true,
-      unit: true,
-      qty: true,
-      fixedRate: true,
-      remarks: true,
-      code: true
-    },
-
-  // ================================
-  // ADVANCED EQUIPMENT
-  // ================================
-  selectedAdvancedEquipment:
-    selectedAdvancedEquipment || [],
-
-  // ================================
-  // CURRENCY
-  // ================================
-  currency:
-    currency || "INR",
-
-  exchangeRate:
-    exchangeRate || 83.0,
-
-  // ================================
-  // COMPANY
-  // ================================
-  companyProfile:
-    safeCompanyProfile,
-
-  // ================================
-  // EXCAVATION SPLIT
-  // ================================
-  excavationSplit:
-    civilQuantities?.excavation_split || {},
-
-  // ================================
-  // SHUTTERING & SHOTCRETING SPLITS
-  // ================================
-  shutteringSplit:
-    civilQuantities?.shuttering_split || {},
-
-  shotcretingSplit:
-    civilQuantities?.shotcreting_split || {},
-
-  // ================================
-  // JACUZZI SUPPORT
-  // ================================
-  seatingCapacity,
-  waterJets,
-  airJets,
-  heaterKW,
-
-  // ================================
-  // FUTURE SUPPORT
-  // ================================
-  balanceTankItems: [],
-  balanceTankQuantities: {},
-  hasBalancingTank: false,
-
-});
-
-
-} catch (error) {
-
-console.error(
-  "❌ Jacuzzi PDF Error:",
-  error
-);
-
-alert(
-  "PDF generation failed. Check console for details."
-);
-
-
-}
-};
-
+    try {
+      const selectedTableCount = Object.values(selectedTables).filter(Boolean).length;
+      if (selectedTableCount === 0) {
+        alert("⚠️ Please select at least one table to export!");
+        return;
+      }
+
+      const safeMainPoolItems = Array.isArray(mainPoolItems)
+        ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[Number(item.SlNo)])
+        : [];
+
+      const safeMepItems = Array.isArray(filteredMepItems)
+        ? filteredMepItems.filter(item => Number(item.SlNo) >= 1 && Number(item.SlNo) <= 28)
+        : [];
+
+      const safePumpRoomItems = Array.isArray(mainPoolItems)
+        ? mainPoolItems.filter(item => PUMP_ROOM_QTY_FIELDS[Number(item.SlNo)])
+        : [];
+
+      const safePipingItems = Array.isArray(pipingItemsFromResult) ? pipingItemsFromResult : [];
+      const safeCivilQuantities = civilQuantities || {};
+      const safeMepQuantities = mepQuantities || {};
+      const safePumpRoomQuantities = pumpRoomQuantities || {};
+      const safeDynamicRates = dynamicRates || {};
+      const safeCompanyProfile = companyProfile || {};
+
+      let pipingTotalValue = 0;
+      if (typeof pipingTotals !== "undefined") {
+        if (typeof pipingTotals === "object") {
+          pipingTotalValue = pipingTotals?.grandTotal || pipingTotals?.total || 0;
+        } else {
+          pipingTotalValue = Number(pipingTotals) || 0;
+        }
+      }
+
+      const distance = pumpRoomDistance || 15;
+      const detectedPoolType = resultData?.pool_type || resultData?.system_parameters?.pool_type || poolType || "jacuzzi";
+
+      await generatePDF({
+        resultData: resultData || {},
+        poolType: detectedPoolType,
+        constructionType: constructionType || "in-ground",
+        dimensions: dimensions || {},
+        pumpRoomDimensions: pumpRoomDimensions || {},
+        mainPoolItems: selectedTables.mainPool ? safeMainPoolItems : [],
+        mainPoolTotal: Number(mainPoolTotal || 0),
+        civilQuantities: safeCivilQuantities,
+        mainPoolRemarks: mainPoolRemarks || {},
+        mepItems: selectedTables.mep ? safeMepItems : [],
+        mepQuantities: safeMepQuantities,
+        mepTotal: Number(totalMepCost || 0),
+        mepRemarks: mepRemarks || {},
+        includePumpRoom: selectedTables.pumpRoom ? (includePumpRoom || false) : false,
+        pumpRoomItems: selectedTables.pumpRoom ? safePumpRoomItems : [],
+        pumpRoomQuantities: safePumpRoomQuantities,
+        pumpRoomTotal: selectedTables.pumpRoom ? Number(pumpRoomTotal || 0) : 0,
+        pumpRoomRemarks: pumpRoomRemarks || {},
+        pipingItems: selectedTables.piping ? safePipingItems : [],
+        pipingTotal: Number(pipingTotalValue || 0),
+        pumpRoomDistance: distance,
+        dynamicRates: safeDynamicRates,
+        templateDescriptions: templateDescriptions || {},
+        selectedTables: selectedTables || {},
+        columnVisibility: columnVisibility || { image: true, unit: true, qty: true, fixedRate: true, remarks: true, code: true },
+        selectedAdvancedEquipment: selectedAdvancedEquipment || [],
+        currency: currency || "INR",
+        exchangeRate: exchangeRate || 83.0,
+        companyProfile: safeCompanyProfile,
+        excavationSplit: civilQuantities?.excavation_split || {},
+        shutteringSplit: civilQuantities?.shuttering_split || {},
+        shotcretingSplit: civilQuantities?.shotcreting_split || {},
+        seatingCapacity,
+        waterJets,
+        airJets,
+        heaterKW,
+        balanceTankItems: [],
+        balanceTankQuantities: {},
+        hasBalancingTank: false,
+      });
+    } catch (error) {
+      console.error("❌ Jacuzzi PDF Error:", error);
+      alert("PDF generation failed. Check console for details.");
+    }
+  };
 
   // Excel download
   const downloadExcel = async () => {
@@ -2508,62 +2593,44 @@ alert(
           }))
         : [];
 
-      // ✅ GET RATES FROM mainPoolItems for shuttering and shotcreting
       const item9 = mainPoolItems.find(item => Number(item.SlNo) === 9);
       const item10 = mainPoolItems.find(item => Number(item.SlNo) === 10);
       const shutteringRate = Number(item9?.Rate || 1055);
       const shotcretingRate = Number(item10?.Rate || 7950);
 
-      // ✅ BUILD PROPERLY STRUCTURED SPLIT OBJECTS WITH BOTH QTY AND RATE
-      const rawExcavationSplit = civilQuantities?.excavation_split || 
-                                  resultData?.civil_quantities?.excavation_split || 
-                                  {};
-      const rawShutteringSplit = civilQuantities?.shuttering_split || 
-                                  resultData?.civil_quantities?.shuttering_split || 
-                                  {};
-      const rawShotcretingSplit = civilQuantities?.shotcreting_split || 
-                                   resultData?.civil_quantities?.shotcreting_split || 
-                                   {};
+      const rawExcavationSplit = civilQuantities?.excavation_split || resultData?.civil_quantities?.excavation_split || {};
+      const rawShutteringSplit = civilQuantities?.shuttering_split || resultData?.civil_quantities?.shuttering_split || {};
+      const rawShotcretingSplit = civilQuantities?.shotcreting_split || resultData?.civil_quantities?.shotcreting_split || {};
 
-      // ✅ ENHANCE: Convert plain numbers to { qty, rate } objects
       const enhanceSplit = (rawSplit, defaultRate) => {
         const enhanced = {};
         Object.keys(rawSplit).forEach(key => {
           const value = rawSplit[key];
           if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-            // Already an object - ensure it has both qty and rate
             enhanced[key] = {
               qty: Number(value.qty ?? value.Qty ?? value.quantity ?? 0),
               rate: Number(value.rate ?? value.Rate ?? defaultRate ?? 0)
             };
           } else {
-            // Plain number - use it as qty with default rate
-            enhanced[key] = {
-              qty: Number(value || 0),
-              rate: Number(defaultRate || 0)
-            };
+            enhanced[key] = { qty: Number(value || 0), rate: Number(defaultRate || 0) };
           }
         });
         return enhanced;
       };
 
-      // ✅ Excavation rates from civilItems or defaults
       const civilItems = resultData?.civil_items || [];
       const subRow11 = civilItems.find(ci => String(ci.SlNo) === "1.1");
       const subRow12 = civilItems.find(ci => String(ci.SlNo) === "1.2");
       const excavationRate11 = Number(subRow11?.Rate || 250);
       const excavationRate12 = Number(subRow12?.Rate || 350);
 
-      // ✅ Build enhanced splits
       const enhancedExcavation = enhanceSplit(rawExcavationSplit, 0);
-      // Override with specific rates for excavation
       if (enhancedExcavation["1.1"]) enhancedExcavation["1.1"].rate = excavationRate11;
       if (enhancedExcavation["1.2"]) enhancedExcavation["1.2"].rate = excavationRate12;
       
       const enhancedShuttering = enhanceSplit(rawShutteringSplit, shutteringRate);
       const enhancedShotcreting = enhanceSplit(rawShotcretingSplit, shotcretingRate);
 
-      // ✅ BUILD FINAL civilQuantities
       const updatedCivilQuantities = {
         ...civilQuantities,
         excavation_split: enhancedExcavation,
@@ -2572,7 +2639,6 @@ alert(
         shotcreting_split: enhancedShotcreting,
       };
 
-      // Debug log
       console.log("🔥 JACUZZI ENHANCED CIVIL DATA:", {
         excavation_split: updatedCivilQuantities.excavation_split,
         shuttering_split: updatedCivilQuantities.shuttering_split,
@@ -2629,7 +2695,16 @@ alert(
         false,
         pumpRoomDistance || 15,
         1.1,
-        null
+        null,
+        // ================================
+        // ✅ EDITABLE QTY PARAMETERS
+        // ================================
+        editableCivilQty,
+        {},
+        editablePumpRoomQty,
+        editableMepQty,
+        editablePipingQty,
+        editableSubRowQty
       );
 
       console.log("✅ Excel download completed successfully!");
@@ -2640,7 +2715,7 @@ alert(
   };
 
   // ================================
-  // MAIN RENDER
+  // MAIN RENDER WITH SKIMMER LAYOUT
   // ================================
   return (
     <div className="result-page">
@@ -2680,6 +2755,33 @@ alert(
           .main-row td.amount-cell {
             color: #888;
           }
+          .main-description {
+            font-size: 14px;
+            line-height: 1.4;
+          }
+          .qty-input {
+            width: 90px;
+            min-width: 90px;
+            padding: 6px 8px;
+            border: 1px solid #cfd8dc;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            background: #fff;
+            transition: all 0.2s ease;
+          }
+          .qty-input:focus {
+            outline: none;
+            border-color: #1976d2;
+            box-shadow: 0 0 4px rgba(25,118,210,0.3);
+          }
+          .subrow-input {
+            background: #f8f9fa;
+          }
+          .quantity-filled input {
+            background: #f1fff3;
+          }
         `}
       </style>
 
@@ -2687,44 +2789,57 @@ alert(
         <div className="page-header">
           <div className="header-content">
             <h1>Jacuzzi/Spa Calculation Results</h1>
-            <p className="subtitle">
-              A detailed summary of your Jacuzzi/Spa's construction, MEP components, piping system, and cost estimates
-              <br />
-              <span style={{ fontSize: "11px", color: "#4ade80" }}>🆕 Now with 14 Civil Items (Consolidation & Disposal) + Excavation, Shuttering & Shotcreting Sub-rows</span>
-            </p>
+            <p className="subtitle">A detailed summary of your Jacuzzi/Spa's construction, MEP components, piping system, and cost estimates</p>
           </div>
+          <div className="header-currency-toggle">
+            <CurrencyToggle />
+            <button onClick={() => setSaveOpen(true)} style={{ padding: "10px 20px", background: "#4CAF50", color: "#fff", borderRadius: "8px", border: "none", cursor: "pointer" }}>💾 Save Project</button>
+          </div>
+        </div>
+      </header>
 
-          <div className="header-actions_1">
-            <div className="dropdown">
-              <button className="download-button" onClick={(e) => { e.stopPropagation(); toggleDropdown('download'); }}>
-                <span className="download-icon">⬇️</span> Download
-              </button>
-              <div className={`dropdown-menu ${openDropdown === 'download' ? 'show' : ''}`}>
-                <button onClick={downloadPDF} className="dropdown-item">
-                  <span className="download-icon">📄</span> PDF Report
+      {showHelpModal && <HelpModal onClose={() => setShowHelpModal(false)} />}
+
+      <div className="results-dashboard-layout">
+        <aside className="results-sidebar">
+          <div className="sidebar-inner">
+            <h3 style={{ marginBottom: "3%", color: "gray" }}>Views</h3>
+            <div className="sidebar-tab-buttons">
+              {[
+                { id: 1, icon: "📊", label: "Specifications" },
+                { id: 2, icon: "🏊", label: `Civil Works (${mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo]).length})` },
+                { id: 4, icon: "⚙️", label: `Pump Room (${mainPoolItems.filter(item => PUMP_ROOM_QTY_FIELDS[item.SlNo]).length})` },
+                { id: 3, icon: "🔧", label: `MEP Systems (${filteredMepItems.length})` },
+                { id: "piping", icon: "🔩", label: `Piping (${pipingItemsFromResult.length})` },
+                { id: "total", icon: "💰", label: "Total Cost" },
+                { id: 5, icon: "📅", label: "Timeline" },
+                { id: "visualization", icon: "📈", label: "Chart" }
+              ].map(tab => (
+                <button key={tab.id} className={`sidebar-tab-btn ${activeTab === tab.id ? "active" : ""}`} onClick={() => setActiveTab(tab.id)} data-tooltip={tab.label}>
+                  <span className="sidebar-tab-icon">{tab.icon}</span>
+                  <span className="tab-label-text">{tab.label}</span>
                 </button>
-                <button onClick={downloadExcel} className="dropdown-item">
-                  <span className="download-icon">📊</span> Excel Report
-                </button>
-              </div>
+              ))}
             </div>
-
-            <button className="download-button" onClick={() => setShowShareModal(true)} > <span className="download-icon">🔗</span> Share </button>
-
-            <div className="dropdown">
-              <button className="download-button" onClick={(e) => { e.stopPropagation(); toggleDropdown('compare'); }}>
-                <span className="download-icon">⚖️</span> Compare
+            <h3 style={{ marginBottom: "3%", color: "gray" }}>Actions</h3>
+            <div className="sidebar-actions">
+              <button className="sidebar-action-btn" onClick={downloadPDF}>
+                <span className="sidebar-tab-icon">📄</span>
+                <span className="btn-text">PDF Report</span>
               </button>
-              <div className={`dropdown-menu ${openDropdown === 'compare' ? 'show' : ''}`}>
-                <button onClick={() => setShowComparison(true)}>Compare Results</button>
-              </div>
-            </div>
-
-            
-
-            <button
-              className="download-button proforma-button"
-              onClick={() => {
+              <button className="sidebar-action-btn" onClick={downloadExcel}>
+                <span className="sidebar-tab-icon">📊</span>
+                <span className="btn-text">Excel Report</span>
+              </button>
+              <button className="sidebar-action-btn" onClick={() => setShowShareModal(true)}>
+                <span className="sidebar-tab-icon">🔗</span>
+                <span className="btn-text">Share Project</span>
+              </button>
+              <button className="sidebar-action-btn" onClick={() => setShowComparison(true)}>
+                <span className="sidebar-tab-icon">⚖</span>
+                <span className="btn-text">Compare</span>
+              </button>
+              <button className="sidebar-action-btn proforma-btn" onClick={() => {
                 navigate('/proformainvoice', {
                   state: {
                     resultData, dimensions, mainPoolTotal, mepTotal: totalMepCost,
@@ -2747,14 +2862,11 @@ alert(
                     selectedTables, columnVisibility
                   }
                 });
-              }}
-            >
-              <span className="download-icon">📄</span> Proforma Invoice (Jacuzzi / Spa)
-            </button>
-
-            <button
-              className="download-button"
-              onClick={() => {
+              }}>
+                <span className="sidebar-tab-icon">📄</span>
+                <span className="btn-text">Proforma Invoice</span>
+              </button>
+              <button className="sidebar-action-btn" onClick={() => {
                 navigate('/jacuzzi-spa-delivery', {
                   state: {
                     result: resultData, dimensions,
@@ -2773,14 +2885,11 @@ alert(
                     seatingCapacity, waterJets, airJets, pumpRoomDistance
                   }
                 });
-              }}
-            >
-              📦 Delivery Challan
-            </button>
-
-            <button
-              className="download-button"
-              onClick={() => {
+              }}>
+                <span className="sidebar-tab-icon">📦</span>
+                <span className="btn-text">Delivery Challan</span>
+              </button>
+              <button className="sidebar-action-btn" onClick={() => {
                 navigate('/tax', {
                   state: {
                     result: resultData, dimensions,
@@ -2798,470 +2907,344 @@ alert(
                     seatingCapacity, waterJets, airJets, pumpRoomDistance
                   }
                 });
-              }}
-            >
-              <span className="button-icon">🧾</span> Tax Invoice
+              }}>
+                <span className="sidebar-tab-icon">🧾</span>
+                <span className="btn-text">Tax Invoice</span>
+              </button>
+              <button className="sidebar-action-btn save-project-btn" onClick={() => setSaveOpen(true)}>
+                <span className="sidebar-tab-icon">💾</span>
+                <span className="btn-text">Save Project</span>
+              </button>
+            </div>
+          </div>
+          <div className="sidebar-footer">
+            <button className="back-to-top-btn" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+              <span className="top-icon">↑</span>
+              <span className="top-text">Back to Top</span>
             </button>
           </div>
+        </aside>
+
+        <div className="results-main-content">
+          <div><ColumnVisibilityControls /></div>
+          <div className="global-table-selection"><TableSelectionControls /></div>
+
+          {activeTab === 1 && (
+            <section className="tab-content active">
+              {loadingCalc ? (
+                <div className="loading-spinner">Loading calculation data...</div>
+              ) : !resultData ? (
+                <div className="error-message">No calculation data available. Please run a calculation first.</div>
+              ) : (
+                <>
+                  <div className="section-header">
+                    <h2 className="section-title">Jacuzzi/Spa Specifications</h2>
+                    <div className="header-controls"><ConstructionTypeDisplay /></div>
+                  </div>
+
+                  <div className="specs-controls"><DatabaseUpdateToggle /></div>
+
+                  <div className="specs-container_1">
+                    <div className="specs-table-container">
+                      <div className="specs-table-wrapper">
+                        <table className="excel-preview-table">
+                          <tbody>
+                            <tr><td className="spec-label"><strong>Dimensions</strong></td><td className="spec-value">{dimensions.length} × {dimensions.width} × {dimensions.depth} m</td></tr>
+                            <tr><td className="spec-label"><strong>Volume</strong></td><td className="spec-value">{safeToFixed(resultData?.volume_m3 || dimensions.length * dimensions.width * dimensions.depth)} m³</td></tr>
+                            <tr><td className="spec-label"><strong>Floor Area</strong></td><td className="spec-value">{safeToFixed(dimensions.length * dimensions.width)} m²</td></tr>
+                            <tr><td className="spec-label"><strong>Seating Capacity</strong></td><td className="spec-value">{seatingCapacity} persons</td></tr>
+                            <tr><td className="spec-label"><strong>Water Jets</strong></td><td className="spec-value">{waterJets} jets</td></tr>
+                            <tr><td className="spec-label"><strong>Air Controllers</strong></td><td className="spec-value">{airJets} controllers</td></tr>
+                            <tr><td className="spec-label"><strong>Filter Diameter</strong></td><td className="spec-value">{dynamicRates.filter_dia || resultData?.filter_dia_mm || "N/A"} mm</td></tr>
+                            <tr><td className="spec-label"><strong>Pump Capacity</strong></td><td className="spec-value">{dynamicRates.hp || resultData?.hp || "N/A"} HP</td></tr>
+                            <tr><td className="spec-label"><strong>Pump Room Distance</strong></td><td className="spec-value">{pumpRoomDistance} m</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
+          )}
+
+          {activeTab === 2 && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2>Civil Works - Jacuzzi Structure (14 Items)</h2>
+                <div className="header-controls">
+                  <div className="total-amount-box">
+                    <span className="total-label">Total Amount:</span>
+                    <span className="total-value">{formatCurrency(mainPoolTotal)}</span>
+                  </div>
+                </div>
+              </div>
+              {loadingMainPool ? (
+                <div className="loading-spinner">Loading data...</div>
+              ) : (
+                <>
+                  {loadingMepCalculation && (
+                    <div className="calculation-status">
+                      <span className="status-icon">⏳</span>
+                      <span>Calculating civil quantities...</span>
+                    </div>
+                  )}
+                  {renderMainPoolTable()}
+                  <div className="boq-note">
+                    <div>
+                      <strong>Note:</strong> The estimates provided are based on current industry standards and average material costs.
+                      Actual costs may vary depending on location, specific material selections, and site conditions.
+                      <span className="small"> Variations of ±10–15% from the estimate are common.</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
+          )}
+
+          {activeTab === 4 && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2>Pump Room - Civil Construction (12 Items)</h2>
+                <div className="header-controls">
+                  <div className="total-amount-box">
+                    <span className="total-label">Total Amount:</span>
+                    <span className="total-value">{formatCurrency(pumpRoomTotal)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {pumpRoomDimensions.length ? (
+                <div className="pump-room-specs">
+                  <h3>Pump Room Specifications</h3>
+                  <div className="specs-grid">
+                    <div className="spec-item">
+                      <span className="spec-label">Construction Type:</span>
+                      <span className="spec-value">{constructionType === "terrace" ? "🏢 Terrace Pump Room" : "⛰️ In-Ground Pump Room"}</span>
+                    </div>
+                    <div className="spec-item">
+                      <span className="spec-label">Pump Room Dimensions:</span>
+                      <span className="spec-value">{pumpRoomDimensions.length} × {pumpRoomDimensions.width} × {pumpRoomDimensions.height} m</span>
+                    </div>
+                    <div className="spec-item">
+                      <span className="spec-label">Pump Room Area:</span>
+                      <span className="spec-value">{safeToFixed(pumpRoomDimensions.length * pumpRoomDimensions.width)} m²</span>
+                    </div>
+                    <div className="spec-item">
+                      <span className="spec-label">Distance to Pump Room:</span>
+                      <span className="spec-value">{pumpRoomDistance} m</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="calculation-status">
+                  <span className="status-icon">⏳</span>
+                  <span>Calculating pump room quantities...</span>
+                </div>
+              )}
+
+              <div className="pump-room-section">
+                <h3>Pump Room Construction Details (12 Items)</h3>
+                {renderPumpRoomTable()}
+              </div>
+
+              <div className="boq-note">
+                <div>
+                  <strong>Note:</strong> Pump room construction costs are calculated based on standard RCC construction practices (15% of Jacuzzi civil quantities).
+                  <span className="small"> Actual costs may vary based on site conditions and local material rates.</span>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 3 && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2>MEP (Mechanical, Electrical, Plumbing) Systems</h2>
+                <div className="header-controls">
+                  <ConstructionTypeDisplay />
+                  <div className="total-amount-box">
+                    <span className="total-label">Total Amount:</span>
+                    <span className="total-value">{formatCurrency(totalMepCost)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {loadingMep ? (
+                <div className="loading-spinner">Loading MEP data...</div>
+              ) : !Array.isArray(filteredMepItems) || filteredMepItems.length === 0 ? (
+                <div className="error-message">No MEP items available.</div>
+              ) : (
+                <>
+                  {loadingMepCalculation && (
+                    <div className="calculation-status">
+                      <span className="status-icon">⏳</span>
+                      <span>Calculating MEP quantities...</span>
+                    </div>
+                  )}
+                  {renderMepTable()}
+                  <div className="mep-grand-total">
+                    <div className="grand-total-box">
+                      <div className="total-breakdown">
+                        <div className="breakdown-item">
+                          <span className="breakdown-label">Base MEP (Items 1-28):</span>
+                          <span className="breakdown-value">{formatCurrency(baseMepTotals.grand)}</span>
+                        </div>
+                        <div className="breakdown-item">
+                          <span className="breakdown-label">Heat Pump (Item 29):</span>
+                          <span className="breakdown-value">{formatCurrency(advancedEquipmentTotals.grand)}</span>
+                        </div>
+                        <div className="breakdown-total">
+                          <span className="breakdown-label">Total MEP Cost:</span>
+                          <span className="breakdown-value">{formatCurrency(totalMepCost)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="boq-note">
+                    <div>
+                      <strong>Note:</strong> The estimates provided are based on current industry standards and average material costs.
+                      <span className="small"> Variations of ±10–15% from the estimate are common.</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
+          )}
+
+          {activeTab === "piping" && (
+            <section className="tab-content active">
+              {renderPipingTable()}
+            </section>
+          )}
+
+          {activeTab === "total" && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2 className="section-title">Total Jacuzzi/Spa Cost Summary</h2>
+                <div className="header-controls"><ConstructionTypeDisplay /></div>
+              </div>
+
+              <div className="summary-cards">
+                <div className="summary-card">
+                  <div className="summary-icon">🏊</div>
+                  <div className="summary-details">
+                    <h3>Civil Works (14 items)</h3>
+                    <p className="summary-amount">{formatCurrency(mainPoolTotal)}</p>
+                  </div>
+                </div>
+                <div className="summary-card">
+                  <div className="summary-icon">⚙️</div>
+                  <div className="summary-details">
+                    <h3>Pump Room (12 items)</h3>
+                    <p className="summary-amount">{formatCurrency(pumpRoomTotal)}</p>
+                    <p className="summary-small">Distance: {pumpRoomDistance}m</p>
+                  </div>
+                </div>
+                <div className="summary-card">
+                  <div className="summary-icon">🔧</div>
+                  <div className="summary-details">
+                    <h3>MEP Systems</h3>
+                    <p className="summary-amount">{formatCurrency(totalMepCost)}</p>
+                    <p className="summary-small">29 items - Includes Supply + Installation</p>
+                  </div>
+                </div>
+                <div className="summary-card">
+                  <div className="summary-icon">🔩</div>
+                  <div className="summary-details">
+                    <h3>Piping System</h3>
+                    <p className="summary-amount">{formatCurrency(pipingTotals)}</p>
+                    <p className="summary-small">{pipingItemsFromResult.length} items • Distance: {pumpRoomDistance}m</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grand-total_1">
+                <h3>Grand Total</h3>
+                {(() => {
+                  const baseAmount = grandTotal;
+                  const gstAmount = baseAmount * 0.18;
+                  const grandTotalWithGST = baseAmount + gstAmount;
+                  return (
+                    <>
+                      <div className="amount-breakdown_1">
+                        <div className="breakdown-item_1">
+                          <span>Subtotal:</span>
+                          <span>{formatCurrency(baseAmount)}</span>
+                        </div>
+                        <div className="breakdown-item_1">
+                          <span>GST (18%):</span>
+                          <span>{formatCurrency(gstAmount)}</span>
+                        </div>
+                        <div className="breakdown-item_1 total">
+                          <span>Total with GST:</span>
+                          <span>{formatCurrency(grandTotalWithGST)}</span>
+                        </div>
+                      </div>
+                      <div className="grand-total-amount_1">
+                        {formatCurrency(grandTotalWithGST)}
+                        <span className="gst-label_1"> (incl. GST)</span>
+                      </div>
+                    </>
+                  );
+                })()}
+                <p className="grand-total-note_1">
+                  Includes {constructionType === "terrace" ? "structural civil works" : "complete civil works with sub-rows"},
+                  pump room (12 items, 15% of Jacuzzi), MEP equipment{selectedAdvancedEquipment.includes(29) ? " (with Heat Pump)" : ""},
+                  and complete piping system
+                  <br />
+                  <span className="gst-note_1">All prices include 18% GST as per applicable tax regulations</span>
+                </p>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 5 && (
+            <section className="tab-content active">
+              <Timeline
+                poolSize={dimensions}
+                resultData={resultData}
+                currency={currency}
+                exchangeRate={exchangeRate}
+                includePumpRoom={includePumpRoom}
+                pumpRoomDimensions={pumpRoomDimensions}
+                constructionType={constructionType}
+                selectedAdvancedEquipment={selectedAdvancedEquipment}
+                columnVisibility={columnVisibility}
+                selectedTables={selectedTables}
+                filteredMepItems={filteredMepItems}
+              />
+            </section>
+          )}
+
+          {activeTab === "visualization" && (
+            <section className="tab-content active">
+              <div className="section-header">
+                <h2 className="section-title">Cost Breakdown Visualization</h2>
+                <div className="header-controls"><ConstructionTypeDisplay /></div>
+              </div>
+              <CostBreakdownChart
+                mainPoolCost={mainPoolTotal}
+                mepCost={totalMepCost}
+                pipingCost={pipingTotals}
+                pumpRoomCost={pumpRoomTotal}
+                currency={currency}
+                exchangeRate={exchangeRate}
+                includePumpRoom={includePumpRoom}
+                constructionType={constructionType}
+                selectedAdvancedEquipment={selectedAdvancedEquipment}
+                advancedEquipmentTotal={advancedEquipmentTotal}
+                columnVisibility={columnVisibility}
+                selectedTables={selectedTables}
+                filteredMepItems={filteredMepItems}
+              />
+            </section>
+          )}
         </div>
+      </div>
 
-        <div className="header-currency-toggle">
-          <CurrencyToggle />
-          <button
-              onClick={() => setSaveOpen(true)}
-              style={{ padding: "8px 16px", background: "#16a34a", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "600", marginLeft: "10px" }}
-            >
-              💾 Save Project
-            </button>
-        </div>
-      </header>
-
-      {showHelpModal && <HelpModal onClose={() => setShowHelpModal(false)} />}
-
-      <div><ColumnVisibilityControls /></div>
-      <div className="global-table-selection"><TableSelectionControls /></div>
-
-      <nav className="tab-navigation" aria-label="Result page tabs">
-        <div className="tab-buttons">
-          <button className={`tab-button ${activeTab === 1 ? "active" : ""}`} onClick={() => setActiveTab(1)} aria-selected={activeTab === 1}>
-            <span className="tab-icon">📊</span><span className="tab-label">Specifications</span>
-          </button>
-          <button className={`tab-button ${activeTab === 2 ? "active" : ""}`} onClick={() => setActiveTab(2)} aria-selected={activeTab === 2}>
-            <span className="tab-icon">🏊</span><span className="tab-label">Civil Works (14 items)</span>
-          </button>
-          <button className={`tab-button ${activeTab === 4 ? "active" : ""}`} onClick={() => setActiveTab(4)} aria-selected={activeTab === 4}>
-            <span className="tab-icon">⚙️</span><span className="tab-label">Pump Room (12 items)</span>
-          </button>
-          <button className={`tab-button ${activeTab === 3 ? "active" : ""}`} onClick={() => setActiveTab(3)} aria-selected={activeTab === 3}>
-            <span className="tab-icon">🔧</span><span className="tab-label">MEP Systems (29 items)</span>
-          </button>
-          <button className={`tab-button ${activeTab === "piping" ? "active" : ""}`} onClick={() => setActiveTab("piping")} aria-selected={activeTab === "piping"}>
-            <span className="tab-icon">🔩</span><span className="tab-label">Piping System ({pipingItemsFromResult.length})</span>
-          </button>
-          <button className={`tab-button ${activeTab === 5 ? "active" : ""}`} onClick={() => setActiveTab(5)} aria-selected={activeTab === 5}>
-            <span className="tab-icon">📅</span><span className="tab-label">Timeline</span>
-          </button>
-          <button className={`tab-button ${activeTab === "total" ? "active" : ""}`} onClick={() => setActiveTab("total")} aria-selected={activeTab === "total"}>
-            <span className="tab-icon">💰</span><span className="tab-label">Total Cost</span>
-          </button>
-          <button className={`tab-button ${activeTab === "visualization" ? "active" : ""}`} onClick={() => setActiveTab("visualization")} aria-selected={activeTab === "visualization"}>
-            <span className="tab-icon">📈</span><span className="tab-label">Chart</span>
-          </button>
-        </div>
-      </nav>
-
-      <main className="tab-content-container">
-        {/* Specifications */}
-        {activeTab === 1 && (
-          <section className="tab-content active" aria-live="polite">
-            {loadingCalc ? (
-              <div className="loading-spinner">Loading calculation data...</div>
-            ) : !resultData ? (
-              <div className="error-message">No calculation data available. Please run a calculation first.</div>
-            ) : (
-              <>
-                <div className="section-header">
-                  <h2 className="section-title">Jacuzzi/Spa Specifications</h2>
-                  <div className="header-controls"><ConstructionTypeDisplay /></div>
-                </div>
-
-                <div className="specs-controls"><DatabaseUpdateToggle /></div>
-
-                <div className="jacuzzi-notice-specs">
-                  <span className="info-icon">🛁</span>
-                  <span className="notice-text">
-                    Jacuzzi/Spa: Complete MEP system with 29 items including Jets, Air Controllers, and Jet Pump
-                  </span>
-                </div>
-
-                <div style={{ background: "rgba(34,197,94,0.05)", border: "1px solid rgba(34,197,94,0.15)", borderRadius: "8px", padding: "8px 12px", marginBottom: "16px" }}>
-                  <span style={{ color: "#4ade80", fontSize: "12px" }}>
-                    🆕 Civil: 14 items with Consolidation (SlNo 3) &amp; Disposal (SlNo 4). Sub-rows: 1.1/1.2, 9.1/9.2, 10.1/10.2
-                  </span>
-                </div>
-
-                <div style={{ background: "rgba(99,179,237,0.05)", border: "1px solid rgba(99,179,237,0.15)", borderRadius: "8px", padding: "8px 12px", marginBottom: "16px" }}>
-                  <span style={{ color: "#63b3ed", fontSize: "12px" }}>🔧 Piping System: Distance = {pumpRoomDistance}m (dynamic updates)</span>
-                </div>
-
-                <div className="specs-table-container">
-                  <div className="specs-table-wrapper">
-                    <table className="excel-preview-table" aria-label="Jacuzzi Specifications">
-                      <tbody>
-                        <tr><td className="spec-label"><strong>Dimensions</strong></td><td className="spec-value">{dimensions.length} × {dimensions.width} × {dimensions.depth} m</td></tr>
-                        <tr><td className="spec-label"><strong>Volume</strong></td><td className="spec-value">{safeToFixed(resultData?.volume_m3 || dimensions.length * dimensions.width * dimensions.depth)} m³</td></tr>
-                        <tr><td className="spec-label"><strong>Floor Area</strong></td><td className="spec-value">{safeToFixed(dimensions.length * dimensions.width)} m²</td></tr>
-                        <tr><td className="spec-label"><strong>Seating Capacity</strong></td><td className="spec-value">{seatingCapacity} persons</td></tr>
-                        <tr><td className="spec-label"><strong>Water Jets</strong></td><td className="spec-value">{waterJets} jets</td></tr>
-                        <tr><td className="spec-label"><strong>Air Controllers</strong></td><td className="spec-value">{airJets} controllers</td></tr>
-                        <tr><td className="spec-label"><strong>Filter Diameter</strong></td><td className="spec-value">{dynamicRates.filter_dia || resultData?.filter_dia_mm || "N/A"} mm</td></tr>
-                        <tr><td className="spec-label"><strong>Pump Capacity</strong></td><td className="spec-value">{dynamicRates.hp || resultData?.hp || "N/A"} HP</td></tr>
-                        <tr><td className="spec-label"><strong>Pump Room Distance</strong></td><td className="spec-value">{pumpRoomDistance} m</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </>
-            )}
-          </section>
-        )}
-
-        {/* Civil Works */}
-        {activeTab === 2 && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <div className="table-selection-indicator">
-                <span className={`selection-status ${selectedTables.mainPool ? 'selected' : 'not-selected'}`}>
-                  {selectedTables.mainPool ? '✓ Selected for export' : '✗ Not selected for export'}
-                </span>
-              </div>
-              <h2>Civil Works - Jacuzzi Structure (14 Items)</h2>
-              <div className="header-controls">
-                <div className="total-amount-box" aria-live="polite">
-                  <span className="total-label">Total Amount:</span>
-                  <span className="total-value">{formatCurrency(mainPoolTotal)}</span>
-                </div>
-              </div>
-            </div>
-
-            {loadingMainPool ? (
-              <div className="loading-spinner">Loading data...</div>
-            ) : (
-              <>
-                {loadingMepCalculation && (
-                  <div className="calculation-status">
-                    <span className="status-icon">⏳</span>
-                    <span>Calculating civil quantities...</span>
-                  </div>
-                )}
-                {renderMainPoolTable()}
-                <div className="boq-note">
-                  <div>
-                    <strong>Note:</strong> The estimates provided are based on current industry standards and average material costs.
-                    Actual costs may vary depending on location, specific material selections, and site conditions.
-                    <span className="small"> Variations of ±10–15% from the estimate are common.</span>
-                    {constructionType === "terrace" && (
-                      <div className="terrace-note">
-                        <strong>Terrace Construction Note:</strong> This configuration includes structural works only and excludes excavation, soling, and backfilling items (SlNo 1-5 show 0 quantity).
-                      </div>
-                    )}
-                    <div style={{ marginTop: "8px", color: "#4ade80" }}>
-                      <strong>🆕 Sub-rows:</strong> Excavation (1.1, 1.2), Shuttering (9.1 Wall, 9.2 Base), Shotcreting (10.1 Wall, 10.2 Base)
-                    </div>
-                    <div style={{ marginTop: "4px", color: "#4ade80" }}>
-                      <strong>🆕 New Items:</strong> SlNo 3 (Consolidation) = BackFilling × 0.90 | SlNo 4 (Disposal) = Excavation - Backfill
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </section>
-        )}
-
-        {/* Pump Room */}
-        {activeTab === 4 && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <div className="table-selection-indicator">
-                <span className={`selection-status ${selectedTables.pumpRoom ? 'selected' : 'not-selected'}`}>
-                  {selectedTables.pumpRoom ? '✓ Selected for export' : '✗ Not selected for export'}
-                </span>
-              </div>
-              <h2>Pump Room - Civil Construction (12 Items)</h2>
-              <div className="header-controls">
-                <div className="total-amount-box" aria-live="polite">
-                  <span className="total-label">Total Amount:</span>
-                  <span className="total-value">{formatCurrency(pumpRoomTotal)}</span>
-                </div>
-              </div>
-            </div>
-
-            {pumpRoomDimensions.length ? (
-              <div className="pump-room-specs">
-                <h3>Pump Room Specifications</h3>
-                <div className="specs-grid">
-                  <div className="spec-item">
-                    <span className="spec-label">Construction Type:</span>
-                    <span className="spec-value">{constructionType === "terrace" ? "🏢 Terrace Pump Room" : "⛰️ In-Ground Pump Room"}</span>
-                  </div>
-                  <div className="spec-item">
-                    <span className="spec-label">Pump Room Dimensions:</span>
-                    <span className="spec-value">{pumpRoomDimensions.length} × {pumpRoomDimensions.width} × {pumpRoomDimensions.height} m</span>
-                  </div>
-                  <div className="spec-item">
-                    <span className="spec-label">Pump Room Area:</span>
-                    <span className="spec-value">{safeToFixed(pumpRoomDimensions.length * pumpRoomDimensions.width)} m²</span>
-                  </div>
-                  <div className="spec-item">
-                    <span className="spec-label">Distance to Pump Room:</span>
-                    <span className="spec-value">{pumpRoomDistance} m</span>
-                  </div>
-                  <div className="spec-item">
-                    <span className="spec-label">Pump Room Items:</span>
-                    <span className="spec-value">{mainPoolItems.filter(item => PUMP_ROOM_QTY_FIELDS[item.SlNo]).length} items (SlNo 1–12)</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="calculation-status">
-                <span className="status-icon">⏳</span>
-                <span>Calculating pump room quantities...</span>
-              </div>
-            )}
-
-            <div className="pump-room-section">
-              <h3>Pump Room Construction Details (12 Items)</h3>
-              {renderPumpRoomTable()}
-            </div>
-
-            <div className="boq-note">
-              <div>
-                <strong>Note:</strong> Pump room construction costs are calculated based on standard RCC construction practices (15% of Jacuzzi civil quantities).
-                <span className="small"> Actual costs may vary based on site conditions and local material rates.</span>
-                {constructionType === "terrace" && (
-                  <div className="terrace-note">
-                    <strong>Terrace Pump Room Note:</strong> This configuration includes structural civil items only and excludes excavation, soling, and backfilling works.
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* MEP Systems */}
-        {activeTab === 3 && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <div className="table-selection-indicator">
-                <span className={`selection-status ${selectedTables.mep ? 'selected' : 'not-selected'}`}>
-                  {selectedTables.mep ? '✓ Selected for export' : '✗ Not selected for export'}
-                </span>
-              </div>
-              <h2>MEP (Mechanical, Electrical, Plumbing) Systems</h2>
-              <div className="header-controls">
-                <ConstructionTypeDisplay />
-                <div className="total-amount-box">
-                  <span className="total-label">Total Amount:</span>
-                  <span className="total-value">{formatCurrency(totalMepCost)}</span>
-                </div>
-              </div>
-            </div>
-
-            {loadingMep ? (
-              <div className="loading-spinner">Loading MEP data...</div>
-            ) : !Array.isArray(filteredMepItems) || filteredMepItems.length === 0 ? (
-              <div className="error-message">No MEP items available.</div>
-            ) : (
-              <>
-                {loadingMepCalculation && (
-                  <div className="calculation-status">
-                    <span className="status-icon">⏳</span>
-                    <span>Calculating MEP quantities...</span>
-                  </div>
-                )}
-                {renderMepTable()}
-                <div className="mep-grand-total">
-                  <div className="grand-total-box">
-                    <div className="total-breakdown">
-                      <div className="breakdown-item">
-                        <span className="breakdown-label">Base MEP (Items 1-28):</span>
-                        <span className="breakdown-value">{formatCurrency(baseMepTotals.grand)}</span>
-                      </div>
-                      <div className="breakdown-item">
-                        <span className="breakdown-label">Heat Pump (Item 29):</span>
-                        <span className="breakdown-value">{formatCurrency(advancedEquipmentTotals.grand)}</span>
-                      </div>
-                      <div className="breakdown-total">
-                        <span className="breakdown-label">Total MEP Cost:</span>
-                        <span className="breakdown-value">{formatCurrency(totalMepCost)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="boq-note">
-                  <div>
-                    <strong>Note:</strong> The estimates provided are based on current industry standards and average material costs.
-                    <span className="small"> Variations of ±10–15% from the estimate are common.</span>
-                    <div className="jacuzzi-mep-note">
-                      <strong>Jacuzzi/Spa Note:</strong>
-                      <ul>
-                        <li><strong>SlNo 26:</strong> Jet System - Quantity based on water jets</li>
-                        <li><strong>SlNo 27:</strong> Air Controller - Quantity based on air controllers</li>
-                        <li><strong>SlNo 28:</strong> Jet Pump - Fixed rate ₹52,500, quantity typically 1</li>
-                        <li><strong>SlNo 29:</strong> Heat Pump - Optional (can be selected/deselected)</li>
-                        <li><strong>Items 35-38:</strong> Pipes, Fittings, Valves &amp; Installation have been moved to Piping System tab</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </section>
-        )}
-
-        {/* Piping System Tab */}
-        {activeTab === "piping" && (
-          <section className="tab-content active" aria-live="polite">
-            {renderPipingTable()}
-          </section>
-        )}
-
-        {/* Timeline */}
-        {activeTab === 5 && (
-          <section className="tab-content active" aria-live="polite">
-            <Timeline
-              poolSize={dimensions}
-              resultData={resultData}
-              currency={currency}
-              exchangeRate={exchangeRate}
-              includePumpRoom={includePumpRoom}
-              pumpRoomDimensions={pumpRoomDimensions}
-              constructionType={constructionType}
-              selectedAdvancedEquipment={selectedAdvancedEquipment}
-              columnVisibility={columnVisibility}
-              selectedTables={selectedTables}
-              filteredMepItems={filteredMepItems}
-            />
-          </section>
-        )}
-
-        {/* Total Cost */}
-        {activeTab === "total" && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <h2 className="section-title">Total Jacuzzi/Spa Cost Summary</h2>
-              <div className="header-controls"><ConstructionTypeDisplay /></div>
-            </div>
-
-            {loadingMepCalculation && (
-              <div style={{ color: "orange", marginBottom: "10px" }}>⚙️ Calculating MEP &amp; piping...</div>
-            )}
-
-            <div className="summary-cards">
-              <div className="summary-card">
-                <div className="summary-icon">🏊</div>
-                <div className="summary-details">
-                  <h3>Civil Works (14 items)</h3>
-                  <p className="summary-amount">
-                    {loadingMepCalculation || loadingMainPool || loadingMep ? "Calculating..." : formatCurrency(mainPoolTotal)}
-                  </p>
-                  <p className="summary-small">Incl. all sub-rows, Consolidation &amp; Disposal</p>
-                </div>
-              </div>
-              <div className="summary-card">
-                <div className="summary-icon">⚙️</div>
-                <div className="summary-details">
-                  <h3>Pump Room (12 items)</h3>
-                  <p className="summary-amount">
-                    {loadingMepCalculation || loadingMainPool || loadingMep ? "Calculating..." : formatCurrency(pumpRoomTotal)}
-                  </p>
-                  <p className="summary-small">Distance: {pumpRoomDistance}m</p>
-                </div>
-              </div>
-              <div className="summary-card">
-                <div className="summary-icon">🔧</div>
-                <div className="summary-details">
-                  <h3>MEP Systems</h3>
-                  <p className="summary-amount">
-                    {loadingMepCalculation || loadingMep ? "Calculating..." : formatCurrency(totalMepCost)}
-                  </p>
-                  <p className="summary-small">29 items - Includes Supply + Installation</p>
-                </div>
-              </div>
-              <div className="summary-card">
-                <div className="summary-icon">🔩</div>
-                <div className="summary-details">
-                  <h3>Piping System</h3>
-                  <p className="summary-amount">
-                    {loadingMepCalculation ? "Calculating..." : formatCurrency(pipingTotals)}
-                  </p>
-                  <p className="summary-small">{pipingItemsFromResult.length} items • Distance: {pumpRoomDistance}m</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grand-total_1">
-              <h3>Grand Total</h3>
-              {(() => {
-                const baseAmount = grandTotal;
-                const gstAmount = baseAmount * 0.18;
-                const grandTotalWithGST = baseAmount + gstAmount;
-                return (
-                  <>
-                    <div className="amount-breakdown_1">
-                      <div className="breakdown-item_1">
-                        <span>Subtotal:</span>
-                        <span>{loadingMepCalculation || loadingMainPool || loadingMep ? "Calculating..." : formatCurrency(baseAmount)}</span>
-                      </div>
-                      <div className="breakdown-item_1">
-                        <span>GST (18%):</span>
-                        <span>{loadingMepCalculation || loadingMainPool || loadingMep ? "Calculating..." : formatCurrency(gstAmount)}</span>
-                      </div>
-                      <div className="breakdown-item_1 total">
-                        <span>Total with GST:</span>
-                        <span>{loadingMepCalculation || loadingMainPool || loadingMep ? "Calculating..." : formatCurrency(grandTotalWithGST)}</span>
-                      </div>
-                    </div>
-                    <div className="grand-total-amount_1">
-                      {loadingMepCalculation || loadingMainPool || loadingMep ? "Calculating..." : formatCurrency(grandTotalWithGST)}
-                      <span className="gst-label_1"> (incl. GST)</span>
-                    </div>
-                  </>
-                );
-              })()}
-              <p className="grand-total-note_1">
-                Includes {constructionType === "terrace" ? "structural civil works" : "complete civil works with sub-rows"},
-                pump room (12 items, 15% of Jacuzzi), MEP equipment{selectedAdvancedEquipment.includes(29) ? " (with Heat Pump)" : ""},
-                and complete piping system
-                <br />
-                <span className="gst-note_1">All prices include 18% GST as per applicable tax regulations</span>
-                <br />
-                <span style={{ color: "#4ade80", fontSize: "11px" }}>
-                  🆕 Sub-rows: Excavation (1.1/1.2), Shuttering (9.1/9.2), Shotcreting (10.1/10.2) | Consolidation + Disposal
-                </span>
-                <br />
-                <span className="jacuzzi-total-note">
-                  <strong>🛁 Jacuzzi/Spa:</strong> Complete MEP system with 29 items including Jet System, Air Controllers, and Jet Pump
-                </span>
-                <br />
-                <span style={{ color: "#63b3ed", fontSize: "11px" }}>
-                  🔧 Piping System: Distance = {pumpRoomDistance}m - updates when distance changes
-                </span>
-              </p>
-            </div>
-          </section>
-        )}
-
-        {/* Visualization */}
-        {activeTab === "visualization" && (
-          <section className="tab-content active" aria-live="polite">
-            <div className="section-header">
-              <h2 className="section-title">Cost Breakdown Visualization</h2>
-              <div className="header-controls"><ConstructionTypeDisplay /></div>
-            </div>
-            <CostBreakdownChart
-              mainPoolCost={mainPoolTotal}
-              mepCost={totalMepCost}
-              pipingCost={pipingTotals}
-              pumpRoomCost={pumpRoomTotal}
-              currency={currency}
-              exchangeRate={exchangeRate}
-              includePumpRoom={includePumpRoom}
-              constructionType={constructionType}
-              selectedAdvancedEquipment={selectedAdvancedEquipment}
-              advancedEquipmentTotal={advancedEquipmentTotal}
-              columnVisibility={columnVisibility}
-              selectedTables={selectedTables}
-              filteredMepItems={filteredMepItems}
-            />
-          </section>
-        )}
-      </main>
-
-      {/* Debug Modal */}
       <DebugModal />
 
-      {/* Image Modal */}
       {imageModal.show && (
         <div className="image-modal-overlay" onClick={() => setImageModal({ show: false, src: "" })}>
           <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -3271,7 +3254,6 @@ alert(
         </div>
       )}
 
-      {/* Comparison Modal */}
       {showComparison && (
         <ComparisonTool
           currentData={resultData}
@@ -3300,138 +3282,54 @@ alert(
           pipingItems={pipingItemsFromResult}
         />
       )}
+
       {showShareModal && (
-  <div
-    className="share-modal-overlay"
-    onClick={() => setShowShareModal(false)}
-  >
-    <div
-      className="share-modal-content"
-      onClick={(e) => e.stopPropagation()}
-    >
+        <div className="share-modal-overlay" onClick={() => setShowShareModal(false)}>
+          <div className="share-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="share-modal-close" onClick={() => setShowShareModal(false)}>✕</button>
+            <ShareResults
+              resultData={resultData}
+              mainPoolData={selectedTables.mainPool ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo]) : []}
+              pumpRoomData={selectedTables.pumpRoom ? mainPoolItems.filter(item => item.SlNo <= 12 && PUMP_ROOM_QTY_FIELDS[item.SlNo]) : []}
+              mepItems={selectedTables.mep ? filteredMepItems : []}
+              pipingItems={selectedTables.piping ? pipingItemsFromResult : []}
+              dimensions={dimensions}
+              totalMep={selectedTables.mep ? totalMepCost : 0}
+              mainPoolTotal={selectedTables.mainPool ? mainPoolTotal : 0}
+              pumpRoomTotal={selectedTables.pumpRoom && includePumpRoom ? pumpRoomTotal : 0}
+              pipingTotal={selectedTables.piping ? pipingTotals : 0}
+              finalTotal={grandTotal}
+              balancingTankTotal={0}
+              balanceTankTotal={0}
+              balancingRows={[]}
+              balanceTankData={[]}
+              hasBalancingTank={false}
+              mainPoolRemarks={mainPoolRemarks}
+              mepRemarks={mepRemarks}
+              pumpRoomRemarks={pumpRoomRemarks}
+              balancingTankRemarks={{}}
+              balanceTankRemarks={{}}
+              civilQuantities={civilQuantities}
+              mepQuantities={mepQuantities}
+              pumpRoomQuantities={pumpRoomQuantities}
+              balanceTankQuantities={{}}
+              dynamicRates={dynamicRates}
+              currency={currency}
+              exchangeRate={exchangeRate}
+              includePumpRoom={selectedTables.pumpRoom ? includePumpRoom : false}
+              poolType="jacuzzi"
+              constructionType={constructionType}
+              selectedAdvancedEquipment={selectedAdvancedEquipment}
+              columnVisibility={columnVisibility}
+              selectedTables={selectedTables}
+              apiBaseUrl={`${API_BASE_URL}/admin`}
+              filteredMepItems={selectedTables.mep ? filteredMepItems : []}
+              templateDescriptions={templateDescriptions || {}}
+            />
+          </div>
+        </div>
+      )}
 
-      {/* CLOSE BUTTON */}
-      <button
-        className="share-modal-close"
-        onClick={() => setShowShareModal(false)}
-      >
-        ✕
-      </button>
-
-      <ShareResults
-        resultData={resultData}
-
-        // Main Pool Civil Works (14 items)
-        mainPoolData={
-          selectedTables.mainPool
-            ? mainPoolItems.filter(item => MAIN_POOL_QTY_FIELDS[item.SlNo])
-            : []
-        }
-
-        // Pump Room (12 items)
-        pumpRoomData={
-          selectedTables.pumpRoom
-            ? mainPoolItems.filter(item => item.SlNo <= 12 && PUMP_ROOM_QTY_FIELDS[item.SlNo])
-            : []
-        }
-
-        // MEP Systems
-        mepItems={
-          selectedTables.mep
-            ? filteredMepItems
-            : []
-        }
-
-        // Piping System
-        pipingItems={
-          selectedTables.piping
-            ? pipingItemsFromResult
-            : []
-        }
-
-        // Dimensions
-        dimensions={dimensions}
-
-        // Totals
-        totalMep={
-          selectedTables.mep
-            ? totalMepCost
-            : 0
-        }
-
-        mainPoolTotal={
-          selectedTables.mainPool
-            ? mainPoolTotal
-            : 0
-        }
-
-        pumpRoomTotal={
-          selectedTables.pumpRoom && includePumpRoom
-            ? pumpRoomTotal
-            : 0
-        }
-
-        pipingTotal={
-          selectedTables.piping
-            ? pipingTotals
-            : 0
-        }
-
-        finalTotal={grandTotal}
-
-        // Balance tank - Jacuzzi doesn't have balance tank
-        balancingTankTotal={0}
-        balanceTankTotal={0}
-        balancingRows={[]}
-        balanceTankData={[]}
-        hasBalancingTank={false}
-
-        // Remarks
-        mainPoolRemarks={mainPoolRemarks}
-        mepRemarks={mepRemarks}
-        pumpRoomRemarks={pumpRoomRemarks}
-        balancingTankRemarks={{}}
-        balanceTankRemarks={{}}
-
-        // Quantity data
-        civilQuantities={civilQuantities}
-        mepQuantities={mepQuantities}
-        pumpRoomQuantities={pumpRoomQuantities}
-        balanceTankQuantities={{}}
-        dynamicRates={dynamicRates}
-
-        // Settings
-        currency={currency}
-        exchangeRate={exchangeRate}
-
-        includePumpRoom={
-          selectedTables.pumpRoom
-            ? includePumpRoom
-            : false
-        }
-
-        poolType="jacuzzi"
-        constructionType={constructionType}
-
-        selectedAdvancedEquipment={selectedAdvancedEquipment}
-        columnVisibility={columnVisibility}
-        selectedTables={selectedTables}
-
-        apiBaseUrl={`${API_BASE_URL}/admin`}
-
-        filteredMepItems={
-          selectedTables.mep
-            ? filteredMepItems
-            : []
-        }
-
-        templateDescriptions={templateDescriptions || {}}
-      />
-
-    </div>
-  </div>
-)}
-      {/* Save Project Modal */}
       <SaveProjectModal
         open={saveOpen}
         onClose={() => setSaveOpen(false)}
@@ -3440,13 +3338,12 @@ alert(
         projectType="jacuzzi"
       />
 
-      {/* Navigation Buttons */}
       <footer className="action-buttons">
         <button className="download-button" onClick={saveCalculation}>
           <span className="button-icon">💾</span> Save Calculation
         </button>
         <button className="download-button" onClick={() => navigate("/jacuzzi-calculator")}>
-          <span className="button-iconu">←</span> Back to Calculator
+          <span className="button-icon">←</span> Back to Calculator
         </button>
         <button className="download-button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <span className="button-icon">↑</span> Back to top
